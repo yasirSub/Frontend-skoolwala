@@ -10,7 +10,7 @@
 		</ul>
 		<div class="tab-content">
 			<div class="tab-pane active" id="edit">
-				<?php echo form_open_multipart($this->uri->uri_string(), array('class' => 'form-horizontal form-bordered validate')); ?>
+				<?php echo form_open_multipart($this->uri->uri_string(), array('class' => 'form-horizontal form-bordered validate', 'id' => 'branchForm')); ?>
 					<input type="hidden" name="branch_id" id="branch_id" value="<?php echo $data->id; ?>">
 					<div class="form-group mt-md">
 						<label class="col-md-3 control-label"><?=translate('branch_name')?> <span class="required">*</span></label>
@@ -57,19 +57,40 @@
 					<div class="form-group">
 						<label class="col-md-3 control-label"><?=translate('city')?></label>
 						<div class="col-md-6">
-							<input type="text" class="form-control" name="city" value="<?=set_value('city', $data->city)?>">
+							<input type="text" class="form-control" name="city" id="city" value="<?=set_value('city', $data->city)?>">
 						</div>
 					</div>
 					<div class="form-group">
 						<label class="col-md-3 control-label"><?=translate('state')?></label>
 						<div class="col-md-6">
-							<input type="text" class="form-control" name="state" value="<?=set_value('state', $data->state)?>">
+							<input type="text" class="form-control" name="state" id="state" value="<?=set_value('state', $data->state)?>">
 						</div>
 					</div>
 					<div class="form-group">
 						<label  class="col-md-3 control-label"><?=translate('address')?></label>
 						<div class="col-md-6">
-							<textarea type="text" rows="3" class="form-control" name="address" ><?=set_value('address', $data->address)?></textarea>
+							<textarea type="text" rows="3" class="form-control" name="address" id="address"><?=set_value('address', $data->address)?></textarea>
+						</div>
+					</div>
+					<!-- Map for address geocoding -->
+					<div class="form-group">
+						<label class="col-md-3 control-label"><?=translate('location_on_map')?></label>
+						<div class="col-md-6">
+							<div id="map" style="height: 300px; width: 100%;"></div>
+							<button type="button" class="btn btn-default mt-sm" id="geocodeAddress"><?=translate('get_coordinates_from_address')?></button>
+						</div>
+					</div>
+					<!-- Latitude and Longitude fields -->
+					<div class="form-group">
+						<label class="col-md-3 control-label"><?=translate('latitude')?></label>
+						<div class="col-md-6">
+							<input type="text" class="form-control" name="latitude" id="latitude" value="<?=set_value('latitude', $data->latitude)?>">
+						</div>
+					</div>
+					<div class="form-group">
+						<label class="col-md-3 control-label"><?=translate('longitude')?></label>
+						<div class="col-md-6">
+							<input type="text" class="form-control" name="longitude" id="longitude" value="<?=set_value('longitude', $data->longitude)?>">
 						</div>
 					</div>
 					<div class="form-group">
@@ -106,3 +127,91 @@
 		</div>
 	</div>
 </section>
+
+<script>
+// Initialize map
+var map;
+var marker;
+
+function initMap() {
+    // Get initial coordinates from form fields or use default
+    var lat = parseFloat(document.getElementById('latitude').value) || 20.5937;
+    var lng = parseFloat(document.getElementById('longitude').value) || 78.9629;
+    var initialLocation = {lat: lat, lng: lng};
+    
+    // Create map centered on initial location
+    map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 15,
+        center: initialLocation
+    });
+
+    // Create marker at initial location
+    marker = new google.maps.Marker({
+        map: map,
+        draggable: true,
+        position: initialLocation
+    });
+
+    // Update latitude and longitude when marker is dragged
+    marker.addListener('dragend', function(event) {
+        document.getElementById('latitude').value = event.latLng.lat();
+        document.getElementById('longitude').value = event.latLng.lng();
+    });
+
+    // Add click event to map to place marker
+    map.addListener('click', function(event) {
+        marker.setPosition(event.latLng);
+        document.getElementById('latitude').value = event.latLng.lat();
+        document.getElementById('longitude').value = event.latLng.lng();
+    });
+}
+
+// Geocode address to get coordinates
+function geocodeAddress() {
+    var address = document.getElementById('address').value;
+    var city = document.getElementById('city').value;
+    var state = document.getElementById('state').value;
+    
+    if (!address && !city && !state) {
+        alert('Please enter an address, city, or state');
+        return;
+    }
+    
+    var fullAddress = [address, city, state].filter(Boolean).join(', ');
+    
+    var geocoder = new google.maps.Geocoder();
+    geocoder.geocode({'address': fullAddress}, function(results, status) {
+        if (status === 'OK') {
+            // Center map on location
+            map.setCenter(results[0].geometry.location);
+            map.setZoom(15);
+            
+            // Move marker to location
+            marker.setPosition(results[0].geometry.location);
+            
+            // Update latitude and longitude fields
+            document.getElementById('latitude').value = results[0].geometry.location.lat();
+            document.getElementById('longitude').value = results[0].geometry.location.lng();
+        } else {
+            alert('Geocode was not successful for the following reason: ' + status);
+        }
+    });
+}
+
+// Load Google Maps API
+function loadGoogleMaps() {
+    var script = document.createElement('script');
+    script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyCVcjJEjNRjT9WpgJHYLzHtUf8yCO6NYgk&callback=initMap';
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+}
+
+// Initialize when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    loadGoogleMaps();
+    
+    // Add event listener to geocode button
+    document.getElementById('geocodeAddress').addEventListener('click', geocodeAddress);
+});
+</script>

@@ -82,6 +82,8 @@ class Saas_website extends MY_Controller
                     'reference_no' => $reference_no,
                     'school_name' => $this->input->post('school_name'),
                     'address' => $this->input->post('school_address'),
+                    'latitude' => $this->input->post('latitude'),
+                    'longitude' => $this->input->post('longitude'),
                     'admin_name' => $this->input->post('admin_name'),
                     'gender' => $this->input->post('gender'),
                     'contact_number' => $this->input->post('admin_phone'),

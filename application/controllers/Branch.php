@@ -73,7 +73,7 @@ class Branch extends Admin_Controller
                 $this->form_validation->set_rules('currency_symbol', translate('currency_symbol'), 'required');
                 if ($this->form_validation->run() == true) {
                     $post = $this->input->post();
-                    $response = $this->branch_model->save($post, $id);
+                    $response = $this->branch_model->save($post);
                     if ($response) {
                         set_alert('success', translate('information_has_been_updated_successfully'));
                     }
@@ -93,6 +93,21 @@ class Branch extends Admin_Controller
                     'vendor/dropify/js/dropify.min.js',
                 ),
             );
+            $this->load->view('layout/index', $this->data);
+        } else {
+            $this->session->set_userdata('last_page', current_url());
+            redirect(base_url(), 'refresh');
+        }
+    }
+
+    /* display schools on map */
+    public function map()
+    {
+        if (is_superadmin_loggedin()) {
+            $this->data['schools'] = $this->db->get('branch')->result();
+            $this->data['title'] = translate('school_map');
+            $this->data['sub_page'] = 'branch/map';
+            $this->data['main_menu'] = 'branch';
             $this->load->view('layout/index', $this->data);
         } else {
             $this->session->set_userdata('last_page', current_url());

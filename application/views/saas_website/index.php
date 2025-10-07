@@ -580,6 +580,23 @@
                             <input id="school_address" name="school_address" type="text" class="form-control" autocomplete="off">
                             <span class="error"></span>
                         </div>
+                        <!-- Latitude and Longitude fields added here -->
+                        <div class="form-group">
+                            <label for="latitude">Latitude</label>
+                            <input id="latitude" name="latitude" type="text" class="form-control" autocomplete="off">
+                            <span class="error"></span>
+                        </div>
+                        <div class="form-group">
+                            <label for="longitude">Longitude</label>
+                            <input id="longitude" name="longitude" type="text" class="form-control" autocomplete="off">
+                            <span class="error"></span>
+                        </div>
+                        <!-- Map for address geocoding -->
+                        <div class="form-group">
+                            <label>Location on Map</label>
+                            <div id="map" style="height: 200px; width: 100%;"></div>
+                            <button type="button" class="btn btn-default btn-sm mt-2" id="geocodeAddress">Get Coordinates from Address</button>
+                        </div>
                         <div class="form-group">
                             <label for="photo">School Logo</label>
                             <input class="form-control" type="file" accept="image/*" id="photo" name="logo_file">
@@ -657,6 +674,89 @@
         </div>
     </div>
 </div>
+
+<!-- Add Google Maps API and map functionality -->
+<script>
+// Initialize map
+var map;
+var marker;
+
+function initMap() {
+    // Create map centered on India
+    map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 5,
+        center: {lat: 20.5937, lng: 78.9629}
+    });
+
+    // Create marker
+    marker = new google.maps.Marker({
+        map: map,
+        draggable: true,
+        position: {lat: 20.5937, lng: 78.9629}
+    });
+
+    // Update latitude and longitude when marker is dragged
+    marker.addListener('dragend', function(event) {
+        document.getElementById('latitude').value = event.latLng.lat();
+        document.getElementById('longitude').value = event.latLng.lng();
+    });
+
+    // Add click event to map to place marker
+    map.addListener('click', function(event) {
+        marker.setPosition(event.latLng);
+        document.getElementById('latitude').value = event.latLng.lat();
+        document.getElementById('longitude').value = event.latLng.lng();
+    });
+}
+
+// Geocode address to get coordinates
+function geocodeAddress() {
+    var address = document.getElementById('school_address').value;
+    
+    if (!address) {
+        alert('Please enter an address');
+        return;
+    }
+    
+    var geocoder = new google.maps.Geocoder();
+    geocoder.geocode({'address': address}, function(results, status) {
+        if (status === 'OK') {
+            // Center map on location
+            map.setCenter(results[0].geometry.location);
+            map.setZoom(15);
+            
+            // Move marker to location
+            marker.setPosition(results[0].geometry.location);
+            
+            // Update latitude and longitude fields
+            document.getElementById('latitude').value = results[0].geometry.location.lat();
+            document.getElementById('longitude').value = results[0].geometry.location.lng();
+        } else {
+            alert('Geocode was not successful for the following reason: ' + status);
+        }
+    });
+}
+
+// Load Google Maps API
+function loadGoogleMaps() {
+    var script = document.createElement('script');
+    script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyCVcjJEjNRjT9WpgJHYLzHtUf8yCO6NYgk&callback=initMap';
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+}
+
+// Initialize when modal is shown
+document.addEventListener('DOMContentLoaded', function() {
+    var regModal = document.getElementById('regModal');
+    regModal.addEventListener('shown.bs.modal', function () {
+        loadGoogleMaps();
+        
+        // Add event listener to geocode button
+        document.getElementById('geocodeAddress').addEventListener('click', geocodeAddress);
+    });
+});
+</script>
 
 <?php if ($getSettings->terms_status == 1) { ?>
 <div class="modal fade" id="termsModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-labelledby="exampleModalLabel" aria-hidden="true">

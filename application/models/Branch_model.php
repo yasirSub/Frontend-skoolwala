@@ -23,6 +23,8 @@ class Branch_model extends MY_Model
             'city' => $data['city'],
             'state' => $data['state'],
             'address' => $data['address'],
+            'latitude' => isset($data['latitude']) && !empty($data['latitude']) ? $data['latitude'] : null,
+            'longitude' => isset($data['longitude']) && !empty($data['longitude']) ? $data['longitude'] : null,
         );
         if (!isset($data['branch_id'])) {
             $this->db->insert('branch', $arrayBranch);
