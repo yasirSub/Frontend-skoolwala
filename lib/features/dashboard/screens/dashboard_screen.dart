@@ -13,7 +13,6 @@ import 'package:skoolwala/features/attendance/screens/simple_enroll_screen.dart'
 import 'package:skoolwala/features/attendance/screens/quick_attendance_screen.dart';
 import 'package:skoolwala/features/attendance/screens/multi_angle_enroll_screen.dart';
 import 'package:skoolwala/features/attendance/screens/face_3d_enroll_screen.dart';
-import 'package:skoolwala/features/face_enrollment/screens/simple_face_enrollment_home_screen.dart';
 import 'package:skoolwala/features/attendance/screens/enrolled_faces_list_screen.dart';
 import 'package:skoolwala/features/profile/screens/profile_screen.dart';
 import 'package:skoolwala/features/teacher_attendance/simple_teacher_attendance.dart';
@@ -987,13 +986,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               }
             } catch (_) {}
           },
-          onSimpleFaceEnrollHome: () async {
-            await Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const SimpleFaceEnrollmentHomeScreen(),
-              ),
-            );
-          },
+          // Simple Face Enroll Home removed per request
           onEnrolledList: () async {
             await Navigator.of(context).push(
               MaterialPageRoute(
@@ -2690,7 +2683,7 @@ class _ExpandableFloatingButton extends StatelessWidget {
   final VoidCallback onSimpleEnroll;
   final VoidCallback onMultiAngleEnroll;
   final VoidCallback on3DFaceEnroll;
-  final VoidCallback onSimpleFaceEnrollHome;
+  // Removed: onSimpleFaceEnrollHome
   final VoidCallback onEnrolledList;
   final VoidCallback onLogout;
 
@@ -2700,7 +2693,7 @@ class _ExpandableFloatingButton extends StatelessWidget {
     required this.onSimpleEnroll,
     required this.onMultiAngleEnroll,
     required this.on3DFaceEnroll,
-    required this.onSimpleFaceEnrollHome,
+    
     required this.onEnrolledList,
     required this.onLogout,
   });
@@ -2740,14 +2733,6 @@ class _ExpandableFloatingButton extends StatelessWidget {
             label: const Text('3D Face'),
           ),
           const SizedBox(height: 8),
-          FloatingActionButton.extended(
-            heroTag: 'fab-enroll-home',
-            onPressed: onSimpleFaceEnrollHome,
-            backgroundColor: Colors.teal[600],
-            foregroundColor: Colors.white,
-            icon: const Icon(Icons.home_outlined),
-            label: const Text('Enroll Home'),
-          ),
           const SizedBox(height: 12),
 
           // Management Options
