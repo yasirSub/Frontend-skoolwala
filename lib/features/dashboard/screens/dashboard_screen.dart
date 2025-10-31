@@ -2693,7 +2693,7 @@ class _ExpandableFloatingButton extends StatelessWidget {
     required this.onSimpleEnroll,
     required this.onMultiAngleEnroll,
     required this.on3DFaceEnroll,
-    
+
     required this.onEnrolledList,
     required this.onLogout,
   });
