@@ -63,6 +63,8 @@ class ApiConfig {
   static const String updateTeacherPassword = 'updateTeacherPassword';
   static const String getMyClasses = 'getMyClasses';
   static const String getMyStudents = 'getMyStudents';
+  static const String markStudentAttendanceBulk = 'markStudentAttendanceBulk';
+  static const String getStudentAttendanceReport = 'getStudentAttendanceReport';
   static const String getStaffList = 'getStaffList';
 
   // ============================================
