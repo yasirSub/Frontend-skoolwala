@@ -1,14 +1,14 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'session_manager.dart';
-import 'api_service.dart';
+import '../config/api_config.dart';
 
 class HttpClient {
   static final HttpClient _instance = HttpClient._internal();
   factory HttpClient() => _instance;
   HttpClient._internal();
 
-  static String get baseUrl => ApiService.apiBaseUrl;
+  static String get baseUrl => ApiConfig.getBaseUrl();
   String? _sessionCookie;
   static const bool _debugLogs = false; // disable verbose network logs
 

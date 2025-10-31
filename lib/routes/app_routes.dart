@@ -115,9 +115,6 @@ class AppRoutes {
         return CustomPageRoute(
           child: TeacherStatisticsScreen(
             staffId: args?['staffId'] ?? '',
-            baseUrl:
-                args?['baseUrl'] ??
-                ApiConfig.getBaseUrl().replaceAll('/api', '/index.php'),
           ),
           transitionType: PageTransitionType.slideAndFade,
         );

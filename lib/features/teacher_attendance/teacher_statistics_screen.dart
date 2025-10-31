@@ -3,15 +3,14 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../../../shared/config/api_config.dart';
 
 class TeacherStatisticsScreen extends StatefulWidget {
   final String staffId;
-  final String baseUrl;
 
   const TeacherStatisticsScreen({
     super.key,
     required this.staffId,
-    required this.baseUrl,
   });
 
   @override
@@ -92,8 +91,9 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
         error = null;
       });
 
+      final baseUrl = ApiConfig.getBaseUrl();
       final url = Uri.parse(
-        '${widget.baseUrl}/api/getTeacherSelfAttendanceStats?staff_id=${widget.staffId}&filter_type=$selectedFilterType&filter_value=$selectedFilterValue',
+        '$baseUrl/getTeacherSelfAttendanceStats?staff_id=${widget.staffId}&filter_type=$selectedFilterType&filter_value=$selectedFilterValue',
       );
 
       final response = await http.get(url);

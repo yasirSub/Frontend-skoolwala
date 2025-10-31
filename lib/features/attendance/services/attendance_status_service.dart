@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:skoolwala/shared/services/session_manager.dart';
+import 'package:skoolwala/shared/config/api_config.dart';
 
 /// Service to determine current attendance status and next action
 class AttendanceStatusService {
-  static const String _baseUrl = 'http://192.168.31.129:8080/api';
+  static String get _baseUrl => ApiConfig.getBaseUrl();
 
   /// Get current attendance status for today
   static Future<AttendanceStatus> getCurrentStatus() async {

@@ -4,12 +4,13 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skoolwala/features/attendance/services/face_recognition_engine.dart';
 import 'package:skoolwala/features/attendance/services/google_ml_face_service.dart';
 import 'package:skoolwala/shared/services/session_manager.dart';
+import 'package:skoolwala/shared/config/api_config.dart';
 
 /// Service for managing face enrollment and verification workflows
 class FaceEnrollmentService {
   static const String _enrollmentKey = 'face_enrollments';
   static const String _lastEnrollmentKey = 'last_enrollment';
-  static const String _baseUrl = 'http://192.168.31.129:8080/api';
+  static String get _baseUrl => ApiConfig.getBaseUrl();
 
   /// Check if user has enrolled their face (checks backend first, then local fallback)
   static Future<bool> isUserEnrolled(String userId) async {

@@ -2,12 +2,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:skoolwala/shared/theme/theme_provider.dart';
 import 'package:skoolwala/shared/config/api_config.dart';
+import 'package:skoolwala/shared/theme/app_theme.dart';
 import 'package:skoolwala/features/dashboard/services/dashboard_service.dart';
 import 'package:skoolwala/features/dashboard/models/profile.dart';
+import 'package:skoolwala/features/attendance/screens/face_analyzer_screen.dart';
 import 'package:skoolwala/features/attendance/screens/face_verification_screen.dart';
 import 'package:skoolwala/features/attendance/screens/simple_enroll_screen.dart';
 import 'package:skoolwala/features/attendance/screens/quick_attendance_screen.dart';
@@ -19,25 +18,13 @@ import 'package:skoolwala/shared/models/teacher.dart';
 import 'package:skoolwala/features/profile/models/teacher_profile.dart';
 import 'package:skoolwala/shared/services/session_manager.dart';
 import 'package:skoolwala/routes/app_routes.dart';
+import 'package:skoolwala/shared/widgets/custom_app_bar.dart';
+import 'package:skoolwala/shared/widgets/custom_bottom_nav_bar.dart';
+import 'package:skoolwala/features/dashboard/widgets/index.dart';
+import 'package:skoolwala/features/students/screens/students_list_screen.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-
-// Modern color palette for cleaner look
-class _AppColors {
-  static const Color primary = Color(0xFF1A1F3E);
-  static const Color primaryLight = Color(0xFF2A3441);
-  static const Color accent = Color(0xFF00B4D8);
-  static const Color accentLight = Color(0xFF90E0EF);
-  static const Color success = Color(0xFF06FFA5);
-  static const Color warning = Color(0xFFFFBE0B);
-  static const Color error = Color(0xFFFB5607);
-  static const Color background = Color(0xFFF8FAFC);
-  static const Color surface = Colors.white;
-  static const Color textPrimary = Color(0xFF0F172A);
-  static const Color textSecondary = Color(0xFF64748B);
-  static const Color border = Color(0xFFE2E8F0);
-}
 
 class DashboardScreen extends StatefulWidget {
   final String username;
@@ -64,8 +51,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   bool _isLoading = true;
   bool _isEnrolled = false;
   bool _isCheckedIn = false;
-  final GlobalKey<_WorkingTimerCardState> _timerKey =
-      GlobalKey<_WorkingTimerCardState>();
+  final GlobalKey<WorkingTimerCardState> _timerKey =
+      GlobalKey<WorkingTimerCardState>();
   int _totalStudents = 0;
   int _totalPresent = 0;
   int _totalAbsent = 0;
@@ -137,10 +124,10 @@ class _DashboardScreenState extends State<DashboardScreen>
     if (_teacher == null) return;
 
     try {
-      final baseUrl = ApiConfig.getBaseUrl().replaceAll('/api', '/index.php');
+      final baseUrl = ApiConfig.getBaseUrl();
       final response = await http.get(
         Uri.parse(
-          '$baseUrl/api/getTeacherSelfAttendanceStats?staff_id=${_teacher!.id}&filter_type=date&filter_value=${DateTime.now().toIso8601String().split('T')[0]}',
+          '$baseUrl/getTeacherSelfAttendanceStats?staff_id=${_teacher!.id}&filter_type=date&filter_value=${DateTime.now().toIso8601String().split('T')[0]}',
         ),
         headers: {'Content-Type': 'application/json'},
       );
@@ -167,9 +154,15 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   Future<void> _load() async {
     try {
-      print(
-        '🔍 Dashboard Debug - Starting load with username: ${widget.username}',
-      );
+      // Use SessionManager credentials if available, otherwise use widget params
+      final username = widget.username.isNotEmpty
+          ? widget.username
+          : (SessionManager.instance.currentUsername ?? '');
+      final password = widget.password.isNotEmpty
+          ? widget.password
+          : (SessionManager.instance.currentPassword ?? '');
+
+      print('🔍 Dashboard Debug - Starting load with username: $username');
       print(
         '🔍 Dashboard Debug - Session Manager logged in: ${SessionManager.instance.isLoggedIn}',
       );
@@ -177,10 +170,35 @@ class _DashboardScreenState extends State<DashboardScreen>
         '🔍 Dashboard Debug - Session Manager has valid session: ${SessionManager.instance.hasValidSession}',
       );
 
+      // Validate credentials
+      if (username.isEmpty || password.isEmpty) {
+        print('❌ Dashboard Debug - Username or password is empty!');
+        print('❌ Widget username: ${widget.username}');
+        print(
+          '❌ Widget password: ${widget.password.isEmpty ? "empty" : "provided"}',
+        );
+        print('❌ Session username: ${SessionManager.instance.currentUsername}');
+
+        // If no credentials available, show error and return
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Session expired. Please login again.'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+
       // Load all dashboard data from multiple APIs
       final dashboardData = await DashboardService.fetchDashboardData(
-        username: widget.username,
-        password: widget.password,
+        username: username,
+        password: password,
       );
 
       // Convert Teacher to Profile for backward compatibility
@@ -394,190 +412,52 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  // Build bottom navigation bar
+  // Build bottom navigation bar using reusable widget
+  // Navigation is now handled automatically by CustomBottomNavBar
   Widget _buildBottomNavigationBar() {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [_AppColors.primary, _AppColors.primary.withOpacity(0.95)],
-        ),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(25),
-          topRight: Radius.circular(25),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: _AppColors.primary.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, -3),
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(25),
-          topRight: Radius.circular(25),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _selectedIndex,
-          onTap: _onBottomNavTap,
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          selectedItemColor: _AppColors.accentLight,
-          unselectedItemColor: Colors.white.withOpacity(0.5),
-          selectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 11,
-            letterSpacing: 0.5,
-          ),
-          unselectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.w500,
-            fontSize: 10,
-            letterSpacing: 0.3,
-          ),
-          selectedFontSize: 11,
-          unselectedFontSize: 10,
-          items: [
-            BottomNavigationBarItem(
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: _selectedIndex == 0
-                      ? _AppColors.accentLight.withOpacity(0.2)
-                      : Colors.transparent,
-                ),
-                child: Icon(
-                  _selectedIndex == 0
-                      ? Icons.home_rounded
-                      : Icons.home_outlined,
-                  size: _selectedIndex == 0 ? 26 : 24,
-                ),
-              ),
-              label: 'Home',
-              tooltip: 'Dashboard',
-            ),
-            BottomNavigationBarItem(
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: _selectedIndex == 1
-                      ? _AppColors.accentLight.withOpacity(0.2)
-                      : Colors.transparent,
-                ),
-                child: Icon(
-                  _selectedIndex == 1
-                      ? Icons.fact_check_rounded
-                      : Icons.fact_check_outlined,
-                  size: _selectedIndex == 1 ? 26 : 24,
-                ),
-              ),
-              label: 'Attendance',
-              tooltip: 'Check In/Out',
-            ),
-            BottomNavigationBarItem(
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: _selectedIndex == 2
-                      ? _AppColors.accentLight.withOpacity(0.2)
-                      : Colors.transparent,
-                ),
-                child: Icon(
-                  _selectedIndex == 2
-                      ? Icons.class_rounded
-                      : Icons.class_outlined,
-                  size: _selectedIndex == 2 ? 26 : 24,
-                ),
-              ),
-              label: 'Classes',
-              tooltip: 'View Classes',
-            ),
-            BottomNavigationBarItem(
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: _selectedIndex == 3
-                      ? _AppColors.accentLight.withOpacity(0.2)
-                      : Colors.transparent,
-                ),
-                child: Icon(
-                  _selectedIndex == 3
-                      ? Icons.school_rounded
-                      : Icons.school_outlined,
-                  size: _selectedIndex == 3 ? 26 : 24,
-                ),
-              ),
-              label: 'Students',
-              tooltip: 'View Students',
-            ),
-            BottomNavigationBarItem(
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: _selectedIndex == 4
-                      ? _AppColors.accentLight.withOpacity(0.2)
-                      : Colors.transparent,
-                ),
-                child: Icon(
-                  _selectedIndex == 4
-                      ? Icons.person_rounded
-                      : Icons.person_outline_rounded,
-                  size: _selectedIndex == 4 ? 26 : 24,
-                ),
-              ),
-              label: 'Profile',
-              tooltip: 'My Profile',
-            ),
-          ],
-        ),
-      ),
+    return CustomBottomNavBar(
+      currentIndex: _selectedIndex,
+      primaryColor: AppTheme.dashboardPrimary,
+      accentColor: AppTheme.dashboardAccentLight,
+      items: BottomNavConfigs.dashboardItems,
+      // Custom onTap for dashboard-specific actions (refresh on home tap)
+      onTap: (index) {
+        setState(() {
+          _selectedIndex = index;
+        });
+
+        if (index == 0) {
+          // Home - already on dashboard, just refresh or scroll to top
+          return;
+        }
+
+        // For other tabs, use centralized navigation
+        // But we can still keep custom methods if needed
+        switch (index) {
+          case 1: // Attendance
+            _openTeacherAttendance();
+            break;
+          case 2: // Classes
+            _openClasses();
+            break;
+          case 3: // Students
+            _openStudentsList();
+            break;
+          case 4: // Profile
+            _openProfile();
+            break;
+        }
+      },
+      autoNavigation: false, // Dashboard has custom navigation logic
     );
-  }
-
-  // Handle bottom navigation tap
-  void _onBottomNavTap(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
-
-    // Navigate to appropriate screen based on index
-    switch (index) {
-      case 0: // Home - already on dashboard
-        // Scroll to top or refresh
-        break;
-      case 1: // Attendance
-        _openTeacherAttendance();
-        break;
-      case 2: // Classes
-        _openClasses();
-        break;
-      case 3: // Students
-        _openStudentsList();
-        break;
-      case 4: // Profile
-        _openProfile();
-        break;
-    }
   }
 
   // Navigate to classes screen
   Future<void> _openClasses() async {
     try {
+      final baseUrl = ApiConfig.getBaseUrl().replaceAll('/api', '/index.php');
       final response = await http.post(
-        Uri.parse('http://192.168.31.129:8080/index.php/api/getClassList'),
+        Uri.parse('$baseUrl/api/getClassList'),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -617,15 +497,19 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   // Navigate to students list screen
   void _openStudentsList() {
-    // First load classes, then sections, then students
-    _openClassSelectionForStudents();
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const StudentsListScreen()),
+    );
   }
 
+  // Deprecated: Old class selection method - keeping for reference
   // Open class selection to view students
   Future<void> _openClassSelectionForStudents() async {
     try {
+      final baseUrl = ApiConfig.getBaseUrl().replaceAll('/api', '/index.php');
       final response = await http.post(
-        Uri.parse('http://192.168.31.129:8080/index.php/api/getClassList'),
+        Uri.parse('$baseUrl/api/getClassList'),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -662,69 +546,22 @@ class _DashboardScreenState extends State<DashboardScreen>
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(60),
-          child: ClipRRect(
-            borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(25),
-              bottomRight: Radius.circular(25),
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    _AppColors.primary,
-                    _AppColors.primary.withOpacity(0.95),
-                  ],
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: _AppColors.primary.withOpacity(0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 3),
-                  ),
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: AppBar(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                centerTitle: true,
-                automaticallyImplyLeading: false,
-                title: Text(
-                  _schoolName ?? 'School',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                actions: [
-                  Consumer<ThemeProvider>(
-                    builder: (context, themeProvider, child) {
-                      return IconButton(
-                        onPressed: () => themeProvider.toggleTheme(),
-                        icon: Icon(
-                          themeProvider.isDarkMode
-                              ? Icons.light_mode
-                              : Icons.dark_mode,
-                          color: Colors.white,
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
+          child: CustomAppBar(
+            title: _schoolName ?? 'School',
+            primaryColor: AppTheme.dashboardPrimary,
+            showThemeToggle: true,
+            // Example: You can add more actions here
+            // actions: [
+            //   IconButton(
+            //     icon: const Icon(Icons.search),
+            //     onPressed: () {},
+            //   ),
+            // ],
           ),
         ),
         body: SafeArea(
           child: _isLoading
-              ? _ModernLoadingView()
+              ? const ModernLoadingView()
               : RefreshIndicator(
                   onRefresh: _load,
                   color: const Color(0xFF2A2376),
@@ -763,20 +600,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const SizedBox(height: 20),
-                              _ProfileCard(
+                              ProfileCard(
                                 profile: _profile,
                                 onProfileTap: _openProfile,
                                 isEnrolled: _isEnrolled,
                               ),
                               const SizedBox(height: 20),
                               if (_teacher != null)
-                                _WorkingTimerCard(
+                                WorkingTimerCard(
                                   key: _timerKey,
                                   teacher: _teacher,
-                                  baseUrl: ApiConfig.getBaseUrl().replaceAll(
-                                    '/api',
-                                    '/index.php',
-                                  ),
                                 ),
                               if (_teacher != null) const SizedBox(height: 20),
                             ],
@@ -959,6 +792,11 @@ class _DashboardScreenState extends State<DashboardScreen>
           },
           // 3D Face Enroll removed per request
           // Simple Face Enroll Home removed per request
+          onFaceAnalyzer: () async {
+            await Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const FaceAnalyzerScreen()),
+            );
+          },
           onEnrolledList: () async {
             await Navigator.of(context).push(
               MaterialPageRoute(
@@ -966,394 +804,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               ),
             );
           },
-          // Analyzer and F2F actions removed per request
           onLogout: () {}, // Logout disabled
-        ),
-      ),
-    );
-  }
-}
-
-// Modern loading view with better design
-class _ModernLoadingView extends StatefulWidget {
-  const _ModernLoadingView();
-
-  @override
-  State<_ModernLoadingView> createState() => _ModernLoadingViewState();
-}
-
-class _ModernLoadingViewState extends State<_ModernLoadingView>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    )..repeat(reverse: true);
-
-    _fadeAnimation = Tween<double>(
-      begin: 0.3,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
-
-    _scaleAnimation = Tween<double>(
-      begin: 0.95,
-      end: 1.05,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: Theme.of(context).brightness == Brightness.dark
-              ? [Colors.grey[900]!, Colors.grey[800]!]
-              : [
-                  _AppColors.primary.withValues(alpha: 0.05),
-                  _AppColors.accent.withValues(alpha: 0.05),
-                ],
-        ),
-      ),
-      child: Center(
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: ScaleTransition(
-            scale: _scaleAnimation,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(32),
-                  decoration: BoxDecoration(
-                    color: _AppColors.surface,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: _AppColors.primary.withValues(alpha: 0.2),
-                        blurRadius: 30,
-                        offset: const Offset(0, 15),
-                      ),
-                      BoxShadow(
-                        color: _AppColors.accent.withValues(alpha: 0.1),
-                        blurRadius: 50,
-                        offset: const Offset(0, 25),
-                      ),
-                    ],
-                  ),
-                  child: Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [_AppColors.primary, _AppColors.accent],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: _AppColors.primary.withValues(alpha: 0.4),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10),
-                        ),
-                      ],
-                    ),
-                    child: const SizedBox(
-                      width: 40,
-                      height: 40,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 4,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 32),
-                ShaderMask(
-                  shaderCallback: (bounds) => LinearGradient(
-                    colors: [_AppColors.primary, _AppColors.accent],
-                  ).createShader(bounds),
-                  child: const Text(
-                    'Loading Dashboard...',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Please wait while we fetch your data',
-                  style: TextStyle(
-                    color: Theme.of(context).textTheme.bodyMedium?.color,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 40),
-                SizedBox(
-                  width: 200,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(10),
-                    child: LinearProgressIndicator(
-                      backgroundColor: Colors.grey.withOpacity(0.2),
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        _AppColors.accent,
-                      ),
-                      minHeight: 4,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ProfileCard extends StatelessWidget {
-  final Profile? profile;
-  final VoidCallback? onProfileTap;
-  final bool isEnrolled;
-
-  const _ProfileCard({
-    this.profile,
-    this.onProfileTap,
-    this.isEnrolled = false,
-  });
-
-  String _getDisplayName(String? fullName) {
-    if (fullName == null || fullName.isEmpty) return 'Teacher';
-
-    // If the fullName contains an email (has @ symbol), extract just the name part
-    if (fullName.contains('@')) {
-      // Split by common separators and take the first part
-      final parts = fullName.split(RegExp(r'[@\s]+'));
-      return parts.first.isNotEmpty ? parts.first : 'Teacher';
-    }
-
-    return fullName;
-  }
-
-  Future<void> _openMultiEnroll(BuildContext context) async {
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const MultiAngleEnrollScreen()));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: GestureDetector(
-        onTap: () {
-          print('🔍 ProfileCard Debug - Card tapped');
-          onProfileTap?.call();
-        },
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-            ),
-            borderRadius: BorderRadius.circular(24),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF667EEA).withOpacity(0.25),
-                blurRadius: 25,
-                offset: const Offset(0, 12),
-              ),
-              BoxShadow(
-                color: const Color(0xFF764BA2).withOpacity(0.15),
-                blurRadius: 40,
-                offset: const Offset(0, 20),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              // Enhanced Profile Avatar
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Colors.white.withOpacity(0.3),
-                      Colors.white.withOpacity(0.1),
-                    ],
-                  ),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.4),
-                    width: 2.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 15,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Stack(
-                  alignment: Alignment.bottomRight,
-                  children: [
-                    const Icon(
-                      Icons.person_rounded,
-                      size: 28,
-                      color: Colors.white,
-                    ),
-                    // Enhanced verification badge
-                    Container(
-                      decoration: BoxDecoration(
-                        color: isEnrolled ? Colors.green : Colors.orange,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
-                        boxShadow: [
-                          BoxShadow(
-                            color: (isEnrolled ? Colors.green : Colors.orange)
-                                .withOpacity(0.4),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.all(3),
-                      child: Icon(
-                        isEnrolled ? Icons.verified : Icons.schedule,
-                        size: 12,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              // Enhanced Content
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            _getDisplayName(profile?.fullName),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -0.5,
-                              height: 1.2,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    // Enhanced badges - removed role badge
-                  ],
-                ),
-              ),
-              // Multi-enroll shortcut (only show when not enrolled)
-              if (!isEnrolled)
-                GestureDetector(
-                  onTap: () => _openMultiEnroll(context),
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0.0, end: 1.0),
-                    duration: const Duration(seconds: 2),
-                    curve: Curves.easeInOut,
-                    builder: (context, value, child) {
-                      return Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.25),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(
-                              0.4 + (value * 0.3),
-                            ),
-                            width: 2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.orange.withOpacity(0.5 * value),
-                              blurRadius: 15,
-                              offset: const Offset(0, 2),
-                            ),
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          Icons.face_retouching_natural,
-                          color: Colors.white.withOpacity(1.0),
-                          size: 20,
-                        ),
-                      );
-                    },
-                    onEnd: () {
-                      // Restart animation
-                    },
-                  ),
-                ),
-              const SizedBox(width: 8),
-              // Enhanced arrow button
-              GestureDetector(
-                onTap: onProfileTap,
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.25),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.4),
-                      width: 1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
@@ -2656,6 +2107,7 @@ class _ExpandableFloatingButton extends StatelessWidget {
   final VoidCallback onMultiAngleEnroll;
   // Removed: on3DFaceEnroll
   // Removed: onSimpleFaceEnrollHome
+  final VoidCallback onFaceAnalyzer;
   final VoidCallback onEnrolledList;
   final VoidCallback onLogout;
 
@@ -2664,8 +2116,7 @@ class _ExpandableFloatingButton extends StatelessWidget {
     required this.onToggle,
     required this.onSimpleEnroll,
     required this.onMultiAngleEnroll,
-    
-
+    required this.onFaceAnalyzer,
     required this.onEnrolledList,
     required this.onLogout,
   });
@@ -2677,39 +2128,43 @@ class _ExpandableFloatingButton extends StatelessWidget {
       children: [
         // Expanded Options
         if (isExpanded) ...[
-          // Face Enrollment Options
-          FloatingActionButton.extended(
+          // Compact icon-only debug tools
+          FloatingActionButton.small(
             heroTag: 'fab-enroll-simple',
             onPressed: onSimpleEnroll,
             backgroundColor: Colors.blue[600],
             foregroundColor: Colors.white,
-            icon: const Icon(Icons.face_outlined),
-            label: const Text('Simple Enroll'),
+            tooltip: 'Simple Enroll',
+            child: const Icon(Icons.face_outlined),
           ),
-          const SizedBox(height: 8),
-          FloatingActionButton.extended(
+          const SizedBox(height: 6),
+          FloatingActionButton.small(
             heroTag: 'fab-enroll-multi',
             onPressed: onMultiAngleEnroll,
             backgroundColor: Colors.orange[600],
             foregroundColor: Colors.white,
-            icon: const Icon(Icons.view_in_ar),
-            label: const Text('Multi-Angle'),
+            tooltip: 'Multi-Angle Enroll',
+            child: const Icon(Icons.view_in_ar),
           ),
-          const SizedBox(height: 8),
-          const SizedBox(height: 8),
-          const SizedBox(height: 12),
-
-          // Management Options
-          FloatingActionButton.extended(
+          const SizedBox(height: 6),
+          FloatingActionButton.small(
+            heroTag: 'fab-analyzer',
+            onPressed: onFaceAnalyzer,
+            backgroundColor: Colors.indigo[600],
+            foregroundColor: Colors.white,
+            tooltip: 'Face Analyzer',
+            child: const Icon(Icons.analytics),
+          ),
+          const SizedBox(height: 6),
+          FloatingActionButton.small(
             heroTag: 'fab-list',
             onPressed: onEnrolledList,
             backgroundColor: Colors.grey[600],
             foregroundColor: Colors.white,
-            icon: const Icon(Icons.list_alt_rounded),
-            label: const Text('Enrolled List'),
+            tooltip: 'Enrolled List',
+            child: const Icon(Icons.list_alt_rounded),
           ),
           const SizedBox(height: 8),
-          const SizedBox(height: 12),
           // Logout button
           // Logout button removed per user request
           // FloatingActionButton.extended(
@@ -2726,7 +2181,7 @@ class _ExpandableFloatingButton extends StatelessWidget {
         FloatingActionButton(
           heroTag: 'fab-dev-toggle',
           onPressed: onToggle,
-          backgroundColor: _AppColors.primary,
+          backgroundColor: AppTheme.dashboardPrimary,
           foregroundColor: Colors.white,
           child: AnimatedRotation(
             turns: isExpanded ? 0.125 : 0.0,
@@ -2742,458 +2197,6 @@ class _ExpandableFloatingButton extends StatelessWidget {
   }
 }
 
-// Working Timer Card Widget
-class _WorkingTimerCard extends StatefulWidget {
-  final Teacher? teacher;
-  final String baseUrl;
-
-  const _WorkingTimerCard({
-    super.key,
-    required this.teacher,
-    required this.baseUrl,
-  });
-
-  @override
-  State<_WorkingTimerCard> createState() => _WorkingTimerCardState();
-}
-
-class _WorkingTimerCardState extends State<_WorkingTimerCard> {
-  Timer? _timer;
-  Duration _elapsedTime = Duration.zero;
-  DateTime? _checkInTime;
-  bool _isCheckedIn = false;
-  bool _isLoading = true;
-  bool _isExpanded = false;
-  bool _isCheckingOut = false;
-
-  // Method to refresh timer data
-  void refreshTimer() {
-    print('🕐 Timer Debug - Manual refresh called');
-    setState(() {
-      _isLoading = true;
-    });
-    _loadTodayStatus();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _loadTodayStatus();
-  }
-
-  @override
-  void didUpdateWidget(_WorkingTimerCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Reload data when widget is updated (e.g., when navigating back to dashboard)
-    if (oldWidget.teacher?.id != widget.teacher?.id) {
-      _loadTodayStatus();
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Always refresh timer data when dependencies change (e.g., when navigating back to dashboard)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadTodayStatus();
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _loadTodayStatus() async {
-    if (widget.teacher == null) {
-      setState(() {
-        _isLoading = false;
-      });
-      return;
-    }
-
-    try {
-      final url = Uri.parse(
-        '${widget.baseUrl}/api/getTeacherSelfAttendanceStats?staff_id=${widget.teacher!.id}&filter_type=month&filter_value=${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}',
-      );
-
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['status'] == 'success') {
-          final todayStatus = data['data']['today_status'];
-
-          setState(() {
-            _isCheckedIn =
-                todayStatus['status'] == 'P' &&
-                todayStatus['check_in_time'] != null;
-            if (_isCheckedIn) {
-              _checkInTime = _parseTime(todayStatus['check_in_time']);
-              _startTimer();
-            }
-            _isLoading = false;
-          });
-        }
-      }
-    } catch (e) {
-      print('Error loading today status: $e');
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  DateTime? _parseTime(String? timeString) {
-    if (timeString == null) return null;
-
-    try {
-      final now = DateTime.now();
-
-      // Handle 12-hour format with AM/PM (e.g., "5:30:45 PM")
-      if (timeString.contains('AM') || timeString.contains('PM')) {
-        final parts = timeString.split(' ');
-        final timePart = parts[0]; // "5:30:45"
-        final period = parts[1]; // "AM" or "PM"
-
-        final timeParts = timePart.split(':');
-        if (timeParts.length >= 2) {
-          int hour = int.parse(timeParts[0]);
-          final minute = int.parse(timeParts[1]);
-          final second = timeParts.length >= 3 ? int.parse(timeParts[2]) : 0;
-
-          // Convert to 24-hour format
-          if (period == 'PM' && hour != 12) {
-            hour += 12;
-          } else if (period == 'AM' && hour == 12) {
-            hour = 0;
-          }
-
-          final checkInDateTime = DateTime(
-            now.year,
-            now.month,
-            now.day,
-            hour,
-            minute,
-            second,
-          );
-
-          return checkInDateTime;
-        }
-      } else {
-        // Handle 24-hour format (fallback)
-        final timeParts = timeString.split(':');
-        if (timeParts.length >= 2) {
-          final hour = int.parse(timeParts[0]);
-          final minute = int.parse(timeParts[1]);
-          final second = timeParts.length >= 3 ? int.parse(timeParts[2]) : 0;
-          final checkInDateTime = DateTime(
-            now.year,
-            now.month,
-            now.day,
-            hour,
-            minute,
-            second,
-          );
-
-          return checkInDateTime;
-        }
-      }
-    } catch (e) {
-      // Error parsing time
-    }
-    return null;
-  }
-
-  void _startTimer() {
-    if (_checkInTime == null) return;
-
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) {
-        final now = DateTime.now();
-        final elapsed = now.difference(_checkInTime!);
-        setState(() {
-          _elapsedTime = elapsed;
-        });
-      }
-    });
-  }
-
-  String _formatDuration(Duration duration) {
-    final totalMinutes = duration.inMinutes;
-    final seconds = duration.inSeconds.remainder(60);
-
-    // Format: "0:04 min" or "5:30 min" etc.
-    return '${totalMinutes}:${seconds.toString().padLeft(2, '0')} min';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Build debug removed - timer is working correctly
-
-    if (_isLoading) {
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 20),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Theme.of(context).shadowColor.withValues(alpha: 0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: const Center(
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-        ),
-      );
-    }
-
-    // Hide the entire timer section if not checked in
-    if (!_isCheckedIn) {
-      return const SizedBox.shrink();
-    }
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.green.withValues(alpha: 0.15),
-            Colors.green.withValues(alpha: 0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.green.withValues(alpha: 0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(
-          color: Colors.green.withValues(alpha: 0.2),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.green.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.timer, color: Colors.green, size: 18),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Working Timer',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Theme.of(context).textTheme.bodyLarge?.color,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Checked in at ${_checkInTime?.hour.toString().padLeft(2, '0')}:${_checkInTime?.minute.toString().padLeft(2, '0')}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).textTheme.bodyMedium?.color,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: Colors.green.withValues(alpha: 0.3),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.play_circle_filled, color: Colors.green, size: 16),
-                const SizedBox(width: 6),
-                Text(
-                  _formatDuration(_elapsedTime),
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.green,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _isExpanded = !_isExpanded;
-                    });
-                  },
-                  child: Icon(
-                    _isExpanded ? Icons.expand_less : Icons.expand_more,
-                    color: Colors.green,
-                    size: 20,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (_isExpanded) ...[
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: Colors.green.withValues(alpha: 0.3),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.access_time, color: Colors.green[700], size: 16),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Working since ${_checkInTime?.hour.toString().padLeft(2, '0')}:${_checkInTime?.minute.toString().padLeft(2, '0')}',
-                    style: TextStyle(
-                      color: Colors.green[700],
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Future<void> _checkOut() async {
-    if (widget.teacher == null) return;
-
-    setState(() {
-      _isCheckingOut = true;
-    });
-
-    try {
-      // Get current location
-      Position? position;
-      try {
-        position = await Geolocator.getLastKnownPosition();
-        if (position == null) {
-          position = await Geolocator.getCurrentPosition(
-            locationSettings: LocationSettings(
-              accuracy: LocationAccuracy.lowest,
-              timeLimit: Duration(seconds: 3),
-            ),
-          );
-        }
-      } catch (e) {
-        print('Location error during checkout: $e');
-      }
-
-      // Prepare checkout data
-      final checkoutData = {
-        'staff_id': widget.teacher!.id,
-        'validated_face': true,
-        'attendance_type': 'check_out',
-        'user_latitude': position?.latitude,
-        'user_longitude': position?.longitude,
-      };
-
-      print('=== CHECKOUT REQUEST ===');
-      print('Staff ID: ${widget.teacher!.id}');
-      print('Location: ${position?.latitude}, ${position?.longitude}');
-      print('Attendance Type: check_out');
-
-      // Send checkout request
-      final url = Uri.parse('${widget.baseUrl}/api/attendanceForTeacher');
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode(checkoutData),
-      );
-
-      print('Checkout Response Status: ${response.statusCode}');
-      print('Checkout Response Body: ${response.body}');
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['status'] == 'success') {
-          // Show success message
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Checked out successfully at ${data['time']}'),
-              backgroundColor: Colors.green,
-            ),
-          );
-
-          // Stop timer and update state
-          _timer?.cancel();
-          setState(() {
-            _isCheckedIn = false;
-            _isExpanded = false;
-            _elapsedTime = Duration.zero;
-            _checkInTime = null;
-          });
-
-          // Refresh today's status
-          await _loadTodayStatus();
-        } else {
-          throw Exception(data['message'] ?? 'Checkout failed');
-        }
-      } else {
-        throw Exception('Server error: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('Checkout error: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Checkout failed: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      setState(() {
-        _isCheckingOut = false;
-      });
-    }
-  }
-}
-
 // Classes Screen Widget
 class _ClassesScreen extends StatelessWidget {
   final List<dynamic> classes;
@@ -3205,7 +2208,7 @@ class _ClassesScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Classes'),
-        backgroundColor: _AppColors.primary,
+        backgroundColor: AppTheme.dashboardPrimary,
         foregroundColor: Colors.white,
       ),
       body: classes.isEmpty
@@ -3228,7 +2231,10 @@ class _ClassesScreen extends StatelessWidget {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [_AppColors.primary, _AppColors.accent],
+                          colors: [
+                            AppTheme.dashboardPrimary,
+                            AppTheme.dashboardAccent,
+                          ],
                         ),
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -3248,7 +2254,7 @@ class _ClassesScreen extends StatelessWidget {
                     subtitle: Text('Class ID: ${classItem['class_id']}'),
                     trailing: const Icon(
                       Icons.chevron_right,
-                      color: _AppColors.primary,
+                      color: AppTheme.dashboardPrimary,
                     ),
                     onTap: () {
                       // Navigate to sections for this class
@@ -3293,7 +2299,7 @@ class _SectionsScreenState extends State<_SectionsScreen> {
     try {
       final response = await http.post(
         Uri.parse(
-          'http://192.168.31.129:8080/index.php/api/getSectionListByClass',
+          '${ApiConfig.getBaseUrl().replaceAll('/api', '/index.php')}/api/getSectionListByClass',
         ),
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: 'class_id=${widget.classId}',
@@ -3318,7 +2324,7 @@ class _SectionsScreenState extends State<_SectionsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Sections'),
-        backgroundColor: _AppColors.primary,
+        backgroundColor: AppTheme.dashboardPrimary,
         foregroundColor: Colors.white,
       ),
       body: _isLoading
@@ -3337,12 +2343,12 @@ class _SectionsScreenState extends State<_SectionsScreen> {
                     leading: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: _AppColors.accent.withOpacity(0.1),
+                        color: AppTheme.dashboardAccent.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
                         Icons.book,
-                        color: _AppColors.accent,
+                        color: AppTheme.dashboardAccent,
                         size: 24,
                       ),
                     ),
@@ -3353,7 +2359,7 @@ class _SectionsScreenState extends State<_SectionsScreen> {
                     subtitle: Text('Section ID: ${section['section_id']}'),
                     trailing: const Icon(
                       Icons.people,
-                      color: _AppColors.primary,
+                      color: AppTheme.dashboardPrimary,
                     ),
                   ),
                 );
@@ -3388,7 +2394,9 @@ class _TeachersListScreenState extends State<_TeachersListScreen> {
       // Note: This endpoint currently returns all staff. In future,
       // you may want to create a dedicated endpoint for teachers only
       final response = await http.post(
-        Uri.parse('http://192.168.31.129:8080/index.php/api/getStaffList'),
+        Uri.parse(
+          '${ApiConfig.getBaseUrl().replaceAll('/api', '/index.php')}/api/getStaffList',
+        ),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -3446,7 +2454,7 @@ class _TeachersListScreenState extends State<_TeachersListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Teachers & Staff'),
-        backgroundColor: _AppColors.primary,
+        backgroundColor: AppTheme.dashboardPrimary,
         foregroundColor: Colors.white,
       ),
       body: _isLoading
@@ -3465,8 +2473,13 @@ class _TeachersListScreenState extends State<_TeachersListScreen> {
                     elevation: 2,
                     child: ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: _AppColors.accent.withOpacity(0.2),
-                        child: Icon(Icons.person, color: _AppColors.primary),
+                        backgroundColor: AppTheme.dashboardAccent.withOpacity(
+                          0.2,
+                        ),
+                        child: Icon(
+                          Icons.person,
+                          color: AppTheme.dashboardPrimary,
+                        ),
                       ),
                       title: Text(
                         teacher['name'] ?? 'Unknown',
@@ -3503,7 +2516,7 @@ class _StudentsSelectionScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Select Class'),
-        backgroundColor: _AppColors.primary,
+        backgroundColor: AppTheme.dashboardPrimary,
         foregroundColor: Colors.white,
       ),
       body: classes.isEmpty
@@ -3521,7 +2534,10 @@ class _StudentsSelectionScreen extends StatelessWidget {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [_AppColors.primary, _AppColors.accent],
+                          colors: [
+                            AppTheme.dashboardPrimary,
+                            AppTheme.dashboardAccent,
+                          ],
                         ),
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -3541,7 +2557,7 @@ class _StudentsSelectionScreen extends StatelessWidget {
                     subtitle: Text('Class ID: ${classItem['class_id']}'),
                     trailing: const Icon(
                       Icons.chevron_right,
-                      color: _AppColors.primary,
+                      color: AppTheme.dashboardPrimary,
                     ),
                     onTap: () {
                       Navigator.push(
@@ -3584,7 +2600,7 @@ class _StudentsSectionScreenState extends State<_StudentsSectionScreen> {
     try {
       final response = await http.post(
         Uri.parse(
-          'http://192.168.31.129:8080/index.php/api/getSectionListByClass',
+          '${ApiConfig.getBaseUrl().replaceAll('/api', '/index.php')}/api/getSectionListByClass',
         ),
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: 'class_id=${widget.classId}',
@@ -3609,7 +2625,7 @@ class _StudentsSectionScreenState extends State<_StudentsSectionScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Select Section'),
-        backgroundColor: _AppColors.primary,
+        backgroundColor: AppTheme.dashboardPrimary,
         foregroundColor: Colors.white,
       ),
       body: _isLoading
@@ -3628,12 +2644,12 @@ class _StudentsSectionScreenState extends State<_StudentsSectionScreen> {
                     leading: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: _AppColors.accent.withOpacity(0.1),
+                        color: AppTheme.dashboardAccent.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(
                         Icons.book,
-                        color: _AppColors.accent,
+                        color: AppTheme.dashboardAccent,
                         size: 24,
                       ),
                     ),
@@ -3644,7 +2660,7 @@ class _StudentsSectionScreenState extends State<_StudentsSectionScreen> {
                     subtitle: Text('Section ID: ${section['section_id']}'),
                     trailing: const Icon(
                       Icons.people,
-                      color: _AppColors.primary,
+                      color: AppTheme.dashboardPrimary,
                     ),
                     onTap: () {
                       Navigator.push(
@@ -3690,7 +2706,9 @@ class _StudentsListScreenState extends State<_StudentsListScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse('http://192.168.31.129:8080/index.php/api/getStudentList'),
+        Uri.parse(
+          '${ApiConfig.getBaseUrl().replaceAll('/api', '/index.php')}/api/getStudentList',
+        ),
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body:
             'class_id=${widget.classId}&section_id=${widget.sectionId}&date=${DateTime.now().toIso8601String().split('T')[0]}',
@@ -3720,7 +2738,7 @@ class _StudentsListScreenState extends State<_StudentsListScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Students'),
-        backgroundColor: _AppColors.primary,
+        backgroundColor: AppTheme.dashboardPrimary,
         foregroundColor: Colors.white,
       ),
       body: _isLoading
@@ -3741,11 +2759,13 @@ class _StudentsListScreenState extends State<_StudentsListScreen> {
                     elevation: 2,
                     child: ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: _AppColors.accent.withOpacity(0.2),
+                        backgroundColor: AppTheme.dashboardAccent.withOpacity(
+                          0.2,
+                        ),
                         child: Text(
                           (student['name'] ?? 'N')[0].toUpperCase(),
                           style: TextStyle(
-                            color: _AppColors.primary,
+                            color: AppTheme.dashboardPrimary,
                             fontWeight: FontWeight.bold,
                           ),
                         ),

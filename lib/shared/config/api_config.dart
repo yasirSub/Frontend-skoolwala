@@ -14,7 +14,7 @@ class ApiConfig {
   // ============================================
 
   /// Current environment: 'development' or 'production'
-  static const String environment = 'production';
+  static const String environment = 'development';
 
   /// Enable debug logging
   static const bool enableDebugLogging = false;
@@ -59,6 +59,10 @@ class ApiConfig {
   static const String teacherLogin = 'teacherLogin';
   static const String teacherProfile = 'teacherProfile';
   static const String updateTeacherProfile = 'updateTeacherProfile';
+  static const String uploadTeacherPhoto = 'uploadTeacherPhoto';
+  static const String updateTeacherPassword = 'updateTeacherPassword';
+  static const String getMyClasses = 'getMyClasses';
+  static const String getMyStudents = 'getMyStudents';
   static const String getStaffList = 'getStaffList';
 
   // ============================================

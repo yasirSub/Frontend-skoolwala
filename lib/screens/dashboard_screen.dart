@@ -90,7 +90,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Future<void> _openTeacherAttendance() async {
-    await Navigator.of(
+    final result = await Navigator.of(
       context,
     ).push(
       MaterialPageRoute(
@@ -99,6 +99,11 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
       ),
     );
+    
+    // Refresh dashboard data if attendance was marked successfully
+    if (result == true && mounted) {
+      await _load();
+    }
   }
 
   @override

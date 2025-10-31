@@ -64,18 +64,17 @@ ApiConfig.iosSimulatorUrl = 'http://127.0.0.1:8080/api'
 
 ### Enrollment
 - `api/enrollFace` → `ApiConfig.enrollFace`
-- `api/enrollFaceImage` → `ApiConfig.enrollFaceImage`  
-- `api/face/enroll3D` → `ApiConfig.enrollFace3D`
+- `api/enrollFaceImage` → `ApiConfig.enrollFaceImage`
 
 ### Verification
 - `api/verifyFace` → `ApiConfig.verifyFace`
 - `api/verifyFaceImage` → `ApiConfig.verifyFaceImage`
 - `api/face/identify` → `ApiConfig.identifyFace`
-- `api/face/identify3D` → `ApiConfig.identifyFace3D`
+ 
 
 ### Management
 - `api/listEnrolledFaces` → `ApiConfig.listEnrolledFaces`
-- `api/face/list3D` → `ApiConfig.list3DFaces`
+ 
 - `api/face/delete/{id}` → `ApiConfig.deleteFaceEnrollment`
 - `api/face/enrollment/check/{id}` → `ApiConfig.checkFaceEnrollment`
 - `api/checkFaceDuplicate` → `ApiConfig.checkFaceDuplicate`
@@ -137,7 +136,7 @@ ApiConfig.iosSimulatorUrl = 'http://127.0.0.1:8080/api'
 - `api/generateDummyDataAlt` → `ApiConfig.generateDummyDataAlt`
 - `api/testGenerateDummyData` → `ApiConfig.testGenerateDummyData`
 - `api/testGenerateDummyDataSimple` → `ApiConfig.testGenerateDummyDataSimple`
-- `api/create3DFaceTable` → `ApiConfig.create3DFaceTable`
+ 
 
 ---
 

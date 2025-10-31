@@ -1,27 +1,12 @@
 // ignore_for_file: avoid_print
 
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
-// Only used on non-web targets
-import 'dart:io' show Platform;
 import 'package:http/http.dart' as http;
 import 'session_manager.dart';
+import '../config/api_config.dart';
 
 class ApiService {
   static const bool _debugLogs = false; // disable verbose logs
-  // ONLINE API URL (COMMENTED OUT)
-  // static const String localBaseUrl = 'https://school.firmbeginners.com/api';
-
-  // LOCAL DEVELOPMENT API URL
-  static const String localBaseUrl = 'http://localhost/skoolwala/api';
-
-  // Platform-specific local URLs for development
-  static const String androidLocalUrl =
-      'http://localhost/skoolwala/api'; // Android emulator
-  // static const String androidLocalUrl = 'http://10.0.2.2/skoolwala/api'; // Alternative for real device
-  static const String iosLocalUrl =
-      'http://localhost/skoolwala/api'; // iOS simulator
-  // static const String iosLocalUrl = 'http://127.0.0.1/skoolwala/api'; // Alternative for real device
 
   // Optional runtime override (e.g., real device over Wi‑Fi: http://192.168.x.x:8080/api)
   static String? _overrideBaseUrl;
@@ -31,25 +16,13 @@ class ApiService {
         : null;
   }
 
-  // Use online production API
+  // Get centralized base URL from ApiConfig
   static String get apiBaseUrl {
     // Highest priority: runtime override
     if (_overrideBaseUrl != null) return _overrideBaseUrl!;
 
-    // During local testing prefer local backend per platform
-    if (kIsWeb) {
-      return localBaseUrl; // Flutter web runs in the browser on localhost
-    }
-
-    try {
-      if (Platform.isAndroid) return androidLocalUrl;
-      if (Platform.isIOS) return iosLocalUrl;
-    } catch (_) {
-      // Platform not available (shouldn't happen outside web which is handled above)
-    }
-
-    // Fallback to localhost
-    return localBaseUrl;
+    // Use centralized ApiConfig
+    return ApiConfig.getBaseUrl();
   }
 
   static const Map<String, String> defaultHeaders = {

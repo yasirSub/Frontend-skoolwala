@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../../shared/config/api_config.dart';
 
 class AttendanceService {
-  static const String baseUrl = 'http://192.168.31.129:8080';
+  static String get baseUrl => ApiConfig.getBaseUrl().replaceFirst(RegExp(r"/api/?$"), '');
   
   /// Mark teacher attendance (check-in or check-out)
   static Future<Map<String, dynamic>> markAttendance({

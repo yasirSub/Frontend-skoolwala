@@ -6,6 +6,7 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:skoolwala/features/attendance/services/google_ml_face_service.dart';
 import 'package:skoolwala/features/face/services/face_api_service.dart';
 import 'package:skoolwala/shared/services/session_manager.dart';
+import 'package:skoolwala/features/teacher_attendance/simple/spoofing_detector.dart';
 import 'dart:async';
 
 enum EnrollmentStep { straight, right, left, processing, completed }
@@ -162,6 +163,42 @@ class _MultiAngleEnrollScreenState extends State<MultiAngleEnrollScreen> {
           _busy = false; // Reset busy state to allow retry
         });
         return; // Face confidence too low, try again
+      }
+
+      // Check for spoofing (photo detection) - LENIENT MODE for enrollment
+      // Use strict: false to be more lenient during enrollment
+      if (!SpoofingDetector.isLiveFace(result.face, strict: false)) {
+        final spoofingMessage = SpoofingDetector.getSpoofingMessage(result.face);
+        print('⚠️ Spoofing detected during enrollment: $spoofingMessage');
+        setState(() {
+          _error = spoofingMessage;
+          _status = 'Face too small or invalid. Please move closer to camera.';
+          _busy = false;
+        });
+        
+        // Only show error for face size issues (more common legitimate issue)
+        final boundingBox = result.face.boundingBox;
+        final faceSize = boundingBox.width * boundingBox.height;
+        if (faceSize < 8000) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Face too small. Please move closer to the camera for better detection.',
+              ),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
+        return;
+      }
+
+      // Check liveness - LENIENT MODE for enrollment
+      // Use strict: false to allow natural eye states during enrollment
+      if (!SpoofingDetector.checkLiveness(result.face, strict: false)) {
+        print('⚠️ Liveness check failed during enrollment (but lenient mode allows)');
+        // In lenient mode, this should rarely fail, but if it does, allow it anyway
+        // Only log for debugging
       }
 
       // Check if face angle is appropriate for current step

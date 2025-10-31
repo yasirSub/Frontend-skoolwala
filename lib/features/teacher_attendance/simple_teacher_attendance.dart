@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'dart:convert';
 import 'dart:math' as math;
-import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import 'dart:async';
 // Face workflow encapsulates ML and API calls
@@ -12,7 +11,6 @@ import 'package:skoolwala/features/teacher_attendance/simple/camera_workflow.dar
 import 'package:skoolwala/features/teacher_attendance/simple/attendance_flow.dart';
 import 'package:skoolwala/shared/utils/safe_widget_operations.dart';
 import 'package:skoolwala/shared/utils/layout_boundary_fix.dart';
-// import 'package:skoolwala/shared/config/api_config.dart';
 import 'package:skoolwala/features/teacher_attendance/simple/widgets/error_dialog.dart';
 import 'package:skoolwala/features/teacher_attendance/simple/widgets/location_overlay.dart';
 import 'package:skoolwala/features/teacher_attendance/simple/widgets/camera_overlays/school_mobile_location_panel.dart';
@@ -20,11 +18,15 @@ import 'package:skoolwala/features/teacher_attendance/simple/widgets/camera_over
 import 'package:skoolwala/features/teacher_attendance/simple/widgets/camera_overlays/debug_ids_panel.dart';
 import 'package:skoolwala/features/teacher_attendance/simple/widgets/panels/gps_banner.dart';
 import 'package:skoolwala/features/teacher_attendance/simple/widgets/panels/location_status_panel.dart';
-import 'package:skoolwala/features/teacher_attendance/simple/widgets/camera_overlays/face_detection_overlay.dart';
-import 'package:skoolwala/features/teacher_attendance/simple/widgets/processing_overlay.dart';
+// import 'package:skoolwala/features/teacher_attendance/simple/widgets/camera_overlays/face_detection_overlay.dart'; // DISABLED - overlay removed
+import 'package:skoolwala/features/teacher_attendance/simple/widgets/face_tracking/face_tracking_overlay.dart';
+// import 'package:skoolwala/features/teacher_attendance/simple/widgets/processing_overlay.dart'; // REMOVED - status shown in button instead
 import 'package:skoolwala/features/teacher_attendance/simple/widgets/check_in_out_button.dart';
 import 'package:skoolwala/features/teacher_attendance/simple/widgets/bottom_status_bar.dart';
 import 'package:skoolwala/features/teacher_attendance/simple/widgets/face_mismatch_dialog.dart';
+import 'package:skoolwala/features/teacher_attendance/simple/widgets/attendance_instructions.dart';
+import 'package:skoolwala/shared/widgets/custom_app_bar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SimpleTeacherAttendance extends StatefulWidget {
   final String? staffId; // optional: provide from dashboard/session
@@ -39,7 +41,6 @@ class SimpleTeacherAttendance extends StatefulWidget {
 class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
     with SafeWidgetMixin, LayoutBoundaryMixin, TickerProviderStateMixin {
   CameraController? _cameraController;
-  List<CameraDescription>? _cameras;
   bool _isInitialized = false;
   bool _isProcessing = false;
   String? _lastResult;
@@ -64,21 +65,31 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
   List<double>? _capturedFaceEmbedding;
   int _noMatchCount = 0; // consecutive no-match attempts before showing Retry
   bool _schoolLocationLoaded = false; // set true after first fetch completes
+  bool _showInfoPanels =
+      false; // toggle to show/hide info overlays (default hidden)
 
   // Face validation data (saved temporarily)
   Map<String, dynamic>? _faceValidationData;
+
+  // Cached verification data - stores when everything is verified
+  bool _isEverythingVerified = false; // Flag to indicate all checks passed
+  bool _stopAutomaticAnalysis = false; // Flag to stop automatic analysis
+
+  // Auto check-in/out toggle
+  bool _autoCheckEnabled = false; // Toggle for automatic check in/out
+  static const String _autoCheckPrefsKey =
+      'teacher_attendance_auto_check_enabled';
 
   // User's current attendance status
   bool _isCurrentlyCheckedIn = false;
   double? _lastDistanceMeters;
   String? _lastDetectedStaffId; // for UI debug: last detected face staff id
 
-  // Animation variables
+  // Animation variables - DISABLED (overlay removed)
   late AnimationController _faceDetectionAnimationController;
-  late Animation<double> _faceDetectionAnimation;
+  // late Animation<double> _faceDetectionAnimation; // Not used - overlay disabled
 
-  // Use production base URL from config (without /api suffix)
-  final String baseUrl = 'https://school.firmbeginners.com';
+  // Base URL is now centralized in AttendanceFlow via ApiConfig
 
   bool get _isFaceValidatedForLoggedInUser {
     final String? expectedStaffId = widget.staffId;
@@ -96,34 +107,69 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
   void initState() {
     super.initState();
 
-    // Initialize animation controller
+    // Initialize animation controller - DISABLED (animation overlay is hidden)
     _faceDetectionAnimationController = AnimationController(
       duration: const Duration(seconds: 2),
       vsync: this,
     );
 
-    _faceDetectionAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _faceDetectionAnimationController,
-        curve: Curves.easeInOut,
-      ),
-    );
+    // Animation setup disabled - overlay removed
+    // _faceDetectionAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+    //   CurvedAnimation(
+    //     parent: _faceDetectionAnimationController,
+    //     curve: Curves.easeInOut,
+    //   ),
+    // );
 
-    // Start the animation
-    _faceDetectionAnimationController.repeat(reverse: true);
+    // Animation stopped - overlay is disabled
+    // _faceDetectionAnimationController.repeat(reverse: true);
 
     _initializeCamera();
+    // Fetch school location in parallel to speed up readiness
+    _fetchSchoolLocation();
     _initializeLocation(); // Get mobile location first
-    // Start automatic face analysis after camera is ready
-    _startAutomaticAnalysis();
+    // Start automatic face analysis after camera and location are ready
+    // (will be called from _fetchSchoolLocation when ready)
 
     // Check user's current attendance status
     _checkCurrentAttendanceStatus(explicitStaffId: widget.staffId);
+
+    // Load saved auto-check preference
+    _loadAutoCheckPreference();
 
     // Debug: Initialize location status
     print(
       'Teacher Attendance initialized - starting mobile location detection',
     );
+  }
+
+  /// Load saved auto-check preference from phone storage
+  Future<void> _loadAutoCheckPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedValue = prefs.getBool(_autoCheckPrefsKey) ?? false;
+      safeSetState(() {
+        _autoCheckEnabled = savedValue;
+      });
+      print('📱 Loaded auto-check preference: $_autoCheckEnabled');
+    } catch (e) {
+      print('⚠️ Failed to load auto-check preference: $e');
+      // Default to false if loading fails
+      safeSetState(() {
+        _autoCheckEnabled = false;
+      });
+    }
+  }
+
+  /// Save auto-check preference to phone storage
+  Future<void> _saveAutoCheckPreference(bool value) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_autoCheckPrefsKey, value);
+      print('📱 Saved auto-check preference: $value');
+    } catch (e) {
+      print('⚠️ Failed to save auto-check preference: $e');
+    }
   }
 
   Future<void> _initializeCamera() async {
@@ -133,8 +179,8 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
         safeSetState(() {
           _isInitialized = true;
         });
-        // Start automatic face analysis after camera is ready
-        _startAutomaticAnalysis();
+        // Automatic face analysis will start after school location is loaded
+        // (called from _fetchSchoolLocation to ensure location readiness)
       }
     } catch (e) {
       print('Camera error: $e');
@@ -324,6 +370,9 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
         print(
           'Phone GPS: lat=${_currentPosition!.latitude}, lng=${_currentPosition!.longitude}',
         );
+
+        // Check if everything is verified and cache (mobile location might be the last piece)
+        _checkAndCacheVerifiedData();
       } else {
         print('⚠️ No mobile GPS location available after attempts');
         safeSetState(() {
@@ -567,7 +616,7 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
         _locationStatus = 'Fetching school location...';
       });
 
-      final data = await AttendanceFlow.fetchSchoolLocation(baseUrl);
+      final data = await AttendanceFlow.fetchSchoolLocation();
 
       if (data != null && data['status'] == 'success' && data['data'] != null) {
         _schoolLocation = data['data'];
@@ -581,6 +630,17 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
                 'School location loaded. Getting your location...';
           });
         }
+
+        // Mark as loaded on success so UI can enable when other conditions are met
+        safeSetState(() {
+          _schoolLocationLoaded = true;
+        });
+
+        // Check if everything is verified and cache (location might be the last piece)
+        _checkAndCacheVerifiedData();
+
+        // Start automatic face analysis now that location is ready (if not already verified)
+        _startAutomaticAnalysis();
       } else {
         safeSetState(() {
           _locationStatus = 'School location not configured';
@@ -660,6 +720,94 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
     _faceAnalysisStatus = null;
   }
 
+  /// Check if everything is verified and cache the data, stop automatic analysis
+  /// If auto-check is enabled, automatically check in/out when everything is verified
+  void _checkAndCacheVerifiedData() async {
+    // Check if everything is ready: face validated + location ready
+    if (_isFaceValidatedForLoggedInUser &&
+        _schoolLocationLoaded &&
+        _schoolLocation != null &&
+        _currentPosition != null) {
+      // Everything is verified - cache it and stop automatic analysis
+      if (!_isEverythingVerified) {
+        print(
+          '✅ Everything verified! Caching data and stopping automatic analysis.',
+        );
+        safeSetState(() {
+          _isEverythingVerified = true;
+          _stopAutomaticAnalysis = true;
+        });
+        print('Cached verification data:');
+        print('  - Face validated: ${_faceValidationData?['name']}');
+        print('  - Staff ID: ${_faceValidationData?['staff_id']}');
+        print('  - School location: ${_schoolLocation != null}');
+        print('  - Mobile location: ${_currentPosition != null}');
+
+        // If auto-check is enabled, automatically check in/out
+        if (_autoCheckEnabled && !_isProcessing) {
+          print('🔄 Auto-check enabled - automatically checking in/out...');
+          // Small delay to ensure UI updates
+          await Future.delayed(const Duration(milliseconds: 500));
+          // Automatically trigger check in/out
+          _autoCheckInOut();
+        }
+      }
+    }
+  }
+
+  /// Automatically check in/out when everything is verified and auto-check is enabled
+  Future<void> _autoCheckInOut() async {
+    if (!mounted || _isProcessing || !_isEverythingVerified) {
+      return;
+    }
+
+    try {
+      // Determine check type based on current status
+      final checkType = _isCurrentlyCheckedIn ? 'check_out' : 'check_in';
+      print('🔄 Auto-checking ${checkType}...');
+
+      // Show status message
+      safeSetState(() {
+        _faceAnalysisStatus =
+            'Auto-checking ${checkType == 'check_in' ? 'in' : 'out'}...';
+        _bottomStatusMessage =
+            'Automatically checking ${checkType == 'check_in' ? 'in' : 'out'}...';
+      });
+
+      // Call the attendance marking function
+      await _markAttendance(checkType);
+
+      // Success will be handled in _markAttendance's _showSuccess
+      print('✅ Auto-check completed successfully');
+    } catch (e) {
+      print('❌ Auto-check failed: $e');
+      // Show error to user
+      if (mounted) {
+        safeSetState(() {
+          _faceAnalysisStatus = 'Auto-check failed: ${e.toString()}';
+          _bottomStatusMessage = 'Auto-check failed. Please try manually.';
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Auto-check failed: ${e.toString()}. Please try manually.',
+            ),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Retry',
+              textColor: Colors.white,
+              onPressed: () {
+                _autoCheckInOut();
+              },
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   /// Restart face analysis when user clicks "Try Again"
   Future<void> _restartFaceAnalysis() async {
     print('🔄 Restarting face analysis...');
@@ -670,17 +818,28 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
       _faceValidationData = null;
       _bottomStatusMessage = 'Position your face in the circle';
       _isAnalyzingFace = false;
+      _noMatchCount = 0; // Reset retry counter for new attempt
+      _isEverythingVerified = false; // Clear verification cache
+      _stopAutomaticAnalysis = false; // Allow automatic analysis to resume
     });
 
     // Wait a moment for state to update
     await Future.delayed(const Duration(milliseconds: 300));
 
-    // Start automatic analysis again
+    // Start automatic analysis again (will analyze up to 3 times)
     _startAutomaticAnalysis();
   }
 
-  /// Starts automatic face analysis when camera is ready
+  /// Starts automatic face analysis when camera is ready and location is available
   Future<void> _startAutomaticAnalysis() async {
+    // Stop automatic analysis if everything is already verified and cached
+    if (_stopAutomaticAnalysis || _isEverythingVerified) {
+      print(
+        'Automatic analysis stopped - everything already verified and cached.',
+      );
+      return;
+    }
+
     // Wait for camera to be initialized
     await Future.delayed(const Duration(seconds: 2));
 
@@ -688,9 +847,23 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
       return;
     }
 
+    // Only start analysis if location is ready (school location loaded)
+    if (!_schoolLocationLoaded) {
+      print('Waiting for school location before starting face analysis...');
+      return;
+    }
+
+    // Don't start if already failed 3 times - wait for user to click Try Again
+    if (_noMatchCount >= 3) {
+      print('Face analysis failed 3 times. Waiting for user to retry.');
+      return;
+    }
+
     try {
       safeSetState(() {
         _faceAnalysisStatus = 'Starting automatic face analysis...';
+        // Keep isAnalyzingFace true during the entire analysis process
+        _isAnalyzingFace = true;
       });
 
       // Capture and analyze face automatically
@@ -722,9 +895,34 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
       final embedding = await FaceWorkflow.analyzeFace(imageFile);
 
       if (embedding == null) {
-        setState(() {
-          _faceAnalysisStatus = 'Face detection failed. Please try again.';
+        // Face not detected - increment retry count and retry if attempts remaining
+        _noMatchCount += 1;
+        safeSetState(() {
+          _faceAnalysisStatus =
+              'No face detected. Please position your face in the frame.';
+          _bottomStatusMessage = _noMatchCount < 3
+              ? 'Analyzing face... (${_noMatchCount}/3)'
+              : 'Face detection failed after 3 attempts. Please try again.';
+          _isAnalyzingFace = false;
         });
+
+        // Auto retry up to 3 attempts
+        if (_noMatchCount < 3 && mounted && !_stopAutomaticAnalysis) {
+          print('🔄 Face not detected, retrying... (${_noMatchCount}/3)');
+          Future.delayed(const Duration(milliseconds: 1500), () {
+            if (mounted && _noMatchCount < 3 && !_stopAutomaticAnalysis) {
+              _startAutomaticAnalysis();
+            }
+          });
+        } else if (_noMatchCount >= 3) {
+          print(
+            '❌ Face detection failed after 3 attempts. Showing Try Again button.',
+          );
+          safeSetState(() {
+            _faceAnalysisStatus = 'Face detection failed. Please try again.';
+            _isAnalyzingFace = false;
+          });
+        }
         return;
       }
 
@@ -734,8 +932,62 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
       // Now validate the face against enrolled faces
       await _validateFace();
     } catch (e) {
+      String errorMessage = 'Face analysis error: $e';
+
+      // Check for spoofing detection - Only show if face is too small
+      if (e.toString().contains('SPOOFING_DETECTED')) {
+        errorMessage = 'Face too small. Please move closer to camera.';
+        _noMatchCount += 1; // Count as failed attempt
+        safeSetState(() {
+          _faceAnalysisStatus = errorMessage;
+          _bottomStatusMessage = _noMatchCount < 3
+              ? 'Analyzing face... (${_noMatchCount}/3)'
+              : 'Please move closer to the camera for better face detection.';
+          _isAnalyzingFace = false;
+        });
+
+        // Only show error for face size issues (most common legitimate issue)
+        // Don't show aggressive "photo detected" message as it's usually just distance
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Face too small. Please move closer to the camera for better detection.',
+            ),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+
+        // Auto retry up to 3 attempts
+        if (_noMatchCount < 3 && mounted && !_stopAutomaticAnalysis) {
+          print('🔄 Face too small, retrying... (${_noMatchCount}/3)');
+          Future.delayed(const Duration(milliseconds: 1500), () {
+            if (mounted && _noMatchCount < 3 && !_stopAutomaticAnalysis) {
+              _startAutomaticAnalysis();
+            }
+          });
+        } else if (_noMatchCount >= 3) {
+          print('❌ Face detection failed after 3 attempts (face too small).');
+          safeSetState(() {
+            _faceAnalysisStatus = 'Face detection failed. Please try again.';
+            _isAnalyzingFace = false;
+          });
+        }
+        return;
+      }
+
+      // Check for liveness failure - In lenient mode, this rarely happens
+      // If it does, just continue (don't block the user)
+      if (e.toString().contains('LIVENESS_FAILED')) {
+        // In lenient mode, liveness check should pass, but if it fails,
+        // just log and continue - don't block the user
+        print('⚠️ Liveness check flagged but continuing in lenient mode');
+        // Don't return - allow the flow to continue
+        // The face analysis will proceed anyway
+      }
+
       setState(() {
-        _faceAnalysisStatus = 'Face analysis error: $e';
+        _faceAnalysisStatus = errorMessage;
       });
     } finally {
       setState(() {
@@ -815,6 +1067,9 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
             _noMatchCount = 0; // reset on success
           });
 
+          // Check if everything is verified and cache the data
+          _checkAndCacheVerifiedData();
+
           // Refresh today's status using known staff id after face validation
           _checkCurrentAttendanceStatus(explicitStaffId: widget.staffId);
         } else {
@@ -828,13 +1083,23 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
                 : apiMessage; // Only show error after 3 tries
             _isAnalyzingFace = false; // stop current analyze tick
           });
-          // Auto retry up to 3 attempts
+
+          // Auto retry up to 3 attempts ONLY
           if (_noMatchCount < 3) {
             // small delay to let UI update before retry
             Future.delayed(const Duration(milliseconds: 600), () {
-              if (mounted) {
+              if (mounted && _noMatchCount < 3) {
                 _startAutomaticAnalysis();
               }
+            });
+          } else {
+            // Stop analyzing after 3 attempts - show Try Again button
+            print(
+              'Face analysis stopped after 3 failed attempts. Showing Try Again button.',
+            );
+            safeSetState(() {
+              _isAnalyzingFace = false;
+              _faceAnalysisStatus = apiMessage; // Keep error message
             });
           }
         }
@@ -1017,7 +1282,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
 
       // Call API with timeout
       final response = await AttendanceFlow.postTeacherAttendance(
-        baseUrl,
         requestData,
       ).timeout(Duration(seconds: 15));
 
@@ -1216,14 +1480,10 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
         return;
       }
 
-      final response = await http.get(
-        Uri.parse(
-          '$baseUrl/api/getTeacherSelfAttendanceStats?staff_id=' +
-              staffId +
-              '&filter_type=date&filter_value=' +
-              DateTime.now().toIso8601String().split('T')[0],
-        ),
-        headers: {'Content-Type': 'application/json'},
+      final response = await AttendanceFlow.getSelfAttendanceStats(
+        staffId,
+        'date',
+        DateTime.now().toIso8601String().split('T')[0],
       );
 
       if (response.statusCode == 200) {
@@ -1293,10 +1553,10 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
       ),
     );
 
-    // Redirect to dashboard after a short delay
+    // Redirect to dashboard after a short delay with success result
     Future.delayed(Duration(seconds: 2), () {
       if (mounted) {
-        Navigator.pop(context); // Go back to dashboard
+        Navigator.pop(context, true); // Go back to dashboard with success flag
       }
     });
   }
@@ -1410,12 +1670,79 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-        appBar: AppBar(
-          title: Text(
-            'Teacher Attendance',
-            style: TextStyle(color: Colors.white),
-          ),
+        appBar: CustomAppBar(
+          title: 'Teacher Attendance',
           backgroundColor: Colors.black,
+          primaryColor: Colors.black, // Color for curved top bar
+          foregroundColor: Colors.white,
+          automaticallyImplyLeading: true,
+          showRoundedCorners:
+              true, // Use curved/rounded corners from shared top bar
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Colors.black, Colors.black.withOpacity(0.95)],
+          ),
+          actions: [
+            // Auto check-in/out toggle button with label
+            Tooltip(
+              message: _autoCheckEnabled
+                  ? 'Auto check enabled - Turn off'
+                  : 'Auto check disabled - Turn on',
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Small text label when enabled
+                  if (_autoCheckEnabled)
+                    Padding(
+                      padding: EdgeInsets.only(right: 6),
+                      child: Text(
+                        'AUTO',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  Switch(
+                    value: _autoCheckEnabled,
+                    onChanged: (value) async {
+                      // Save preference to phone storage
+                      await _saveAutoCheckPreference(value);
+
+                      safeSetState(() {
+                        _autoCheckEnabled = value;
+                      });
+
+                      // If enabling and everything is already verified, trigger auto-check
+                      if (value && _isEverythingVerified && !_isProcessing) {
+                        _autoCheckInOut();
+                      }
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            value
+                                ? 'Auto check enabled - Will automatically check in/out when ready'
+                                : 'Auto check disabled - Manual check in/out required',
+                          ),
+                          backgroundColor: value ? Colors.green : Colors.grey,
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    },
+                    activeColor: Colors.white,
+                    activeTrackColor: Colors.green[600]!, // Green when ON
+                    inactiveThumbColor: Colors.white70,
+                    inactiveTrackColor: Colors.white.withOpacity(0.3),
+                  ),
+                ],
+              ),
+            ),
+            SizedBox(width: 8),
+          ],
         ),
         body: Column(
           children: [
@@ -1429,57 +1756,57 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
                         Positioned.fill(
                           child: CameraPreview(_cameraController!),
                         ),
-                        // Animated Face Detection Overlay
-                        FaceDetectionOverlay(
-                          animation: _faceDetectionAnimation,
+                        // Static Face Guide Frame - Simple centered frame (no tracking)
+                        FaceTrackingOverlay(
                           isProcessing: _isProcessing,
                           isAnalyzingFace: _isAnalyzingFace,
                         ),
-                        // Processing overlay
-                        ProcessingOverlay(
-                          isProcessing: _isProcessing,
-                          isAnalyzingFace: _isAnalyzingFace,
-                          faceAnalysisStatus: _faceAnalysisStatus,
-                        ),
+                        // Processing overlay - REMOVED (status shown in button instead)
+                        // ProcessingOverlay(
+                        //   isProcessing: _isProcessing,
+                        //   isAnalyzingFace: _isAnalyzingFace,
+                        //   faceAnalysisStatus: _faceAnalysisStatus,
+                        // ),
 
-                        // Floating debug panel: School & Mobile locations
-                        Positioned(
-                          right: 12,
-                          bottom: 12,
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.55),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.15),
-                                width: 1,
+                        // Floating debug panel: School & Mobile locations (toggleable)
+                        if (_showInfoPanels)
+                          Positioned(
+                            right: 12,
+                            bottom: 12,
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.55),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                  width: 1,
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SchoolMobileLocationPanel(
+                                    schoolLocation: _schoolLocation,
+                                    userLatitude: _currentPosition?.latitude,
+                                    userLongitude: _currentPosition?.longitude,
+                                    isProcessing: _isProcessing,
+                                    isFetchingLocation: _isFetchingLocation,
+                                    onRefresh: () async {
+                                      await _forceFetchLocation();
+                                    },
+                                    onDiagnose: () async {
+                                      await _diagnoseLocationIssues();
+                                    },
+                                  ),
+                                ],
                               ),
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SchoolMobileLocationPanel(
-                                  schoolLocation: _schoolLocation,
-                                  userLatitude: _currentPosition?.latitude,
-                                  userLongitude: _currentPosition?.longitude,
-                                  isProcessing: _isProcessing,
-                                  isFetchingLocation: _isFetchingLocation,
-                                  onRefresh: () async {
-                                    await _forceFetchLocation();
-                                  },
-                                  onDiagnose: () async {
-                                    await _diagnoseLocationIssues();
-                                  },
-                                ),
-                              ],
-                            ),
                           ),
-                        ),
 
                         // Verified User Name Overlay on Camera - Top Right
                         if (_isFaceValidatedForLoggedInUser)
@@ -1505,14 +1832,60 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
                             ),
                           ),
                         // Top-left overlay: Logged-in and Face IDs (debug aid)
-                        Positioned(
-                          top: 10,
-                          left: 10,
-                          child: DebugIdsPanel(
-                            loggedInStaffId: widget.staffId,
-                            faceStaffId: _faceValidationData != null
-                                ? _faceValidationData!['staff_id']?.toString()
-                                : (_lastDetectedStaffId ?? '-'),
+                        if (_showInfoPanels)
+                          Positioned(
+                            top: 10,
+                            left: 10,
+                            child: DebugIdsPanel(
+                              loggedInStaffId: widget.staffId,
+                              faceStaffId: _faceValidationData != null
+                                  ? _faceValidationData!['staff_id']?.toString()
+                                  : (_lastDetectedStaffId ?? '-'),
+                            ),
+                          ),
+
+                        // Toggle button to hide/show info overlays (top center)
+                        Align(
+                          alignment: Alignment.topCenter,
+                          child: Padding(
+                            padding: EdgeInsets.only(top: 10),
+                            child: Material(
+                              color: Colors.black.withValues(alpha: 0.4),
+                              borderRadius: BorderRadius.circular(20),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(20),
+                                onTap: () {
+                                  safeSetState(() {
+                                    _showInfoPanels = !_showInfoPanels;
+                                  });
+                                },
+                                child: Padding(
+                                  padding: EdgeInsets.all(8),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        _showInfoPanels
+                                            ? Icons.visibility_off
+                                            : Icons.visibility,
+                                        color: Colors.white,
+                                        size: 18,
+                                      ),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        _showInfoPanels
+                                            ? 'Hide info'
+                                            : 'Show info',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -1544,174 +1917,205 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
                     topRight: Radius.circular(25),
                   ),
                 ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      // Face Analysis Status - HIDDEN
-                      if (false)
-                        Container(
-                          width: double.infinity,
-                          padding: EdgeInsets.all(10),
-                          margin: EdgeInsets.only(bottom: 10),
-                          decoration: BoxDecoration(
-                            color: _capturedFaceEmbedding != null
-                                ? Colors.green[900]
-                                : Colors.blue[900],
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.face_retouching_natural,
-                                color: Colors.white,
-                                size: 16,
-                              ),
-                              SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _faceAnalysisStatus ??
-                                      'Initializing camera and analyzing face automatically...',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.max,
+                  children: [
+                    // Dynamic Check In/Out Button - ALWAYS VISIBLE AT TOP (not scrollable)
+                    // Use SizedBox to prevent button from being squished
+                    Padding(
+                      padding: EdgeInsets.only(top: 20),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: CheckInOutButton(
+                          schoolLocationLoaded: _schoolLocationLoaded,
+                          schoolLocation: _schoolLocation,
+                          isFetchingMobileLocation: _isFetchingLocation,
+                          isProcessing: _isProcessing,
+                          isAnalyzingFace: _isAnalyzingFace,
+                          isFaceValidatedForLoggedInUser:
+                              _isFaceValidatedForLoggedInUser,
+                          faceAnalysisStatus: _faceAnalysisStatus,
+                          noMatchCount: _noMatchCount,
+                          isCurrentlyCheckedIn: _isCurrentlyCheckedIn,
+                          onSchoolLocationNotSet: () => Navigator.pop(context),
+                          onRestartFaceAnalysis: _restartFaceAnalysis,
+                          onMarkAttendance: (type) => _markAttendance(type),
+                        ),
+                      ),
+                    ),
+
+                    SizedBox(height: 15),
+
+                    // Scrollable area for other content (instructions)
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Face Analysis Status - HIDDEN
+                            if (false)
+                              Container(
+                                width: double.infinity,
+                                padding: EdgeInsets.all(10),
+                                margin: EdgeInsets.only(bottom: 10),
+                                decoration: BoxDecoration(
+                                  color: _capturedFaceEmbedding != null
+                                      ? Colors.green[900]
+                                      : Colors.blue[900],
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.face_retouching_natural,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        _faceAnalysisStatus ??
+                                            'Initializing camera and analyzing face automatically...',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
 
-                      // GPS Location Display (controlled by _showGpsBanner)
-                      if (_showGpsBanner && _currentPosition != null)
-                        GpsBanner(
-                          latitude: _currentPosition!.latitude,
-                          longitude: _currentPosition!.longitude,
-                        ),
-
-                      // Location Status - HIDDEN
-                      if (false)
-                        LocationStatusPanel(
-                          statusText: _locationStatus,
-                          hasPosition: _currentPosition != null,
-                          permissionGranted: _locationPermissionGranted,
-                          onRetry: _isProcessing ? null : _retryLocation,
-                          onTest: _isProcessing ? null : _testLocation,
-                          onReAnalyzeFace: _isProcessing
-                              ? null
-                              : _clearFaceValidationData,
-                          showReAnalyze: _faceValidationData != null,
-                        ),
-
-                      // Last Result - HIDDEN
-                      if (false && _lastResult != null)
-                        Container(
-                          width: double.infinity,
-                          padding: EdgeInsets.all(15),
-                          margin: EdgeInsets.only(bottom: 20),
-                          decoration: BoxDecoration(
-                            color: _lastResult!.startsWith('✅')
-                                ? Colors.green[900]
-                                : Colors.red[900],
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            _lastResult!,
-                            style: TextStyle(color: Colors.white, fontSize: 16),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-
-                      // Error Display (hidden per UX request)
-                      if (false &&
-                          _lastResult != null &&
-                          _lastResult!.startsWith('❌'))
-                        Container(
-                          width: double.infinity,
-                          padding: EdgeInsets.all(15),
-                          margin: EdgeInsets.only(bottom: 15),
-                          decoration: BoxDecoration(
-                            color: Colors.red[800],
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: Colors.red[400]!,
-                              width: 2,
-                            ),
-                          ),
-                          child: Column(
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.error,
-                                    color: Colors.white,
-                                    size: 24,
-                                  ),
-                                  SizedBox(width: 10),
-                                  Text(
-                                    'Error',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
+                            // GPS Location Display (controlled by _showGpsBanner)
+                            if (_showGpsBanner && _currentPosition != null)
+                              GpsBanner(
+                                latitude: _currentPosition!.latitude,
+                                longitude: _currentPosition!.longitude,
                               ),
-                              SizedBox(height: 8),
+
+                            // Location Status - HIDDEN
+                            if (false)
+                              LocationStatusPanel(
+                                statusText: _locationStatus,
+                                hasPosition: _currentPosition != null,
+                                permissionGranted: _locationPermissionGranted,
+                                onRetry: _isProcessing ? null : _retryLocation,
+                                onTest: _isProcessing ? null : _testLocation,
+                                onReAnalyzeFace: _isProcessing
+                                    ? null
+                                    : _clearFaceValidationData,
+                                showReAnalyze: _faceValidationData != null,
+                              ),
+
+                            // Last Result - HIDDEN
+                            if (false && _lastResult != null)
+                              Container(
+                                width: double.infinity,
+                                padding: EdgeInsets.all(15),
+                                margin: EdgeInsets.only(bottom: 20),
+                                decoration: BoxDecoration(
+                                  color: _lastResult!.startsWith('✅')
+                                      ? Colors.green[900]
+                                      : Colors.red[900],
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  _lastResult!,
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+
+                            // Error Display (hidden per UX request)
+                            if (false &&
+                                _lastResult != null &&
+                                _lastResult!.startsWith('❌'))
+                              Container(
+                                width: double.infinity,
+                                padding: EdgeInsets.all(15),
+                                margin: EdgeInsets.only(bottom: 15),
+                                decoration: BoxDecoration(
+                                  color: Colors.red[800],
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: Colors.red[400]!,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.error,
+                                          color: Colors.white,
+                                          size: 24,
+                                        ),
+                                        SizedBox(width: 10),
+                                        Text(
+                                          'Error',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      _getErrorMessage(_lastResult!),
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 14,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                            // Instructions - HIDDEN
+                            if (false)
+                              // ignore: dead_code
                               Text(
-                                _getErrorMessage(_lastResult!),
+                                _isProcessing || _isAnalyzingFace
+                                    ? 'Getting GPS location and processing face...'
+                                    : _isFaceValidatedForLoggedInUser
+                                    ? 'Face validated! Click Check In/Out to get GPS location and mark attendance'
+                                    : _capturedFaceEmbedding != null
+                                    ? 'Face analysis complete! Click Check In/Out to get GPS location and mark attendance'
+                                    : 'Face analysis in progress... Please wait for automatic detection',
                                 style: TextStyle(
                                   color: Colors.white70,
                                   fontSize: 14,
                                 ),
                                 textAlign: TextAlign.center,
                               ),
-                            ],
-                          ),
+
+                            // Dynamic Instructions
+                            AttendanceInstructions(
+                              isAnalyzingFace: _isAnalyzingFace,
+                              isProcessing: _isProcessing,
+                              isFetchingMobileLocation: _isFetchingLocation,
+                              schoolLocationLoaded: _schoolLocationLoaded,
+                              isFaceValidatedForLoggedInUser:
+                                  _isFaceValidatedForLoggedInUser,
+                              faceAnalysisStatus: _faceAnalysisStatus,
+                              noMatchCount: _noMatchCount,
+                              hasFaceEmbedding: _capturedFaceEmbedding != null,
+                            ),
+                          ],
                         ),
-
-                      // Dynamic Check In/Out Button
-                      CheckInOutButton(
-                        schoolLocationLoaded: _schoolLocationLoaded,
-                        schoolLocation: _schoolLocation,
-                        isProcessing: _isProcessing,
-                        isAnalyzingFace: _isAnalyzingFace,
-                        isFaceValidatedForLoggedInUser:
-                            _isFaceValidatedForLoggedInUser,
-                        faceAnalysisStatus: _faceAnalysisStatus,
-                        noMatchCount: _noMatchCount,
-                        isCurrentlyCheckedIn: _isCurrentlyCheckedIn,
-                        onSchoolLocationNotSet: () => Navigator.pop(context),
-                        onRestartFaceAnalysis: _restartFaceAnalysis,
-                        onMarkAttendance: (type) => _markAttendance(type),
                       ),
-
-                      SizedBox(height: 20),
-
-                      // Instructions - HIDDEN
-                      if (false)
-                        // ignore: dead_code
-                        Text(
-                          _isProcessing || _isAnalyzingFace
-                              ? 'Getting GPS location and processing face...'
-                              : _isFaceValidatedForLoggedInUser
-                              ? 'Face validated! Click Check In/Out to get GPS location and mark attendance'
-                              : _capturedFaceEmbedding != null
-                              ? 'Face analysis complete! Click Check In/Out to get GPS location and mark attendance'
-                              : 'Face analysis in progress... Please wait for automatic detection',
-                          style: TextStyle(color: Colors.white70, fontSize: 14),
-                          textAlign: TextAlign.center,
-                        ),
-
-                      // Simple Instructions
-                      Text(
-                        'Position your face in the circle and tap Check In or Check Out',
-                        style: TextStyle(color: Colors.white70, fontSize: 14),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),

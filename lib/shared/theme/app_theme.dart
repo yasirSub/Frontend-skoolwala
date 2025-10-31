@@ -25,6 +25,20 @@ class AppTheme {
   static const Color textGray = Color(0xFF6B7280);
   static const Color borderGray = Color(0xFFE5E7EB);
 
+  // Modern Dashboard Color Palette
+  static const Color dashboardPrimary = Color(0xFF1A1F3E);
+  static const Color dashboardPrimaryLight = Color(0xFF2A3441);
+  static const Color dashboardAccent = Color(0xFF00B4D8);
+  static const Color dashboardAccentLight = Color(0xFF90E0EF);
+  static const Color dashboardSuccess = Color(0xFF06FFA5);
+  static const Color dashboardWarning = Color(0xFFFFBE0B);
+  static const Color dashboardError = Color(0xFFFB5607);
+  static const Color dashboardBackground = Color(0xFFF8FAFC);
+  static const Color dashboardSurface = Colors.white;
+  static const Color dashboardTextPrimary = Color(0xFF0F172A);
+  static const Color dashboardTextSecondary = Color(0xFF64748B);
+  static const Color dashboardBorder = Color(0xFFE2E8F0);
+
   // Gradient Definitions
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,

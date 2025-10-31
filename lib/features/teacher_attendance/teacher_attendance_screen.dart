@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../../shared/config/api_config.dart';
 
 class TeacherAttendanceScreen extends StatefulWidget {
   @override
@@ -17,9 +18,6 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
   String? _detectedUser;
   double? _confidence;
   String? _lastAttendanceTime;
-
-  // API Configuration
-  final String baseUrl = 'http://192.168.31.129:8080';
 
   @override
   void initState() {
@@ -113,8 +111,9 @@ class _TeacherAttendanceScreenState extends State<TeacherAttendanceScreen> {
     String attendanceType,
   ) async {
     try {
+      final baseUrl = ApiConfig.getBaseUrl();
       final response = await http.post(
-        Uri.parse('$baseUrl/api/quickAttendance'),
+        Uri.parse('$baseUrl/quickAttendance'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'face_data': faceData,
