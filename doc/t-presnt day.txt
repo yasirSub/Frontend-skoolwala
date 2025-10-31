@@ -1,0 +1,11 @@
+https://skoolwala.com/api/teacherPresentDaysCount
+
+
+{
+    "status": "success",
+    "data": {
+        "teacher_id": "10",
+        "present_days_count": 2
+    },
+    "message": "Present days count retrieved successfully"
+}

@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "../../../../../backend/skoolwala"
+		},
+		{
+			"path": "../../../.."
+		}
+	],
+	"settings": {
+		"powershell.cwd": "skoolwala"
+	}
+}

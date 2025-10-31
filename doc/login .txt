@@ -1,0 +1,22 @@
+https://skoolwala.com/api/teacherLogin
+
+
+
+
+
+{
+    "status": "success",
+    "data": {
+        "user_id": "10",
+        "username": "teacher+2@skoolwala.com",
+        "role": "3",
+        "teacher_id": "10",
+        "name": "Ravi Ranjan",
+        "email": "teacher+2@skoolwala.com",
+        "mobile": "917004367237",
+        "photo": "a396086b047e26d22ae4edef2a600f2b.png",
+        "branch_id": "1",
+        "last_login": "2025-10-07 12:51:15"
+    },
+    "message": "Teacher login successful"
+}

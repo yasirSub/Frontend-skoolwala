@@ -1,0 +1,17 @@
+https://skoolwala.com/api/teacherSelfAttendance
+
+
+
+{
+    "status": "success",
+    "data": {
+        "teacher_id": "10",
+        "branch_id": "1",
+        "date": "2025-10-07",
+        "status": "P",
+        "in_time": "17:23:28",
+        "out_time": null,
+        "remark": ""
+    },
+    "message": "Attendance updated successfully"
+}

@@ -1,0 +1,10 @@
+https://skoolwala.com/api/teacherAbsentDaysCount
+
+{
+    "status": "success",
+    "data": {
+        "teacher_id": "10",
+        "absent_days_count": 1
+    },
+    "message": "Absent days count retrieved successfully"
+}

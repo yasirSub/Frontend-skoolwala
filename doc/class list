@@ -1,0 +1,16 @@
+https://skoolwala.com/api/getClassList
+
+{
+    "status": "success",
+    "data": [
+        {
+            "class_id": 1,
+            "class_name": "Class 1"
+        },
+        {
+            "class_id": 3,
+            "class_name": "Class 2"
+        }
+    ],
+    "message": "Class list retrieved successfully"
+}

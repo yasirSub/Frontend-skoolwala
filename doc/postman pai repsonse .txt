@@ -1,0 +1,560 @@
+{
+	"info": {
+		"_postman_id": "a9ba951a-64c6-4ee5-8d2c-e21b9c908286",
+		"name": "Skoolwala",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "40412317",
+		"_collection_link": "https://sumit3-7192.postman.co/workspace/postman-collection~6cf0ff90-6f57-4c07-9cb3-8c8c19b67791/collection/40412317-a9ba951a-64c6-4ee5-8d2c-e21b9c908286?action=share&source=collection_link&creator=40412317"
+	},
+	"item": [
+		{
+			"name": "Teacher login",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "username",
+							"value": "teacher+2@skoolwala.com",
+							"type": "text"
+						},
+						{
+							"key": "password",
+							"value": "12345678",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "https://skoolwala.com/api/teacherLogin",
+					"protocol": "https",
+					"host": [
+						"skoolwala",
+						"com"
+					],
+					"path": [
+						"api",
+						"teacherLogin"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Teacher Attendance",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "action",
+							"value": "mark",
+							"type": "text"
+						},
+						{
+							"key": "status",
+							"value": "P",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "https://skoolwala.com/api/teacherSelfAttendance",
+					"protocol": "https",
+					"host": [
+						"skoolwala",
+						"com"
+					],
+					"path": [
+						"api",
+						"teacherSelfAttendance"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Teacher Profile",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "username",
+							"value": "teacher+1@skoolwala.com",
+							"type": "text"
+						},
+						{
+							"key": "password",
+							"value": "12345678",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "https://skoolwala.com/api/teacherProfile",
+					"protocol": "https",
+					"host": [
+						"skoolwala",
+						"com"
+					],
+					"path": [
+						"api",
+						"teacherProfile"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Teacher Present Days Count",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "action",
+							"value": "mark",
+							"type": "text",
+							"disabled": true
+						},
+						{
+							"key": "status",
+							"value": "P",
+							"type": "text",
+							"disabled": true
+						}
+					]
+				},
+				"url": {
+					"raw": "https://skoolwala.com/api/teacherPresentDaysCount",
+					"protocol": "https",
+					"host": [
+						"skoolwala",
+						"com"
+					],
+					"path": [
+						"api",
+						"teacherPresentDaysCount"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Teacher Absent Days Count",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "action",
+							"value": "mark",
+							"type": "text",
+							"disabled": true
+						},
+						{
+							"key": "status",
+							"value": "P",
+							"type": "text",
+							"disabled": true
+						}
+					]
+				},
+				"url": {
+					"raw": "https://skoolwala.com/api/teacherAbsentDaysCount",
+					"protocol": "https",
+					"host": [
+						"skoolwala",
+						"com"
+					],
+					"path": [
+						"api",
+						"teacherAbsentDaysCount"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get school info",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "action",
+							"value": "mark",
+							"type": "text"
+						},
+						{
+							"key": "status",
+							"value": "P",
+							"type": "text",
+							"disabled": true
+						}
+					]
+				},
+				"url": {
+					"raw": "https://skoolwala.com/api/getSchoolInfo",
+					"protocol": "https",
+					"host": [
+						"skoolwala",
+						"com"
+					],
+					"path": [
+						"api",
+						"getSchoolInfo"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Class list",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "action",
+							"value": "mark",
+							"type": "text"
+						},
+						{
+							"key": "status",
+							"value": "P",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/getClassList",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"getClassList"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Section List By Class",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "class_id",
+							"value": "1",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/getSectionListByClass",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"getSectionListByClass"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Student List",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "class_id",
+							"value": "1",
+							"type": "text"
+						},
+						{
+							"key": "section_id",
+							"value": "1",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/getStudentList",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"getStudentList"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Student Attendance",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "action",
+							"value": "set",
+							"type": "text"
+						},
+						{
+							"key": "enroll_id",
+							"value": "1",
+							"type": "text"
+						},
+						{
+							"key": "status",
+							"value": "P",
+							"type": "text"
+						},
+						{
+							"key": "remark",
+							"value": "Done",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/studentAttendance",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"studentAttendance"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Staff Qr Attendance",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Accept",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "staff_id",
+							"value": "10",
+							"type": "text"
+						},
+						{
+							"key": "in_out_time",
+							"value": "in_time",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://localhost:8080/api/staffQrAttendance",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"api",
+						"staffQrAttendance"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

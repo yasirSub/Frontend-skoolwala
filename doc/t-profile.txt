@@ -1,0 +1,33 @@
+https://skoolwala.com/api/teacherProfile
+
+
+{
+    "status": "success",
+    "data": {
+        "id": "10",
+        "staff_id": "fbe17e9",
+        "name": "Ravi Ranjan",
+        "email": "teacher+2@skoolwala.com",
+        "mobile_no": "917004367237",
+        "sex": "male",
+        "religion": "Hindu",
+        "blood_group": "B-",
+        "birthday": "2000-02-01",
+        "present_address": "Godda, Jharkhand - India",
+        "permanent_address": "Godda, Jharkhand - India",
+        "photo": "a396086b047e26d22ae4edef2a600f2b.png",
+        "designation": "Faculty",
+        "department": "Faculty",
+        "joining_date": "2025-01-01",
+        "qualification": "B.Tech",
+        "experience_details": "Physics",
+        "total_experience": "6",
+        "facebook_url": "",
+        "linkedin_url": "",
+        "twitter_url": "",
+        "username": "teacher+2@skoolwala.com",
+        "role": "Teacher",
+        "active": true
+    },
+    "message": "Teacher profile retrieved successfully"
+}
