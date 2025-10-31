@@ -12,7 +12,6 @@ import 'package:skoolwala/features/attendance/screens/face_verification_screen.d
 import 'package:skoolwala/features/attendance/screens/simple_enroll_screen.dart';
 import 'package:skoolwala/features/attendance/screens/quick_attendance_screen.dart';
 import 'package:skoolwala/features/attendance/screens/multi_angle_enroll_screen.dart';
-import 'package:skoolwala/features/attendance/screens/face_3d_enroll_screen.dart';
 import 'package:skoolwala/features/attendance/screens/enrolled_faces_list_screen.dart';
 import 'package:skoolwala/features/profile/screens/profile_screen.dart';
 import 'package:skoolwala/features/teacher_attendance/simple_teacher_attendance.dart';
@@ -958,34 +957,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               }
             } catch (_) {}
           },
-          on3DFaceEnroll: () async {
-            final enrollResult = await Navigator.of(context).push<bool>(
-              MaterialPageRoute(builder: (_) => const Face3DEnrollScreen()),
-            );
-            // Refresh enrolled status after returning
-            try {
-              final dashboardData = await DashboardService.fetchDashboardData(
-                username: widget.username,
-                password: widget.password,
-              );
-              if (mounted) {
-                setState(() {
-                  _isEnrolled = dashboardData.teacher.faceEnrolled;
-                  _showEnrollSuccess = enrollResult == true;
-                });
-
-                if (enrollResult == true) {
-                  Future.delayed(const Duration(seconds: 3), () {
-                    if (mounted) {
-                      setState(() {
-                        _showEnrollSuccess = false;
-                      });
-                    }
-                  });
-                }
-              }
-            } catch (_) {}
-          },
+          // 3D Face Enroll removed per request
           // Simple Face Enroll Home removed per request
           onEnrolledList: () async {
             await Navigator.of(context).push(
@@ -2682,7 +2654,7 @@ class _ExpandableFloatingButton extends StatelessWidget {
   final VoidCallback onToggle;
   final VoidCallback onSimpleEnroll;
   final VoidCallback onMultiAngleEnroll;
-  final VoidCallback on3DFaceEnroll;
+  // Removed: on3DFaceEnroll
   // Removed: onSimpleFaceEnrollHome
   final VoidCallback onEnrolledList;
   final VoidCallback onLogout;
@@ -2692,7 +2664,7 @@ class _ExpandableFloatingButton extends StatelessWidget {
     required this.onToggle,
     required this.onSimpleEnroll,
     required this.onMultiAngleEnroll,
-    required this.on3DFaceEnroll,
+    
 
     required this.onEnrolledList,
     required this.onLogout,
@@ -2724,14 +2696,6 @@ class _ExpandableFloatingButton extends StatelessWidget {
             label: const Text('Multi-Angle'),
           ),
           const SizedBox(height: 8),
-          FloatingActionButton.extended(
-            heroTag: 'fab-enroll-3d',
-            onPressed: on3DFaceEnroll,
-            backgroundColor: Colors.purple[600],
-            foregroundColor: Colors.white,
-            icon: const Icon(Icons.view_in_ar_outlined),
-            label: const Text('3D Face'),
-          ),
           const SizedBox(height: 8),
           const SizedBox(height: 12),
 

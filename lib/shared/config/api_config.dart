@@ -94,17 +94,17 @@ class ApiConfig {
   /// Face Enrollment
   static const String enrollFace = 'enrollFace';
   static const String enrollFaceImage = 'enrollFaceImage';
-  static const String enrollFace3D = 'face/enroll3D';
+  // Removed: enrollFace3D
 
   /// Face Verification
   static const String verifyFace = 'verifyFace';
   static const String verifyFaceImage = 'verifyFaceImage';
   static const String identifyFace = 'face/identify';
-  static const String identifyFace3D = 'face/identify3D';
+  // Removed: identifyFace3D
 
   /// Face Management
   static const String listEnrolledFaces = 'listEnrolledFaces';
-  static const String list3DFaces = 'face/list3D';
+  // Removed: list3DFaces
   static const String deleteFaceEnrollment = 'face/delete';
   static const String checkFaceEnrollment = 'face/enrollment/check';
   static const String checkFaceDuplicate = 'checkFaceDuplicate';
