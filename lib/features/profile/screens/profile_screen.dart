@@ -1,14 +1,15 @@
 // ignore_for_file: deprecated_member_use
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:skoolwala/shared/models/teacher.dart';
 import 'package:skoolwala/features/auth/services/profile_service.dart';
+import 'package:skoolwala/features/auth/screens/login_screen.dart';
 import 'package:skoolwala/features/school/screens/school_selection_screen.dart';
 import 'package:skoolwala/shared/services/session_manager.dart';
+import 'package:skoolwala/shared/services/persistent_storage.dart';
 import '../models/teacher_profile.dart';
 import '../services/teacher_profile_service.dart';
-import '../widgets/developer_attendance_fab.dart';
-import '../widgets/dummy_data_generator.dart';
 // import '../widgets/set_location_widget.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -97,50 +98,112 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Future<void> _handleLogout(BuildContext context) async {
-    // Show confirmation dialog
-    final shouldLogout = await showDialog<bool>(
+    // Show logout options dialog
+    final logoutType = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
+        content: const Text('Choose logout option:'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () => Navigator.of(context).pop('cancel'),
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () => Navigator.of(context).pop('logout'),
             child: const Text('Logout'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop('complete'),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text('Complete Logout'),
           ),
         ],
       ),
     );
 
-    if (shouldLogout == true && mounted) {
-      // Capture context before async operations
-      final navigatorContext = context;
-      try {
-        // Call logout API if we have teacher data
-        if (widget.teacher.username.isNotEmpty) {
-          await ProfileService.logoutTeacher(username: widget.teacher.username);
-        }
+    if (logoutType == null || logoutType == 'cancel' || !mounted) {
+      return;
+    }
 
-        // Clear session and persistent storage
-        await SessionManager.instance.logout();
+    // Capture context before async operations
+    final navigatorContext = context;
+    final isCompleteLogout = logoutType == 'complete';
 
-        // Navigate back to school selection screen
+    try {
+      // Call logout API if we have teacher data
+      if (widget.teacher.username.isNotEmpty) {
+        await ProfileService.logoutTeacher(username: widget.teacher.username);
+      }
+
+      if (isCompleteLogout) {
+        // Complete logout: Clear everything including selected school
+        await SessionManager.instance.completeLogout();
+        
+        // Navigate to school selection screen
         if (mounted) {
           Navigator.of(navigatorContext).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const SchoolSelectionScreen()),
+            MaterialPageRoute(
+              builder: (_) => const SchoolSelectionScreen(),
+            ),
             (route) => false,
           );
         }
-      } catch (e) {
-        // Even if logout fails, still clear session and navigate back
+      } else {
+        // Regular logout: Keep selected school
         await SessionManager.instance.logout();
+
+        // Get saved school info for login screen
+        final savedSchool = await PersistentStorage.getSelectedSchool();
+        final schoolName = savedSchool?['name'] ?? 'SKOOLWALA INSTITUTION';
+        final mainLogo = savedSchool?['main_logo'];
+        final branchId = savedSchool?['id'];
+
+        // Navigate to login screen with selected school info
         if (mounted) {
           Navigator.of(navigatorContext).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const SchoolSelectionScreen()),
+            MaterialPageRoute(
+              builder: (_) => LoginScreen(
+                schoolName: schoolName,
+                mainLogo: mainLogo,
+                branchId: branchId, // Pass branch_id so roles load correctly
+              ),
+            ),
+            (route) => false,
+          );
+        }
+      }
+    } catch (e) {
+      print('❌ Logout error: $e');
+      // Even if logout fails, still clear session and navigate
+      if (isCompleteLogout) {
+        await SessionManager.instance.completeLogout();
+        if (mounted) {
+          Navigator.of(navigatorContext).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => const SchoolSelectionScreen(),
+            ),
+            (route) => false,
+          );
+        }
+      } else {
+        await SessionManager.instance.logout();
+        final savedSchool = await PersistentStorage.getSelectedSchool();
+        final schoolName = savedSchool?['name'] ?? 'SKOOLWALA INSTITUTION';
+        final mainLogo = savedSchool?['main_logo'];
+        final branchId = savedSchool?['id'];
+        
+        if (mounted) {
+          Navigator.of(navigatorContext).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => LoginScreen(
+                schoolName: schoolName,
+                mainLogo: mainLogo,
+                branchId: branchId,
+              ),
+            ),
             (route) => false,
           );
         }
@@ -265,21 +328,6 @@ class _ProfileScreenState extends State<ProfileScreen>
           ),
         ),
         actions: [
-          // Refresh button
-          IconButton(
-            onPressed: _isRefreshing ? null : _refreshProfileData,
-            icon: _isRefreshing
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Icon(Icons.refresh, color: Colors.white),
-            tooltip: 'Refresh Profile Data',
-          ),
           // Edit button
           IconButton(
             onPressed: () => _showEditProfileDialog(context, displayData),
@@ -294,7 +342,8 @@ class _ProfileScreenState extends State<ProfileScreen>
           ),
         ],
       ),
-      floatingActionButton: DeveloperAttendanceFAB(teacher: displayData),
+      // Floating developer attendance button hidden as requested (kept in codebase but not shown)
+      floatingActionButton: null,
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _refreshProfileData,
@@ -728,19 +777,6 @@ class _ProfileDetails extends StatelessWidget {
         ),
 
         const SizedBox(height: 16),
-
-        // Developer Tools Card (only in development mode)
-        if (const bool.fromEnvironment('dart.vm.product') == false)
-          Column(
-            children: [
-              DummyDataGenerator(
-                staffId: int.tryParse(teacher.id) ?? 0,
-                staffName: teacher.name,
-              ),
-              const SizedBox(height: 16),
-              // Removed SetLocationWidget as it's not needed in profile
-            ],
-          ),
 
         // Social Media Card (only if there are social media links)
         if (teacher.facebookUrl.isNotEmpty ||

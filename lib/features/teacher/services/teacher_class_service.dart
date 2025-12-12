@@ -199,15 +199,25 @@ class TeacherClassService {
   /// Get all classes assigned to the logged-in teacher
   static Future<TeacherClassesResponse> getMyClasses() async {
     try {
-      // Use GET request as it's a read operation
-      final response = await HttpClient().get(
+      // Try POST first (as other endpoints use POST)
+      // If that fails, we can fall back to GET
+      final response = await HttpClient().post(
         ApiConfig.getMyClasses,
         requireAuth: true,
       );
 
       return TeacherClassesResponse.fromJson(response);
     } catch (e) {
-      throw Exception('Failed to get teacher classes: $e');
+      // If POST fails, try GET as fallback
+      try {
+        final response = await HttpClient().get(
+          ApiConfig.getMyClasses,
+          requireAuth: true,
+        );
+        return TeacherClassesResponse.fromJson(response);
+      } catch (getError) {
+        throw Exception('Failed to get teacher classes: $e (GET fallback also failed: $getError)');
+      }
     }
   }
 
@@ -217,19 +227,35 @@ class TeacherClassService {
     int? sectionId,
   }) async {
     try {
-      // Build query parameters
-      final Map<String, String> queryParams = {};
-      if (classId != null) queryParams['class_id'] = classId.toString();
-      if (sectionId != null) queryParams['section_id'] = sectionId.toString();
+      // Build body parameters for POST request
+      final Map<String, String> bodyParams = {};
+      if (classId != null) bodyParams['class_id'] = classId.toString();
+      if (sectionId != null) bodyParams['section_id'] = sectionId.toString();
 
-      final response = await HttpClient().get(
+      // Try POST first (as other endpoints use POST)
+      final response = await HttpClient().post(
         ApiConfig.getMyStudents,
-        queryParams: queryParams.isNotEmpty ? queryParams : null,
+        body: bodyParams.isNotEmpty ? bodyParams : null,
+        requireAuth: true,
       );
 
       return TeacherStudentsResponse.fromJson(response);
     } catch (e) {
-      throw Exception('Failed to get teacher students: $e');
+      // If POST fails, try GET as fallback
+      try {
+        final Map<String, String> queryParams = {};
+        if (classId != null) queryParams['class_id'] = classId.toString();
+        if (sectionId != null) queryParams['section_id'] = sectionId.toString();
+
+        final response = await HttpClient().get(
+          ApiConfig.getMyStudents,
+          queryParams: queryParams.isNotEmpty ? queryParams : null,
+          requireAuth: true,
+        );
+        return TeacherStudentsResponse.fromJson(response);
+      } catch (getError) {
+        throw Exception('Failed to get teacher students: $e (GET fallback also failed: $getError)');
+      }
     }
   }
 
@@ -240,5 +266,25 @@ class TeacherClassService {
   }) async {
     return getMyStudents(classId: classId, sectionId: sectionId);
   }
-}
 
+  /// Get subjects for a class-section
+  static Future<Map<String, dynamic>> getSubjectsForClassSection({
+    required int classId,
+    required int sectionId,
+  }) async {
+    try {
+      final response = await HttpClient().get(
+        ApiConfig.getSubjectsForClassSection,
+        queryParams: {
+          'class_id': classId.toString(),
+          'section_id': sectionId.toString(),
+        },
+        requireAuth: true,
+      );
+
+      return response;
+    } catch (e) {
+      throw Exception('Failed to get subjects: $e');
+    }
+  }
+}

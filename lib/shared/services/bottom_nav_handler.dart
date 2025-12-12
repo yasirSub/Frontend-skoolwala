@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:skoolwala/features/dashboard/screens/dashboard_screen.dart';
 import 'package:skoolwala/features/teacher_attendance/simple_teacher_attendance.dart';
-import 'package:skoolwala/features/students/screens/students_list_screen.dart';
+import 'package:skoolwala/features/teacher/screens/my_classes_screen.dart';
 import 'package:skoolwala/features/profile/screens/profile_screen.dart';
 import 'package:skoolwala/shared/services/session_manager.dart';
 
@@ -101,26 +101,14 @@ class BottomNavHandler {
 
   /// Navigate to Students
   static void _navigateToStudents(BuildContext context) {
-    // Check if students screen is already in the navigation stack
-    bool studentsScreenExists = false;
-    Navigator.of(context).popUntil((route) {
-      if (route.settings.name?.contains('students') == true ||
-          route.settings.arguments is StudentsListScreen) {
-        studentsScreenExists = true;
-        return true;
-      }
-      return route.isFirst;
-    });
-
-    // If students screen not found, navigate to it
-    if (!studentsScreenExists) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => const StudentsListScreen(),
-          settings: const RouteSettings(name: 'students'),
-        ),
-      );
-    }
+    // Navigate to My Classes screen first, where user can select a class
+    // Then they can view students for that class
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const MyClassesScreen(),
+        settings: const RouteSettings(name: 'my_classes'),
+      ),
+    );
   }
 
   /// Navigate to Profile

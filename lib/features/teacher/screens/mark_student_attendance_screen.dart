@@ -491,6 +491,7 @@ class _MarkStudentAttendanceScreenState
                       ),
                       const SizedBox(height: 16),
                       TextField(
+                        controller: TextEditingController(text: currentRemark),
                         decoration: InputDecoration(
                           labelText: 'Remark (Optional)',
                           hintText: 'Enter remark...',
@@ -499,7 +500,6 @@ class _MarkStudentAttendanceScreenState
                           fillColor: Colors.grey.withOpacity(0.1),
                         ),
                         maxLines: 2,
-                        initialValue: currentRemark,
                         onChanged: (value) =>
                             _setAttendanceRemark(student.enrollId, value),
                       ),

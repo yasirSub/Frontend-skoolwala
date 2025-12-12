@@ -6,6 +6,7 @@ import 'package:skoolwala/features/auth/screens/login_screen.dart';
 import 'package:skoolwala/features/school/services/school_service.dart';
 import 'package:skoolwala/shared/models/school.dart';
 import 'package:skoolwala/shared/widgets/animated_face_scan.dart';
+import 'package:skoolwala/shared/services/persistent_storage.dart';
 
 class SchoolSelectionScreen extends StatefulWidget {
   const SchoolSelectionScreen({super.key});
@@ -26,6 +27,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen>
   void initState() {
     super.initState();
     _schoolsFuture = _service.fetchSchools();
+    _loadSavedSchool();
 
     // Make status bar transparent
     SystemChrome.setSystemUIOverlayStyle(
@@ -50,6 +52,35 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen>
             });
           })
           ..repeat(reverse: true);
+  }
+
+  /// Load saved school from SharedPreferences
+  Future<void> _loadSavedSchool() async {
+    try {
+      final savedSchool = await PersistentStorage.getSelectedSchool();
+      if (savedSchool != null) {
+        // Find matching school from the list
+        final schools = await _schoolsFuture;
+        final matchingSchool = schools.firstWhere(
+          (school) => school.id == savedSchool['id'],
+          orElse: () => School(
+            id: savedSchool['id']!,
+            name: savedSchool['name']!,
+            url: savedSchool['url']!,
+            textLogo: savedSchool['text_logo'] ?? '',
+            mainLogo: savedSchool['main_logo'] ?? '',
+          ),
+        );
+
+        if (mounted) {
+          setState(() {
+            _selectedSchool = matchingSchool;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading saved school: $e');
+    }
   }
 
   @override
@@ -104,7 +135,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen>
                     future: _schoolsFuture,
                     builder: (context, snapshot) {
                       if (snapshot.connectionState == ConnectionState.waiting) {
-                        return const SizedBox(
+                        return SizedBox(
                           height: 52,
                           child: Align(
                             alignment: Alignment.centerLeft,
@@ -158,7 +189,14 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen>
                                 ),
                               )
                               .toList(),
-                          onChanged: (v) => setState(() => _selectedSchool = v),
+                          onChanged: (v) {
+                            if (v != null) {
+                              print('🏫 School Selected: ${v.name}');
+                              print('   📝 Text Logo: ${v.textLogo}');
+                              print('   ⚙️ Main Logo: ${v.mainLogo}');
+                              setState(() => _selectedSchool = v);
+                            }
+                          },
                         ),
                       );
                     },
@@ -178,19 +216,137 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen>
                     ),
                     onPressed: _selectedSchool == null
                         ? null
-                        : () {
+                        : () async {
                             if (_selectedSchool == null) return;
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => LoginScreen(
-                                  schoolName: _selectedSchool!.name,
-                                ),
-                              ),
+
+                            // Save selected school to SharedPreferences
+                            print('💾 SchoolSelection: Saving school selection');
+                            print('   School ID (branch_id): ${_selectedSchool!.id}');
+                            print('   School Name: ${_selectedSchool!.name}');
+                            
+                            await PersistentStorage.saveSelectedSchool(
+                              schoolId: _selectedSchool!.id,
+                              schoolName: _selectedSchool!.name,
+                              schoolUrl: _selectedSchool!.url,
+                              textLogo: _selectedSchool!.textLogo,
+                              mainLogo: _selectedSchool!.mainLogo,
                             );
+
+                            // Verify it was saved
+                            final saved = await PersistentStorage.getSelectedSchool();
+                            print('✅ SchoolSelection: Verified saved school');
+                            print('   Saved ID: ${saved?['id']}');
+                            print('   Saved Name: ${saved?['name']}');
+
+                            if (mounted) {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => LoginScreen(
+                                    schoolName: _selectedSchool!.name,
+                                    mainLogo: _selectedSchool!.mainLogo,
+                                    branchId: _selectedSchool!.id, // Pass branch_id directly
+                                  ),
+                                ),
+                              );
+                            }
                           },
                     child: const Text('Proceed'),
                   ),
                 ),
+                const SizedBox(height: 12),
+                if (_selectedSchool != null)
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Show text logo if available
+                      if (_selectedSchool!.textLogo.isNotEmpty)
+                        Container(
+                          constraints: const BoxConstraints(maxHeight: 60),
+                          child: Image.network(
+                            _selectedSchool!.textLogo,
+                            height: 60,
+                            fit: BoxFit.contain,
+                            loadingBuilder: (context, child, loadingProgress) {
+                              if (loadingProgress == null) {
+                                print('✅ Text Logo loaded: ${_selectedSchool!.textLogo}');
+                                return child;
+                              }
+                              return const SizedBox(
+                                height: 60,
+                                child: Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  ),
+                                ),
+                              );
+                            },
+                            errorBuilder: (context, error, stackTrace) {
+                              print('❌ Text Logo failed to load: ${_selectedSchool!.textLogo}');
+                              print('   Error: $error');
+                              return const SizedBox.shrink();
+                            },
+                          ),
+                        ),
+                      // Show System Logo (mainLogo) if available
+                      if (_selectedSchool!.mainLogo.isNotEmpty)
+                        Padding(
+                          padding: EdgeInsets.only(
+                            top: _selectedSchool!.textLogo.isNotEmpty ? 12 : 0,
+                          ),
+                          child: Container(
+                            constraints: const BoxConstraints(maxHeight: 120),
+                            child: Image.network(
+                              _selectedSchool!.mainLogo,
+                              height: 120,
+                              fit: BoxFit.contain,
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) {
+                                  print('✅ Main Logo loaded: ${_selectedSchool!.mainLogo}');
+                                  return child;
+                                }
+                                return const SizedBox(
+                                  height: 120,
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
+                                  ),
+                                );
+                              },
+                              errorBuilder: (context, error, stackTrace) {
+                                print('❌ Main Logo failed to load: ${_selectedSchool!.mainLogo}');
+                                print('   Error: $error');
+                                return const SizedBox.shrink();
+                              },
+                            ),
+                          ),
+                        ),
+                      // Show message if no logos available
+                      if (_selectedSchool!.textLogo.isEmpty &&
+                          _selectedSchool!.mainLogo.isEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.orange.withOpacity(0.3),
+                            ),
+                          ),
+                          child: const Text(
+                            'No logo available for this school',
+                            style: TextStyle(
+                              color: Colors.orange,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 const Spacer(),
                 // Face scan image area - transparent for chroma key
                 Container(

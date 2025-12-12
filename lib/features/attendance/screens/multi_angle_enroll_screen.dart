@@ -27,7 +27,15 @@ class _MultiAngleEnrollScreenState extends State<MultiAngleEnrollScreen> {
 
   EnrollmentStep _currentStep = EnrollmentStep.straight;
   Timer? _captureTimer;
+  Timer? _livenessCheckTimer;
   List<FaceRecognitionResult> _capturedFaces = [];
+
+  // Motion/Liveness tracking for photo detection
+  List<double?> _leftEyeHistory = [];
+  List<double?> _rightEyeHistory = [];
+  int _blinkCount = 0;
+  bool _hasDetectedBlink = false;
+  bool _hasDetectedMovement = false;
 
   // Step configurations
   final Map<EnrollmentStep, Map<String, dynamic>> _stepConfig = {
@@ -119,17 +127,139 @@ class _MultiAngleEnrollScreenState extends State<MultiAngleEnrollScreen> {
 
   void _startFaceDetection() {
     _captureTimer?.cancel();
-    // Much slower timer to prevent buffer overflow
+    _livenessCheckTimer?.cancel();
+
+    // Reset liveness tracking when starting new step
+    _leftEyeHistory.clear();
+    _rightEyeHistory.clear();
+    _blinkCount = 0;
+    _hasDetectedBlink = false;
+    _hasDetectedMovement = false;
+
+    // Start continuous liveness checking (check every 500ms)
+    _livenessCheckTimer = Timer.periodic(const Duration(milliseconds: 500), (
+      timer,
+    ) {
+      _checkLivenessContinuously();
+    });
+
+    // Much slower timer for actual capture attempts
     _captureTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
       if (_busy) return; // Don't capture if already busy
       if (_capturedFaces.length >= 3) {
         // Stop timer if we already have all 3 faces
         timer.cancel();
         _captureTimer = null;
+        _livenessCheckTimer?.cancel();
         return;
       }
       _attemptCapture();
     });
+  }
+
+  Future<void> _checkLivenessContinuously() async {
+    if (_controller == null || !_controller!.value.isInitialized) return;
+    if (_busy) return;
+
+    try {
+      final x = await _controller!.takePicture();
+      final result = await GoogleMLFaceService.processCameraImage(x);
+
+      if (result == null) return;
+
+      final leftEye = result.face.leftEyeOpenProbability;
+      final rightEye = result.face.rightEyeOpenProbability;
+
+      // Track eye states
+      _leftEyeHistory.add(leftEye);
+      _rightEyeHistory.add(rightEye);
+
+      // Keep only last 10 frames
+      if (_leftEyeHistory.length > 10) {
+        _leftEyeHistory.removeAt(0);
+        _rightEyeHistory.removeAt(0);
+      }
+
+      // Update UI with helpful instructions based on frames collected
+      if (mounted && _leftEyeHistory.length > 0) {
+        String instructionStatus = 'Detecting face...';
+        if (_leftEyeHistory.length < 4) {
+          instructionStatus = 'Position your face in the frame...';
+        } else if (_leftEyeHistory.length < 8) {
+          instructionStatus = 'Please blink naturally...';
+        } else if (_hasDetectedMovement || _hasDetectedBlink) {
+          instructionStatus = 'Face detected! Hold position...';
+        } else {
+          instructionStatus = 'Please blink or move slightly...';
+        }
+
+        setState(() {
+          if (_error == null) {
+            _status = instructionStatus;
+          }
+        });
+      }
+
+      // Need at least 4 frames to check for blinking
+      if (_leftEyeHistory.length >= 4) {
+        // Check for blinking: eye state should change (open -> closed -> open)
+        for (int i = 1; i < _leftEyeHistory.length - 1; i++) {
+          final prev = _leftEyeHistory[i - 1];
+          final curr = _leftEyeHistory[i];
+          final next = _leftEyeHistory[i + 1];
+
+          if (prev != null && curr != null && next != null) {
+            // Detect blink: open -> closed -> open pattern
+            if (prev > 0.7 && curr < 0.3 && next > 0.7) {
+              _blinkCount++;
+              _hasDetectedBlink = true;
+              print('👁️ Blink detected! Total blinks: $_blinkCount');
+              break;
+            }
+
+            // Detect movement: ANY change in eye state (even small variations indicate live face)
+            // Real faces have natural micro-movements, photos are perfectly static
+            if ((prev - curr).abs() > 0.05 || (curr - next).abs() > 0.05) {
+              _hasDetectedMovement = true;
+            }
+
+            // Also check for any variation between left and right eyes (real faces have asymmetry)
+            if (_rightEyeHistory.length > i &&
+                i - 1 >= 0 &&
+                i < _rightEyeHistory.length) {
+              final rightPrev = _rightEyeHistory[i - 1];
+              final rightCurr = _rightEyeHistory[i];
+              if (rightPrev != null && rightCurr != null) {
+                // Natural asymmetry between eyes
+                final leftRightDiff =
+                    (prev - rightPrev).abs() + (curr - rightCurr).abs();
+                if (leftRightDiff > 0.1) {
+                  _hasDetectedMovement = true;
+                }
+              }
+            }
+          }
+        }
+
+        // Also check right eye
+        for (int i = 1; i < _rightEyeHistory.length - 1; i++) {
+          final prev = _rightEyeHistory[i - 1];
+          final curr = _rightEyeHistory[i];
+          final next = _rightEyeHistory[i + 1];
+
+          if (prev != null && curr != null && next != null) {
+            if (prev > 0.7 && curr < 0.3 && next > 0.7) {
+              _hasDetectedBlink = true;
+              print('👁️ Right eye blink detected!');
+              break;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      // Silently fail - this is just for liveness checking
+      print('Liveness check error: $e');
+    }
   }
 
   Future<void> _attemptCapture() async {
@@ -165,40 +295,113 @@ class _MultiAngleEnrollScreenState extends State<MultiAngleEnrollScreen> {
         return; // Face confidence too low, try again
       }
 
-      // Check for spoofing (photo detection) - LENIENT MODE for enrollment
-      // Use strict: false to be more lenient during enrollment
-      if (!SpoofingDetector.isLiveFace(result.face, strict: false)) {
-        final spoofingMessage = SpoofingDetector.getSpoofingMessage(result.face);
-        print('⚠️ Spoofing detected during enrollment: $spoofingMessage');
+      // MOTION-BASED SPOOFING PROTECTION: Require movement (more lenient for real faces)
+      // Photos are perfectly static - real faces have natural micro-movements
+      // Give users time and clear instructions before blocking
+
+      // Update status with helpful instructions
+      if (_leftEyeHistory.length < 8) {
+        // Give users instructions while we gather data
         setState(() {
-          _error = spoofingMessage;
-          _status = 'Face too small or invalid. Please move closer to camera.';
-          _busy = false;
+          _status = 'Detecting face... Please blink naturally and hold still.';
+          _error = null; // Clear error to show instructions instead
         });
-        
-        // Only show error for face size issues (more common legitimate issue)
-        final boundingBox = result.face.boundingBox;
-        final faceSize = boundingBox.width * boundingBox.height;
-        if (faceSize < 8000) {
+      }
+
+      // Only check after we have enough frames (8 frames = ~4 seconds) to make a decision
+      // Give users time to naturally blink/move before checking
+      if (_leftEyeHistory.length >= 8) {
+        // Check if face appears completely static (all eye values identical = photo)
+        bool isCompletelyStatic = true;
+        final first = _leftEyeHistory[0];
+        for (int i = 1; i < _leftEyeHistory.length; i++) {
+          final current = _leftEyeHistory[i];
+          if (first != null &&
+              current != null &&
+              (first - current).abs() > 0.01) {
+            // There's some variation - not completely static
+            isCompletelyStatic = false;
+            _hasDetectedMovement = true; // Set this if we see any variation
+            break;
+          }
+        }
+
+        // Only block if face is COMPLETELY static (all values identical) after 8 frames
+        // This gives users ~4 seconds to naturally move/blink
+        if (isCompletelyStatic) {
+          print(
+            '⚠️ Face appears completely static (all eye values identical) - likely a photo',
+          );
+          setState(() {
+            _error =
+                'Face appears static. Please use your live face. Blink naturally or move your head slightly.';
+            _status = 'Waiting for movement... Please blink or move naturally.';
+            _busy = false;
+          });
+
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
               content: Text(
-                'Face too small. Please move closer to the camera for better detection.',
+                '⚠️ Please blink naturally or move your head slightly. Photos are not accepted.',
               ),
               backgroundColor: Colors.orange,
-              duration: Duration(seconds: 3),
+              duration: Duration(seconds: 4),
             ),
           );
+          return;
         }
+      }
+
+      // If we haven't checked yet or detected movement, allow it to proceed
+      // Real faces have natural variation even when looking straight
+
+      // SPOOFING PROTECTION: Check if face is live (not a photo)
+      // Use strict: false for enrollment but still block obvious photos
+      if (!SpoofingDetector.isLiveFace(result.face, strict: false)) {
+        final spoofingMessage = SpoofingDetector.getSpoofingMessage(
+          result.face,
+        );
+        print(
+          '⚠️ Spoofing detected during multi-angle enrollment: $spoofingMessage',
+        );
+        setState(() {
+          _error = spoofingMessage;
+          _status = 'Please use your live face, not a photo.';
+          _busy = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(spoofingMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
         return;
       }
 
-      // Check liveness - LENIENT MODE for enrollment
-      // Use strict: false to allow natural eye states during enrollment
+      // SPOOFING PROTECTION: Check liveness indicators (photos will fail this)
+      // Even in lenient mode, basic liveness checks should pass
       if (!SpoofingDetector.checkLiveness(result.face, strict: false)) {
-        print('⚠️ Liveness check failed during enrollment (but lenient mode allows)');
-        // In lenient mode, this should rarely fail, but if it does, allow it anyway
-        // Only log for debugging
+        print('⚠️ Liveness check failed during multi-angle enrollment');
+        setState(() {
+          _error =
+              'Please use your live face. Blink naturally and ensure good lighting. Photos are not accepted.';
+          _status =
+              'Liveness check failed - please try again with your live face.';
+          _busy = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Please use your live face. Photos or screens cannot be used for enrollment.',
+            ),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 4),
+          ),
+        );
+        return;
       }
 
       // Check if face angle is appropriate for current step
@@ -297,20 +500,39 @@ class _MultiAngleEnrollScreenState extends State<MultiAngleEnrollScreen> {
 
   bool _isFaceAngleCorrect(Face face) {
     final headEulerAngleY = face.headEulerAngleY ?? 0;
+    final headEulerAngleZ = face.headEulerAngleZ ?? 0;
 
-    // For left angle, check if head is turned left (negative angle)
+    // For left angle, check if head is turned left (negative Y angle)
     if (_currentStep == EnrollmentStep.left) {
-      return headEulerAngleY <= -5.0; // Any left turn beyond 5 degrees
+      // More lenient: accept if turned left (negative Y) OR turned left on Z axis
+      final isLeftY = headEulerAngleY <= -8.0; // Left turn on Y axis
+      final isLeftZ = headEulerAngleZ <= -8.0; // Left turn on Z axis
+      print(
+        '🔍 Left check: Y=$headEulerAngleY (need <=-8), Z=$headEulerAngleZ (need <=-8) -> ${isLeftY || isLeftZ}',
+      );
+      return isLeftY || isLeftZ;
     }
 
-    // For right angle, check if head is turned right (positive angle)
+    // For right angle, check if head is turned right (positive Y angle)
     if (_currentStep == EnrollmentStep.right) {
-      return headEulerAngleY >= 5.0; // Any right turn beyond 5 degrees
+      // More lenient: accept if turned right (positive Y) OR turned right on Z axis
+      final isRightY = headEulerAngleY >= 8.0; // Right turn on Y axis
+      final isRightZ = headEulerAngleZ >= 8.0; // Right turn on Z axis
+      print(
+        '🔍 Right check: Y=$headEulerAngleY (need >=8), Z=$headEulerAngleZ (need >=8) -> ${isRightY || isRightZ}',
+      );
+      return isRightY || isRightZ;
     }
 
     // For straight, check if head is centered
     if (_currentStep == EnrollmentStep.straight) {
-      return headEulerAngleY.abs() <= 10.0; // Within 10 degrees of center
+      // More lenient: within 15 degrees of center on both axes
+      final isCenteredY = headEulerAngleY.abs() <= 15.0;
+      final isCenteredZ = headEulerAngleZ.abs() <= 15.0;
+      print(
+        '🔍 Straight check: Y=$headEulerAngleY (need |<=15|), Z=$headEulerAngleZ (need |<=15|) -> ${isCenteredY && isCenteredZ}',
+      );
+      return isCenteredY && isCenteredZ;
     }
 
     return false;
@@ -450,6 +672,7 @@ class _MultiAngleEnrollScreenState extends State<MultiAngleEnrollScreen> {
 
       // STEP 2: If no duplicate, proceed with enrollment
       print('✅ No duplicate found, proceeding with multi-angle enrollment...');
+      print('📤 Sending enrollment request to server...');
       final resp = await FaceApiService.enrollFaceMultiAngle(
         staffId: staffId,
         straightEmbedding: straightFace.embedding,
@@ -459,8 +682,14 @@ class _MultiAngleEnrollScreenState extends State<MultiAngleEnrollScreen> {
 
       if (!mounted) return;
 
+      // Print full response for debugging
+      print('📥 Enrollment Response: $resp');
+      print('📥 Response Status: ${resp['status']}');
+      print('📥 Response Message: ${resp['message'] ?? 'No message'}');
+
       // Check if response is valid
       if (resp.isEmpty) {
+        print('❌ Error: Empty response from server');
         setState(() {
           _error = 'No response from server. Please try again.';
           _busy = false;
@@ -469,15 +698,22 @@ class _MultiAngleEnrollScreenState extends State<MultiAngleEnrollScreen> {
       }
 
       if (resp['status'] == 'success') {
+        print('✅ Enrollment successful! Status: ${resp['status']}');
+        final successMessage =
+            resp['message']?.toString() ??
+            'Face enrolled successfully with multiple angles!';
+        print('✅ Success message: $successMessage');
+
         setState(() {
           _currentStep = EnrollmentStep.completed;
           _busy = false;
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Face enrolled successfully with multiple angles!'),
+          SnackBar(
+            content: Text(successMessage),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
           ),
         );
 
@@ -487,16 +723,43 @@ class _MultiAngleEnrollScreenState extends State<MultiAngleEnrollScreen> {
           }
         });
       } else {
+        final errorMessage = resp['message']?.toString() ?? 'Enrollment failed';
+        print('❌ Enrollment failed. Status: ${resp['status']}');
+        print('❌ Error message: $errorMessage');
+        print('❌ Full error response: $resp');
+
         setState(() {
-          _error = resp['message']?.toString() ?? 'Enrollment failed';
+          _error = errorMessage;
           _busy = false;
+          _currentStep = EnrollmentStep.straight;
+          _capturedFaces.clear();
         });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('❌ Enrollment Exception: $e');
+      print('❌ Stack Trace: $stackTrace');
       setState(() {
-        _error = 'Enrollment failed: $e';
+        _error = 'Enrollment failed: ${e.toString()}';
         _busy = false;
+        _currentStep = EnrollmentStep.straight;
+        _capturedFaces.clear();
       });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Enrollment error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
     } finally {
       setState(() {
         _busy = false;
@@ -509,6 +772,12 @@ class _MultiAngleEnrollScreenState extends State<MultiAngleEnrollScreen> {
     // Cancel any running timers
     _captureTimer?.cancel();
     _captureTimer = null;
+    _livenessCheckTimer?.cancel();
+    _livenessCheckTimer = null;
+
+    // Clear liveness tracking
+    _leftEyeHistory.clear();
+    _rightEyeHistory.clear();
 
     // Properly dispose camera controller
     _controller?.dispose();
@@ -560,9 +829,6 @@ class _MultiAngleEnrollScreenState extends State<MultiAngleEnrollScreen> {
                   right: 0,
                   child: _buildSimpleProgressIndicator(),
                 ),
-
-                // Center face guide - simplified
-                Center(child: _buildSimpleFaceGuide()),
 
                 // Error message overlay
                 if (_error != null)
@@ -622,10 +888,28 @@ class _MultiAngleEnrollScreenState extends State<MultiAngleEnrollScreen> {
 
   Widget _buildSimpleProgressIndicator() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Simple 3 dots
+          // Simple instruction text
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.7),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              _getCurrentInstruction(),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // 3 dots progress indicator
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -637,39 +921,26 @@ class _MultiAngleEnrollScreenState extends State<MultiAngleEnrollScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          // Simple instruction text with background for visibility
+          // Small progress line
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            height: 4,
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.7),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(2),
+              color: Colors.white.withOpacity(0.2),
             ),
-            child: Text(
-              _getCurrentInstruction(),
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          // Manual capture button
-          ElevatedButton.icon(
-            onPressed: _busy
-                ? null
-                : () {
-                    print('📸 Manual capture triggered');
-                    _attemptCapture();
-                  },
-            icon: const Icon(Icons.camera_alt, size: 16),
-            label: const Text('Capture Now'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(6),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor: _capturedFaces.length / 3,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(2),
+                  gradient: LinearGradient(
+                    colors: [
+                      _stepConfig[_currentStep]!['color'],
+                      _stepConfig[_currentStep]!['color'].withOpacity(0.7),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -684,7 +955,8 @@ class _MultiAngleEnrollScreenState extends State<MultiAngleEnrollScreen> {
 
     return Column(
       children: [
-        Container(
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
           width: 20,
           height: 20,
           decoration: BoxDecoration(
@@ -692,10 +964,20 @@ class _MultiAngleEnrollScreenState extends State<MultiAngleEnrollScreen> {
             color: isCompleted
                 ? Colors.green
                 : isCurrent
-                ? Colors.blue
+                ? _stepConfig[_currentStep]!['color'] as Color
                 : Colors.grey.withOpacity(0.5),
             border: isCurrent
                 ? Border.all(color: Colors.white, width: 2)
+                : null,
+            boxShadow: isCurrent
+                ? [
+                    BoxShadow(
+                      color: (_stepConfig[_currentStep]!['color'] as Color)
+                          .withOpacity(0.5),
+                      blurRadius: 8,
+                      spreadRadius: 2,
+                    ),
+                  ]
                 : null,
           ),
           child: isCompleted
@@ -874,17 +1156,16 @@ class _MultiAngleEnrollScreenState extends State<MultiAngleEnrollScreen> {
     );
   }
 
-  Widget _buildSimpleFaceGuide() {
-    return Container(
-      width: 200,
-      height: 200,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
-      ),
-      child: Center(
-        child: Icon(Icons.face, color: Colors.white.withOpacity(0.6), size: 40),
-      ),
-    );
+  int _getCurrentStepIndex() {
+    switch (_currentStep) {
+      case EnrollmentStep.straight:
+        return 0;
+      case EnrollmentStep.right:
+        return 1;
+      case EnrollmentStep.left:
+        return 2;
+      default:
+        return 0;
+    }
   }
 }

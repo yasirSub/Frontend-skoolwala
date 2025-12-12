@@ -41,16 +41,54 @@ class DashboardService {
     if (_debugLogs) {
       print('🔍 DashboardService Debug - Starting fetchDashboardData');
       print('🔍 DashboardService Debug - Username: $username');
-      print('🔍 DashboardService Debug - Session Manager logged in: ${SessionManager.instance.isLoggedIn}');
+      print(
+        '🔍 DashboardService Debug - Session Manager logged in: ${SessionManager.instance.isLoggedIn}',
+      );
     }
 
-    // Fetch teacher data first (login)
-    final teacher = await TeacherService.teacherLogin(
-      username: username,
-      password: password,
-    );
+    // Get user from SessionManager (already logged in from authentication)
+    Teacher? teacher = SessionManager.instance.currentTeacher;
+
+    // If user data not in session, try to fetch teacher data
+    // This handles the case where dashboard is called directly without going through auth flow
+    if (teacher == null) {
+      if (_debugLogs) {
+        print(
+          '🔍 DashboardService Debug - No teacher in session, attempting teacherLogin...',
+        );
+      }
+      try {
+        teacher = await TeacherService.teacherLogin(
+          username: username,
+          password: password,
+        );
+      } catch (e) {
+        // If teacher login fails, create a basic Teacher object from available data
+        if (_debugLogs) {
+          print(
+            '🔍 DashboardService Debug - Teacher login failed: $e, using session data',
+          );
+        }
+        // Re-throw if critical error
+        rethrow;
+      }
+    } else {
+      if (_debugLogs) {
+        print(
+          '🔍 DashboardService Debug - Using teacher from session: ${teacher.name}',
+        );
+      }
+    }
+
+    if (teacher == null) {
+      throw Exception('Failed to get user data for dashboard');
+    }
+
     if (_debugLogs) {
-      print('🔍 DashboardService Debug - Teacher login successful: ${teacher.name}');
+      print('🔍 DashboardService Debug - User role: ${teacher.role}');
+      print(
+        '🔍 DashboardService Debug - Dashboard data loaded for: ${teacher.name}',
+      );
     }
 
     // Fetch other data in parallel where possible
@@ -70,37 +108,58 @@ class DashboardService {
       }
     } catch (e) {
       // Error fetching school data
+      if (_debugLogs) {
+        print('🔍 DashboardService Debug - Error fetching school: $e');
+      }
     }
 
-    // Fetch attendance counts
-    try {
-      if (_debugLogs) print('🔍 DashboardService Debug - Fetching present days...');
-      final presentResponse =
-          await AttendanceService.getTeacherPresentDaysCount();
-      if (_debugLogs) print('🔍 DashboardService Debug - Present response: $presentResponse');
-      if (presentResponse['status'] == 'success' &&
-          presentResponse['data'] != null) {
-        presentDays = presentResponse['data']['present_days_count'] ?? 0;
-        if (_debugLogs) print('🔍 DashboardService Debug - Present days: $presentDays');
+    // Fetch attendance counts (only for teachers/staff, not for admins)
+    if (teacher.role == '3' || teacher.role == '4' || teacher.role == '5') {
+      try {
+        if (_debugLogs)
+          print('🔍 DashboardService Debug - Fetching present days...');
+        final presentResponse =
+            await AttendanceService.getTeacherPresentDaysCount();
+        if (_debugLogs)
+          print(
+            '🔍 DashboardService Debug - Present response: $presentResponse',
+          );
+        if (presentResponse['status'] == 'success' &&
+            presentResponse['data'] != null) {
+          presentDays = presentResponse['data']['present_days_count'] ?? 0;
+          if (_debugLogs)
+            print('🔍 DashboardService Debug - Present days: $presentDays');
+        }
+      } catch (e) {
+        if (_debugLogs)
+          print('🔍 DashboardService Debug - Error fetching present days: $e');
+        debugPrint('Error fetching present days: $e');
       }
-    } catch (e) {
-      if (_debugLogs) print('🔍 DashboardService Debug - Error fetching present days: $e');
-      debugPrint('Error fetching present days: $e');
-    }
 
-    try {
-      if (_debugLogs) print('🔍 DashboardService Debug - Fetching absent days...');
-      final absentResponse =
-          await AttendanceService.getTeacherAbsentDaysCount();
-      if (_debugLogs) print('🔍 DashboardService Debug - Absent response: $absentResponse');
-      if (absentResponse['status'] == 'success' &&
-          absentResponse['data'] != null) {
-        absentDays = absentResponse['data']['absent_days_count'] ?? 0;
-        if (_debugLogs) print('🔍 DashboardService Debug - Absent days: $absentDays');
+      try {
+        if (_debugLogs)
+          print('🔍 DashboardService Debug - Fetching absent days...');
+        final absentResponse =
+            await AttendanceService.getTeacherAbsentDaysCount();
+        if (_debugLogs)
+          print('🔍 DashboardService Debug - Absent response: $absentResponse');
+        if (absentResponse['status'] == 'success' &&
+            absentResponse['data'] != null) {
+          absentDays = absentResponse['data']['absent_days_count'] ?? 0;
+          if (_debugLogs)
+            print('🔍 DashboardService Debug - Absent days: $absentDays');
+        }
+      } catch (e) {
+        if (_debugLogs)
+          print('🔍 DashboardService Debug - Error fetching absent days: $e');
+        debugPrint('Error fetching absent days: $e');
       }
-    } catch (e) {
-      if (_debugLogs) print('🔍 DashboardService Debug - Error fetching absent days: $e');
-      debugPrint('Error fetching absent days: $e');
+    } else {
+      if (_debugLogs) {
+        print(
+          '🔍 DashboardService Debug - Skipping attendance fetch for non-teacher role: ${teacher.role}',
+        );
+      }
     }
 
     // Fetch class list for student count calculation
@@ -119,6 +178,9 @@ class DashboardService {
       }
     } catch (e) {
       // Error fetching class list
+      if (_debugLogs) {
+        print('🔍 DashboardService Debug - Error fetching class list: $e');
+      }
     }
 
     // 5. Fetch detailed teacher profile (optional - can fail)
@@ -129,6 +191,9 @@ class DashboardService {
       );
     } catch (e) {
       // Error fetching teacher profile - use basic teacher data
+      if (_debugLogs) {
+        print('🔍 DashboardService Debug - Error fetching teacher profile: $e');
+      }
     }
 
     if (_debugLogs) {

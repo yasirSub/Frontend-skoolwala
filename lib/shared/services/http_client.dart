@@ -10,7 +10,7 @@ class HttpClient {
 
   static String get baseUrl => ApiConfig.getBaseUrl();
   String? _sessionCookie;
-  static const bool _debugLogs = false; // disable verbose network logs
+  static const bool _debugLogs = false; // disable debug logs (authentication issue fixed)
 
   // Set session cookie from login response
   void setSessionCookie(String cookie) {
@@ -47,18 +47,28 @@ class HttpClient {
         requestHeaders['Cookie'] = _sessionCookie!;
       }
 
-      // Add auth credentials if required
+      // Prepare request body
+      var requestBody = body ?? {};
+
+      // Add auth credentials to body if required (PHP expects them in POST body, not headers)
       if (requireAuth && SessionManager.instance.hasValidSession) {
         final authData = SessionManager.instance.getAuthBody();
-        requestHeaders.addAll(authData);
+        requestBody.addAll(authData);
+        if (_debugLogs) {
+          print('🔐 Adding auth credentials to request body:');
+          print('   Username: ${authData['username']}');
+          print(
+            '   Password: ${authData['password'] != null ? '***' : 'null'}',
+          );
+        }
       }
 
       // Debug: Print the request
       if (_debugLogs) {
         print('🌐 API Call: POST $url');
         print('📤 Headers: $requestHeaders');
-        if (body != null) {
-          print('📤 Body: $body');
+        if (requestBody.isNotEmpty) {
+          print('📤 Body keys: ${requestBody.keys.toList()}');
         }
         print('🔍 Testing connection to: $baseUrl');
         print('📡 Sending HTTP request...');
@@ -67,8 +77,8 @@ class HttpClient {
           .post(
             url,
             headers: requestHeaders,
-            body: body != null
-                ? body.entries
+            body: requestBody.isNotEmpty
+                ? requestBody.entries
                       .map(
                         (e) =>
                             '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value.toString())}',
@@ -103,8 +113,29 @@ class HttpClient {
         print('📥 Response Body: ${response.body}');
       }
 
+      // Check if response is HTML (error page) instead of JSON
+      final responseBody = response.body.trim();
+      if (responseBody.startsWith('<!') || responseBody.startsWith('<html')) {
+        throw HttpException(
+          'Server returned HTML instead of JSON. The endpoint may not exist or there was a server error.\n'
+          'URL: $url\n'
+          'Status: ${response.statusCode}\n'
+          'Response preview: ${responseBody.length > 200 ? responseBody.substring(0, 200) + "..." : responseBody}',
+          response.statusCode,
+        );
+      }
+
       if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
+        try {
+          return jsonDecode(response.body) as Map<String, dynamic>;
+        } catch (e) {
+          throw HttpException(
+            'Failed to parse JSON response: $e\n'
+            'URL: $url\n'
+            'Response preview: ${responseBody.length > 200 ? responseBody.substring(0, 200) + "..." : responseBody}',
+            response.statusCode,
+          );
+        }
       } else {
         throw HttpException(
           'HTTP ${response.statusCode}: ${response.reasonPhrase}\nResponse: ${response.body}',
@@ -178,8 +209,29 @@ class HttpClient {
         print('📥 Response Body: ${response.body}');
       }
 
+      // Check if response is HTML (error page) instead of JSON
+      final responseBody = response.body.trim();
+      if (responseBody.startsWith('<!') || responseBody.startsWith('<html')) {
+        throw HttpException(
+          'Server returned HTML instead of JSON. The endpoint may not exist or there was a server error.\n'
+          'URL: $url\n'
+          'Status: ${response.statusCode}\n'
+          'Response preview: ${responseBody.length > 200 ? responseBody.substring(0, 200) + "..." : responseBody}',
+          response.statusCode,
+        );
+      }
+
       if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
+        try {
+          return jsonDecode(response.body) as Map<String, dynamic>;
+        } catch (e) {
+          throw HttpException(
+            'Failed to parse JSON response: $e\n'
+            'URL: $url\n'
+            'Response preview: ${responseBody.length > 200 ? responseBody.substring(0, 200) + "..." : responseBody}',
+            response.statusCode,
+          );
+        }
       } else {
         throw HttpException(
           'HTTP ${response.statusCode}: ${response.reasonPhrase}\nResponse: ${response.body}',
@@ -241,8 +293,29 @@ class HttpClient {
         print('📥 Response Body: ${response.body}');
       }
 
+      // Check if response is HTML (error page) instead of JSON
+      final responseBody = response.body.trim();
+      if (responseBody.startsWith('<!') || responseBody.startsWith('<html')) {
+        throw HttpException(
+          'Server returned HTML instead of JSON. The endpoint may not exist or there was a server error.\n'
+          'URL: $url\n'
+          'Status: ${response.statusCode}\n'
+          'Response preview: ${responseBody.length > 200 ? responseBody.substring(0, 200) + "..." : responseBody}',
+          response.statusCode,
+        );
+      }
+
       if (response.statusCode == 200) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
+        try {
+          return jsonDecode(response.body) as Map<String, dynamic>;
+        } catch (e) {
+          throw HttpException(
+            'Failed to parse JSON response: $e\n'
+            'URL: $url\n'
+            'Response preview: ${responseBody.length > 200 ? responseBody.substring(0, 200) + "..." : responseBody}',
+            response.statusCode,
+          );
+        }
       } else {
         throw HttpException(
           'HTTP ${response.statusCode}: ${response.reasonPhrase}\nResponse: ${response.body}',

@@ -3,7 +3,8 @@ import 'package:skoolwala/shared/models/teacher.dart';
 import 'package:skoolwala/shared/services/api_service.dart';
 import 'package:skoolwala/features/auth/services/profile_service.dart';
 import 'package:skoolwala/shared/services/session_manager.dart';
-import 'package:skoolwala/features/school/screens/school_selection_screen.dart';
+import 'package:skoolwala/features/auth/screens/login_screen.dart';
+import 'package:skoolwala/shared/services/persistent_storage.dart';
 import '../services/developer_attendance_service.dart';
 import '../services/dummy_data_service.dart';
 
@@ -664,22 +665,35 @@ class _DeveloperAttendanceFABState extends State<DeveloperAttendanceFAB>
           await ProfileService.logoutTeacher(username: widget.teacher.username);
         }
 
-        // Clear session and persistent storage
+        // Clear session and persistent storage (but keep selected school)
         await SessionManager.instance.logout();
 
-        // Navigate back to school selection screen
+        // Get saved school name for login screen
+        final savedSchool = await PersistentStorage.getSelectedSchool();
+        final schoolName = savedSchool?['name'] ?? 'SKOOLWALA INSTITUTION';
+
+        // Navigate to login screen (not school selection)
         if (mounted) {
           Navigator.of(navigatorContext).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const SchoolSelectionScreen()),
+            MaterialPageRoute(
+              builder: (_) => LoginScreen(schoolName: schoolName),
+            ),
             (route) => false,
           );
         }
       } catch (e) {
         // Even if logout fails, still clear session and navigate back
         await SessionManager.instance.logout();
+
+        // Get saved school name for login screen
+        final savedSchool = await PersistentStorage.getSelectedSchool();
+        final schoolName = savedSchool?['name'] ?? 'SKOOLWALA INSTITUTION';
+
         if (mounted) {
           Navigator.of(navigatorContext).pushAndRemoveUntil(
-            MaterialPageRoute(builder: (_) => const SchoolSelectionScreen()),
+            MaterialPageRoute(
+              builder: (_) => LoginScreen(schoolName: schoolName),
+            ),
             (route) => false,
           );
         }

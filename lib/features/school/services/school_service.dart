@@ -15,9 +15,15 @@ class SchoolService {
       // Parse the response directly since data is a list
       if (response['status'] == 'success' && response['data'] != null) {
         final schoolsData = response['data'] as List<dynamic>? ?? [];
-        return schoolsData
-            .map((schoolData) => School.fromApiResponse(schoolData))
-            .toList();
+        final schools = schoolsData.map((schoolData) {
+          // Debug: Print logo URLs for each school
+          print('🏫 School: ${schoolData['school_name']}');
+          print('   📝 Text Logo: ${schoolData['text_logo'] ?? 'null'}');
+          print('   ⚙️ Main Logo: ${schoolData['main_logo'] ?? 'null'}');
+          return School.fromApiResponse(schoolData);
+        }).toList();
+        print('✅ Loaded ${schools.length} schools with logos');
+        return schools;
       } else {
         throw Exception(
           'Failed to fetch schools: ${response['message'] ?? 'Unknown error'}',

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:skoolwala/shared/animations/animations.dart';
-import 'package:skoolwala/shared/config/api_config.dart';
 import 'package:skoolwala/features/auth/screens/login_screen.dart';
 import 'package:skoolwala/features/school/screens/school_selection_screen.dart';
 import 'package:skoolwala/features/dashboard/screens/dashboard_screen.dart';
@@ -51,7 +50,11 @@ class AppRoutes {
       case login:
         final args = settings.arguments as Map<String, dynamic>?;
         return CustomPageRoute(
-          child: LoginScreen(schoolName: args?['schoolName'] ?? 'SkoolWala'),
+          child: LoginScreen(
+            schoolName: args?['schoolName'] ?? 'SkoolWala',
+            branchId: args?['branchId'], // Pass branchId if provided
+            mainLogo: args?['mainLogo'],
+          ),
           transitionType: PageTransitionType.slideFromRight,
         );
 

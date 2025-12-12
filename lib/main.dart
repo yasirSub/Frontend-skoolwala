@@ -8,10 +8,16 @@ import 'shared/theme/app_theme.dart';
 import 'routes/app_routes.dart';
 
 void main() {
-  // ============================================================
-  // API CONFIGURATION
-  // ============================================================
-  //
+
+
+
+
+  //===================================================================================//
+  ///////////////////////////////-API CONFIGURATION-////////////////////////////////////
+  //==================================================================================//
+
+
+
   // You can use the centralized config file:
   // 1. Uncomment the import above: import 'shared/config/api_config.dart';
   // 2. Then use: ApiService.setOverrideBaseUrl(ApiConfig.developmentBaseUrl);
@@ -44,6 +50,7 @@ void main() {
   // }
 
   // Use production API URL from config
+
   ApiService.setOverrideBaseUrl(ApiConfig.getBaseUrl());
 
   // Debug which base URL is active

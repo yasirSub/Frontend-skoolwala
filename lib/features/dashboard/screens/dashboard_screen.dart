@@ -8,7 +8,6 @@ import 'package:skoolwala/features/dashboard/services/dashboard_service.dart';
 import 'package:skoolwala/features/dashboard/models/profile.dart';
 import 'package:skoolwala/features/attendance/screens/face_analyzer_screen.dart';
 import 'package:skoolwala/features/attendance/screens/face_verification_screen.dart';
-import 'package:skoolwala/features/attendance/screens/simple_enroll_screen.dart';
 import 'package:skoolwala/features/attendance/screens/quick_attendance_screen.dart';
 import 'package:skoolwala/features/attendance/screens/multi_angle_enroll_screen.dart';
 import 'package:skoolwala/features/attendance/screens/enrolled_faces_list_screen.dart';
@@ -20,8 +19,9 @@ import 'package:skoolwala/shared/services/session_manager.dart';
 import 'package:skoolwala/routes/app_routes.dart';
 import 'package:skoolwala/shared/widgets/custom_app_bar.dart';
 import 'package:skoolwala/shared/widgets/custom_bottom_nav_bar.dart';
+import 'package:skoolwala/shared/widgets/app_sidebar.dart';
 import 'package:skoolwala/features/dashboard/widgets/index.dart';
-import 'package:skoolwala/features/students/screens/students_list_screen.dart';
+import 'package:skoolwala/features/teacher/screens/my_classes_screen.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -152,6 +152,34 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
+  /// Logout and navigate to login screen
+  Future<void> _logout() async {
+    try {
+      // Clear session
+      await SessionManager.instance.logout();
+
+      // Navigate back to login
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          AppRoutes.login,
+          (route) => false,
+          arguments: {'schoolName': _schoolName ?? 'SkoolWala'},
+        );
+      }
+    } catch (e) {
+      print('❌ Dashboard Debug - Error logging out: $e');
+      // Clear session anyway and navigate
+      await SessionManager.instance.logout();
+      if (mounted) {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          AppRoutes.login,
+          (route) => false,
+          arguments: {'schoolName': _schoolName ?? 'SkoolWala'},
+        );
+      }
+    }
+  }
+
   Future<void> _load() async {
     try {
       // Use SessionManager credentials if available, otherwise use widget params
@@ -179,19 +207,22 @@ class _DashboardScreenState extends State<DashboardScreen>
         );
         print('❌ Session username: ${SessionManager.instance.currentUsername}');
 
-        // If no credentials available, show error and return
+        // If no credentials available, show error and redirect to login
         if (mounted) {
           setState(() {
             _isLoading = false;
           });
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Session expired. Please login again.'),
+              content: Text('Session expired. Redirecting to login...'),
               backgroundColor: Colors.red,
-              duration: Duration(seconds: 3),
+              duration: Duration(seconds: 2),
             ),
           );
         }
+
+        // Ensure user is logged out and sent back to login screen
+        await _logout();
         return;
       }
 
@@ -259,9 +290,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   Future<void> _openScan() async {
     // If not enrolled: open enrollment flow and refresh status only (no success banner)
     if (!_isEnrolled) {
-      // Use simple enroll screen for face enrollment
+      // Use multi-angle enroll screen for face enrollment
       await Navigator.of(context).push<bool>(
-        MaterialPageRoute(builder: (_) => const SimpleEnrollScreen()),
+        MaterialPageRoute(builder: (_) => const MultiAngleEnrollScreen()),
       );
       // Refresh enrollment state after returning - reload dashboard data
       try {
@@ -497,9 +528,11 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   // Navigate to students list screen
   void _openStudentsList() {
+    // Navigate to My Classes screen first, where user can select a class
+    // Then they can view students for that class
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const StudentsListScreen()),
+      MaterialPageRoute(builder: (_) => const MyClassesScreen()),
     );
   }
 
@@ -544,19 +577,54 @@ class _DashboardScreenState extends State<DashboardScreen>
       },
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        drawer: const AppSidebar(),
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(60),
           child: CustomAppBar(
             title: _schoolName ?? 'School',
             primaryColor: AppTheme.dashboardPrimary,
             showThemeToggle: true,
-            // Example: You can add more actions here
-            // actions: [
-            //   IconButton(
-            //     icon: const Icon(Icons.search),
-            //     onPressed: () {},
-            //   ),
-            // ],
+            leading: Builder(
+              builder: (context) => IconButton(
+                icon: const Icon(Icons.menu),
+                onPressed: () => Scaffold.of(context).openDrawer(),
+              ),
+            ),
+            actions: [
+              // Logout button - shows when user is NOT logged in (to get unstuck)
+              if (!SessionManager.instance.isLoggedIn)
+                IconButton(
+                  icon: const Icon(Icons.logout_rounded),
+                  onPressed: () async {
+                    // Show confirmation dialog
+                    final shouldLogout = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Logout'),
+                        content: const Text('Are you sure you want to logout?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(false),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(true),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.red,
+                            ),
+                            child: const Text('Logout'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (shouldLogout == true && mounted) {
+                      await _logout();
+                    }
+                  },
+                  tooltip: 'Logout',
+                ),
+            ],
           ),
         ),
         body: SafeArea(
@@ -644,7 +712,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   absentDays: _profile?.absentDays ?? 0,
                                   onAnalyticsTap: _openStatistics,
                                 ),
-                                const SizedBox(height: 20),
+                                // Quick Actions section hidden per request
+                                // const SizedBox(height: 20),
+                                // // Teacher Features Menu
+                                // const TeacherFeaturesMenu(),
+                                // const SizedBox(height: 20),
                                 // Check In/Out buttons hidden per request
                                 // Column(
                                 //   children: [
@@ -686,6 +758,56 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   onTap: _openTeacherAttendance,
                                   isEnrolled: _isEnrolled,
                                   isCheckedIn: _isCheckedIn,
+                                  username: widget.username,
+                                  password: widget.password,
+                                  onEnrollmentComplete: (success) async {
+                                    // Refresh enrollment status after enrollment
+                                    if (success) {
+                                      try {
+                                        final dashboardData =
+                                            await DashboardService.fetchDashboardData(
+                                              username: widget.username,
+                                              password: widget.password,
+                                            );
+                                        if (mounted) {
+                                          setState(() {
+                                            _isEnrolled = dashboardData
+                                                .teacher
+                                                .faceEnrolled;
+                                            _showEnrollSuccess = true;
+                                          });
+
+                                          ScaffoldMessenger.of(
+                                            context,
+                                          ).showSnackBar(
+                                            const SnackBar(
+                                              content: Text(
+                                                'Face enrolled successfully! You can now use attendance.',
+                                              ),
+                                              backgroundColor: Colors.green,
+                                              duration: Duration(seconds: 3),
+                                            ),
+                                          );
+
+                                          // Auto-hide success message
+                                          Future.delayed(
+                                            const Duration(seconds: 3),
+                                            () {
+                                              if (mounted) {
+                                                setState(() {
+                                                  _showEnrollSuccess = false;
+                                                });
+                                              }
+                                            },
+                                          );
+                                        }
+                                      } catch (e) {
+                                        print(
+                                          'Error refreshing enrollment status: $e',
+                                        );
+                                      }
+                                    }
+                                  },
                                 ),
                                 const SizedBox(height: 20),
                                 const SizedBox(height: 16),
@@ -726,86 +848,8 @@ class _DashboardScreenState extends State<DashboardScreen>
             );
           },
         ),
-        floatingActionButton: _ExpandableFloatingButton(
-          isExpanded: _isDevOptionsExpanded,
-          onToggle: () {
-            setState(() {
-              _isDevOptionsExpanded = !_isDevOptionsExpanded;
-            });
-          },
-          onSimpleEnroll: () async {
-            final enrollResult = await Navigator.of(context).push<bool>(
-              MaterialPageRoute(builder: (_) => const SimpleEnrollScreen()),
-            );
-            // Refresh enrolled status after returning - reload dashboard data
-            try {
-              final dashboardData = await DashboardService.fetchDashboardData(
-                username: widget.username,
-                password: widget.password,
-              );
-              if (mounted) {
-                setState(() {
-                  _isEnrolled = dashboardData.teacher.faceEnrolled;
-                  _showEnrollSuccess = enrollResult == true;
-                });
-
-                // Auto-hide enrollment success message after 3 seconds
-                if (enrollResult == true) {
-                  Future.delayed(const Duration(seconds: 3), () {
-                    if (mounted) {
-                      setState(() {
-                        _showEnrollSuccess = false;
-                      });
-                    }
-                  });
-                }
-              }
-            } catch (_) {}
-          },
-          onMultiAngleEnroll: () async {
-            final enrollResult = await Navigator.of(context).push<bool>(
-              MaterialPageRoute(builder: (_) => const MultiAngleEnrollScreen()),
-            );
-            // Refresh enrolled status after returning
-            try {
-              final dashboardData = await DashboardService.fetchDashboardData(
-                username: widget.username,
-                password: widget.password,
-              );
-              if (mounted) {
-                setState(() {
-                  _isEnrolled = dashboardData.teacher.faceEnrolled;
-                  _showEnrollSuccess = enrollResult == true;
-                });
-
-                if (enrollResult == true) {
-                  Future.delayed(const Duration(seconds: 3), () {
-                    if (mounted) {
-                      setState(() {
-                        _showEnrollSuccess = false;
-                      });
-                    }
-                  });
-                }
-              }
-            } catch (_) {}
-          },
-          // 3D Face Enroll removed per request
-          // Simple Face Enroll Home removed per request
-          onFaceAnalyzer: () async {
-            await Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const FaceAnalyzerScreen()),
-            );
-          },
-          onEnrolledList: () async {
-            await Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const EnrolledFacesListScreen(),
-              ),
-            );
-          },
-          onLogout: () {}, // Logout disabled
-        ),
+        // Floating dev tools button hidden as requested (kept in code but not shown)
+        floatingActionButton: null,
       ),
     );
   }
@@ -1966,10 +2010,16 @@ class _TeacherAttendanceCard extends StatelessWidget {
   final VoidCallback? onTap;
   final bool isEnrolled;
   final bool isCheckedIn;
+  final String? username;
+  final String? password;
+  final Function(bool)? onEnrollmentComplete;
   const _TeacherAttendanceCard({
     this.onTap,
     this.isEnrolled = false,
     this.isCheckedIn = false,
+    this.username,
+    this.password,
+    this.onEnrollmentComplete,
   });
 
   @override
@@ -1977,16 +2027,21 @@ class _TeacherAttendanceCard extends StatelessWidget {
     return InkWell(
       onTap: isEnrolled
           ? onTap
-          : () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Please enroll your face first to use attendance. Go to Profile > Face Enrollment',
-                  ),
-                  duration: Duration(seconds: 4),
-                  backgroundColor: Colors.orange,
+          : () async {
+              // Navigate to multi-angle enrollment screen when locked
+              final enrollResult = await Navigator.of(context).push<bool>(
+                MaterialPageRoute(
+                  builder: (_) => const MultiAngleEnrollScreen(),
                 ),
               );
+
+              // If enrollment was successful, refresh the enrollment status via callback
+              if (enrollResult == true && context.mounted) {
+                // Call the callback to refresh enrollment status
+                if (onEnrollmentComplete != null) {
+                  onEnrollmentComplete!(true);
+                }
+              }
             },
       borderRadius: BorderRadius.circular(16),
       child: Opacity(
@@ -2103,10 +2158,10 @@ class _TeacherAttendanceCard extends StatelessWidget {
 class _ExpandableFloatingButton extends StatelessWidget {
   final bool isExpanded;
   final VoidCallback onToggle;
-  final VoidCallback onSimpleEnroll;
   final VoidCallback onMultiAngleEnroll;
   // Removed: on3DFaceEnroll
   // Removed: onSimpleFaceEnrollHome
+  // Removed: onSimpleEnroll - using only multi-angle enroll
   final VoidCallback onFaceAnalyzer;
   final VoidCallback onEnrolledList;
   final VoidCallback onLogout;
@@ -2114,7 +2169,6 @@ class _ExpandableFloatingButton extends StatelessWidget {
   const _ExpandableFloatingButton({
     required this.isExpanded,
     required this.onToggle,
-    required this.onSimpleEnroll,
     required this.onMultiAngleEnroll,
     required this.onFaceAnalyzer,
     required this.onEnrolledList,
@@ -2128,16 +2182,7 @@ class _ExpandableFloatingButton extends StatelessWidget {
       children: [
         // Expanded Options
         if (isExpanded) ...[
-          // Compact icon-only debug tools
-          FloatingActionButton.small(
-            heroTag: 'fab-enroll-simple',
-            onPressed: onSimpleEnroll,
-            backgroundColor: Colors.blue[600],
-            foregroundColor: Colors.white,
-            tooltip: 'Simple Enroll',
-            child: const Icon(Icons.face_outlined),
-          ),
-          const SizedBox(height: 6),
+          // Compact icon-only tools
           FloatingActionButton.small(
             heroTag: 'fab-enroll-multi',
             onPressed: onMultiAngleEnroll,
@@ -2165,17 +2210,16 @@ class _ExpandableFloatingButton extends StatelessWidget {
             child: const Icon(Icons.list_alt_rounded),
           ),
           const SizedBox(height: 8),
-          // Logout button
-          // Logout button removed per user request
-          // FloatingActionButton.extended(
-          //   heroTag: 'fab-logout',
-          //   onPressed: onLogout,
-          //   backgroundColor: Colors.red[700],
-          //   foregroundColor: Colors.white,
-          //   icon: const Icon(Icons.logout),
-          //   label: const Text('Logout'),
-          // ),
-          // const SizedBox(height: 12),
+          // Logout button (visible in expanded state)
+          FloatingActionButton.extended(
+            heroTag: 'fab-logout',
+            onPressed: onLogout,
+            backgroundColor: Colors.red[700],
+            foregroundColor: Colors.white,
+            icon: const Icon(Icons.logout),
+            label: const Text('Logout'),
+          ),
+          const SizedBox(height: 12),
         ],
         // Main Toggle Button
         FloatingActionButton(

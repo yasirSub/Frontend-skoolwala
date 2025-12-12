@@ -53,7 +53,7 @@ class SessionManager {
     }
   }
 
-  /// Logout and clear session data
+  /// Logout and clear session data (keeps selected school)
   Future<void> logout() async {
     _currentTeacher = null;
     _currentUsername = null;
@@ -61,10 +61,25 @@ class SessionManager {
     _sessionCookie = null;
     _isLoggedIn = false;
 
-    // Clear all persistent storage (including first launch flag)
+    // Clear all persistent storage but keep selected school
     await PersistentStorage.clearAllData();
 
-    print('🔐 Session Manager: User logged out');
+    print('🔐 Session Manager: User logged out (school selection kept)');
+  }
+
+  /// Complete logout - clears everything including selected school
+  Future<void> completeLogout() async {
+    _currentTeacher = null;
+    _currentUsername = null;
+    _currentPassword = null;
+    _sessionCookie = null;
+    _isLoggedIn = false;
+
+    // Clear all persistent storage including selected school
+    await PersistentStorage.clearAllData();
+    await PersistentStorage.clearSelectedSchool();
+
+    print('🔐 Session Manager: Complete logout (all data cleared)');
   }
 
   /// Get authentication headers for API calls

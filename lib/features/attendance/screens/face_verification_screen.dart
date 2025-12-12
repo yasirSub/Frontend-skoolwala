@@ -12,6 +12,7 @@ import 'package:skoolwala/features/attendance/services/location_service.dart';
 import 'package:skoolwala/shared/services/session_manager.dart';
 import 'package:skoolwala/features/attendance/services/attendance_service.dart';
 import 'package:skoolwala/shared/widgets/location_verification_widget.dart';
+import 'package:skoolwala/features/teacher_attendance/simple/spoofing_detector.dart';
 
 class FaceVerificationScreen extends StatefulWidget {
   final bool verifyMode; // false => enroll, true => verify
@@ -246,7 +247,13 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen>
             _lastLeftEye = lEye;
             _lastRightEye = rEye;
           }
-          _livenessPassed = _livenessEvents >= 1 && (result.confidence >= 0.7);
+          // Enhanced liveness check with strict spoofing detection
+          final isLiveFace = SpoofingDetector.isLiveFace(result.face, strict: true);
+          final hasLiveness = SpoofingDetector.checkLiveness(result.face, strict: true);
+          _livenessPassed = _livenessEvents >= 2 && 
+                           (result.confidence >= 0.7) && 
+                           isLiveFace && 
+                           hasLiveness;
         } else {
           _livenessPassed = false;
           _lastLeftEye = null;
@@ -376,7 +383,7 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen>
                       : (target == 'left'
                             ? 'Turn your face to the LEFT slightly.'
                             : 'Turn your face to the RIGHT slightly.'))
-                : 'Please blink naturally to verify liveness.';
+                : 'Please blink naturally to verify liveness and use your live face (not a photo).';
           });
           return;
         }
@@ -411,6 +418,48 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen>
                   'Face quality is too low. Please ensure good lighting and look directly at the camera.';
             });
             return;
+          }
+          
+          // SPOOFING PROTECTION: During verification, check for photo spoofing (STRICT MODE)
+          if (widget.verifyMode) {
+            final face = result.face;
+            if (!SpoofingDetector.isLiveFace(face, strict: true)) {
+              final spoofingMessage = SpoofingDetector.getSpoofingMessage(face);
+              setState(() {
+                _errorMessage = spoofingMessage;
+              });
+              print('⚠️ Spoofing detected during verification: $spoofingMessage');
+              return;
+            }
+            
+            if (!SpoofingDetector.checkLiveness(face, strict: true)) {
+              setState(() {
+                _errorMessage = 'Please use your live face. Photos or screens are not accepted. Blink naturally.';
+              });
+              print('⚠️ Liveness check failed during verification');
+              return;
+            }
+          }
+          
+          // SPOOFING PROTECTION: During enrollment, check for photo spoofing (LENIENT MODE)
+          if (!widget.verifyMode) {
+            final face = result.face;
+            if (!SpoofingDetector.isLiveFace(face, strict: false)) {
+              final spoofingMessage = SpoofingDetector.getSpoofingMessage(face);
+              setState(() {
+                _errorMessage = spoofingMessage;
+              });
+              print('⚠️ Spoofing detected during enrollment: $spoofingMessage');
+              return;
+            }
+            
+            if (!SpoofingDetector.checkLiveness(face, strict: false)) {
+              setState(() {
+                _errorMessage = 'Please use your live face. Blink naturally and ensure good lighting.';
+              });
+              print('⚠️ Liveness check failed during enrollment');
+              return;
+            }
           }
 
           // Add a small delay to show the success state

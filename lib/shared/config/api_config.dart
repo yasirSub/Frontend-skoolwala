@@ -24,8 +24,7 @@ class ApiConfig {
   // ============================================
 
   /// Production API URL
-  static const String productionBaseUrl =
-      'https://school.firmbeginners.com/api';
+  static const String productionBaseUrl = 'https://skoolwala.com/api';
 
   /// Development API URL (local server)
   static const String developmentBaseUrl = 'http://192.168.31.129:8080/api';
@@ -55,16 +54,24 @@ class ApiConfig {
   // AUTHENTICATION ENDPOINTS
   // ============================================
 
-  static const String authLogin = 'auth/login';
+  static const String authLogin = 'v1/auth/login';
   static const String teacherLogin = 'teacherLogin';
   static const String teacherProfile = 'teacherProfile';
   static const String updateTeacherProfile = 'updateTeacherProfile';
   static const String uploadTeacherPhoto = 'uploadTeacherPhoto';
   static const String updateTeacherPassword = 'updateTeacherPassword';
+  static const String forgotPassword = 'forgotPassword';
+  static const String getRoleList = 'getRoleList';
   static const String getMyClasses = 'getMyClasses';
   static const String getMyStudents = 'getMyStudents';
   static const String markStudentAttendanceBulk = 'markStudentAttendanceBulk';
   static const String getStudentAttendanceReport = 'getStudentAttendanceReport';
+  static const String createHomework = 'createHomework';
+  static const String getMyHomeworks = 'getMyHomeworks';
+  static const String getHomeworkSubmissions = 'getHomeworkSubmissions';
+  static const String evaluateHomework = 'evaluateHomework';
+  static const String getSubjectsForClassSection = 'getSubjectsForClassSection';
+  static const String getTeacherTimetable = 'getTeacherTimetable';
   static const String getStaffList = 'getStaffList';
 
   // ============================================
@@ -92,6 +99,32 @@ class ApiConfig {
   static const String teacherPresentDaysCount = 'teacherPresentDaysCount';
   static const String teacherAbsentDaysCount = 'teacherAbsentDaysCount';
   static const String deleteAttendance = 'deleteAttendance';
+
+  // ============================================
+  // LIBRARY ENDPOINTS
+  // ============================================
+
+  static const String getBookList = 'getBookList';
+  static const String issueBook = 'issueBook';
+  static const String getIssuedBooks = 'getIssuedBooks';
+  static const String returnBook = 'returnBook';
+
+  // ============================================
+  // EVENT ENDPOINTS
+  // ============================================
+
+  static const String getEvents = 'getEvents';
+  static const String createEvent = 'createEvent';
+  static const String updateEvent = 'updateEvent';
+  static const String deleteEvent = 'deleteEvent';
+
+  // ============================================
+  // MESSAGE ENDPOINTS
+  // ============================================
+
+  static const String getMessages = 'getMessages';
+  static const String markMessageAsRead = 'markMessageAsRead';
+  static const String sendMessage = 'sendMessage';
 
   // ============================================
   // FACE RECOGNITION ENDPOINTS

@@ -10,6 +10,12 @@ class PersistentStorage {
   static const String _keyTeacherData = 'teacher_data';
   static const String _keySessionCookie = 'session_cookie';
   static const String _keySchoolName = 'school_name';
+  static const String _keySelectedSchool =
+      'selected_school'; // Persists after logout
+  static const String _keySelectedSchoolId = 'selected_school_id';
+  static const String _keySelectedSchoolUrl = 'selected_school_url';
+  static const String _keySelectedSchoolTextLogo = 'selected_school_text_logo';
+  static const String _keySelectedSchoolMainLogo = 'selected_school_main_logo';
   static const String _keyIsFirstLaunch = 'is_first_launch';
 
   static SharedPreferences? _prefs;
@@ -111,13 +117,116 @@ class PersistentStorage {
     }
   }
 
-  /// Clear all app data (for logout)
+  /// Clear all app data (for logout) - but keep selected school
   static Future<void> clearAllData() async {
     await init();
 
     if (_prefs != null) {
+      // Save selected school before clearing
+      final selectedSchool = _prefs!.getString(_keySelectedSchool);
+      final selectedSchoolId = _prefs!.getString(_keySelectedSchoolId);
+      final selectedSchoolUrl = _prefs!.getString(_keySelectedSchoolUrl);
+      final selectedSchoolTextLogo = _prefs!.getString(
+        _keySelectedSchoolTextLogo,
+      );
+      final selectedSchoolMainLogo = _prefs!.getString(
+        _keySelectedSchoolMainLogo,
+      );
+
+      // Clear all data
       await _prefs!.clear();
-      print('💾 Persistent Storage: All data cleared');
+
+      // Restore selected school
+      if (selectedSchool != null) {
+        await _prefs!.setString(_keySelectedSchool, selectedSchool);
+        if (selectedSchoolId != null) {
+          await _prefs!.setString(_keySelectedSchoolId, selectedSchoolId);
+        }
+        if (selectedSchoolUrl != null) {
+          await _prefs!.setString(_keySelectedSchoolUrl, selectedSchoolUrl);
+        }
+        if (selectedSchoolTextLogo != null) {
+          await _prefs!.setString(
+            _keySelectedSchoolTextLogo,
+            selectedSchoolTextLogo,
+          );
+        }
+        if (selectedSchoolMainLogo != null) {
+          await _prefs!.setString(
+            _keySelectedSchoolMainLogo,
+            selectedSchoolMainLogo,
+          );
+        }
+        print(
+          '💾 Persistent Storage: All data cleared, but kept selected school: $selectedSchool',
+        );
+      } else {
+        print('💾 Persistent Storage: All data cleared');
+      }
+    }
+  }
+
+  /// Save selected school (persists across logout)
+  static Future<void> saveSelectedSchool({
+    required String schoolId,
+    required String schoolName,
+    required String schoolUrl,
+    String? textLogo,
+    String? mainLogo,
+  }) async {
+    await init();
+    if (_prefs != null) {
+      await _prefs!.setString(_keySelectedSchool, schoolName);
+      await _prefs!.setString(_keySelectedSchoolId, schoolId);
+      await _prefs!.setString(_keySelectedSchoolUrl, schoolUrl);
+      if (textLogo != null) {
+        await _prefs!.setString(_keySelectedSchoolTextLogo, textLogo);
+      }
+      if (mainLogo != null) {
+        await _prefs!.setString(_keySelectedSchoolMainLogo, mainLogo);
+      }
+      print('💾 Persistent Storage: Selected school saved');
+      print('   School ID (branch_id): $schoolId');
+      print('   School Name: $schoolName');
+      print('   School URL: $schoolUrl');
+    }
+  }
+
+  /// Get selected school (persists across logout)
+  static Future<Map<String, String>?> getSelectedSchool() async {
+    await init();
+    final schoolName = _prefs?.getString(_keySelectedSchool);
+    final schoolId = _prefs?.getString(_keySelectedSchoolId);
+    final schoolUrl = _prefs?.getString(_keySelectedSchoolUrl);
+    final textLogo = _prefs?.getString(_keySelectedSchoolTextLogo);
+    final mainLogo = _prefs?.getString(_keySelectedSchoolMainLogo);
+
+    if (schoolName != null && schoolId != null && schoolUrl != null) {
+      print('📖 Persistent Storage: Retrieved selected school');
+      print('   School ID (branch_id): $schoolId');
+      print('   School Name: $schoolName');
+      return {
+        'id': schoolId,
+        'name': schoolName,
+        'url': schoolUrl,
+        'text_logo': textLogo ?? '',
+        'main_logo': mainLogo ?? '',
+      };
+    }
+    print('⚠️ Persistent Storage: No selected school found');
+    return null;
+  }
+
+  /// Clear selected school (only when user explicitly changes it or clears cache)
+  static Future<void> clearSelectedSchool() async {
+    await init();
+    if (_prefs != null) {
+      await _prefs!.remove(_keySelectedSchool);
+      await _prefs!.remove(_keySelectedSchoolId);
+      await _prefs!.remove(_keySelectedSchoolUrl);
+      await _prefs!.remove(_keySelectedSchoolTextLogo);
+      await _prefs!.remove(_keySelectedSchoolMainLogo);
+      print('💾 Persistent Storage: Selected school cleared');
     }
   }
 

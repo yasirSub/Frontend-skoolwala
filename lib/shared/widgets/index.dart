@@ -6,3 +6,4 @@ export 'error_handler.dart';
 export 'face_wireframe.dart';
 export 'location_verification_widget.dart';
 export 'simple_face_wireframe.dart';
+export 'app_loading_indicator.dart';
