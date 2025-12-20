@@ -6,11 +6,13 @@ import 'package:skoolwala/shared/config/api_config.dart';
 import 'package:skoolwala/shared/theme/app_theme.dart';
 import 'package:skoolwala/features/dashboard/services/dashboard_service.dart';
 import 'package:skoolwala/features/dashboard/models/profile.dart';
-import 'package:skoolwala/features/attendance/screens/face_analyzer_screen.dart';
+
 import 'package:skoolwala/features/attendance/screens/face_verification_screen.dart';
 import 'package:skoolwala/features/attendance/screens/quick_attendance_screen.dart';
 import 'package:skoolwala/features/attendance/screens/multi_angle_enroll_screen.dart';
 import 'package:skoolwala/features/attendance/screens/enrolled_faces_list_screen.dart';
+import 'package:skoolwala/features/attendance/screens/face_analyzer_screen.dart';
+
 import 'package:skoolwala/features/profile/screens/profile_screen.dart';
 import 'package:skoolwala/features/teacher_attendance/simple_teacher_attendance.dart';
 import 'package:skoolwala/shared/models/teacher.dart';
@@ -21,7 +23,10 @@ import 'package:skoolwala/shared/widgets/custom_app_bar.dart';
 import 'package:skoolwala/shared/widgets/custom_bottom_nav_bar.dart';
 import 'package:skoolwala/shared/widgets/app_sidebar.dart';
 import 'package:skoolwala/features/dashboard/widgets/index.dart';
+import 'package:skoolwala/features/dashboard/widgets/single_class_widget.dart';
 import 'package:skoolwala/features/teacher/screens/my_classes_screen.dart';
+import 'package:skoolwala/features/teacher/screens/teacher_schedule_screen.dart';
+import 'package:skoolwala/shared/widgets/app_loading_indicator.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -41,7 +46,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   Profile? _profile;
   Teacher? _teacher;
   TeacherProfile? _teacherProfile;
@@ -64,8 +69,17 @@ class _DashboardScreenState extends State<DashboardScreen>
   late AnimationController _barsAnimationController;
   late Animation<double> _appBarAnimation;
   late Animation<double> _bottomBarAnimation;
-  bool _showBars = true;
-  double _lastScrollOffset = 0;
+  final bool _showBars = true;
+  final double _lastScrollOffset = 0;
+
+  // Staggered Entrance Animations
+  late AnimationController _entranceController;
+  late Animation<double> _profileAnimation;
+  late Animation<double> _timerAnimation;
+  late Animation<double> _classAnimation;
+  late Animation<double> _statsTitleAnimation;
+  late Animation<double> _statsContentAnimation;
+  late Animation<double> _attendanceCardAnimation;
 
   @override
   void initState() {
@@ -93,11 +107,55 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     _barsAnimationController.forward();
 
+    // Initialize Entrance Animation Controller
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+
+    _profileAnimation = CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0.0, 0.6, curve: Curves.easeOutCubic),
+    );
+
+    _timerAnimation = CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0.1, 0.7, curve: Curves.easeOutCubic),
+    );
+
+    _classAnimation = CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0.2, 0.8, curve: Curves.easeOutCubic),
+    );
+
+    _statsTitleAnimation = CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0.3, 0.8, curve: Curves.easeOutCubic),
+    );
+
+    _statsContentAnimation = CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0.35, 0.9, curve: Curves.easeOutCubic),
+    );
+
+    _attendanceCardAnimation = CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0.4, 1.0, curve: Curves.easeOutCubic),
+    );
+
+    // Play initial animation
+    _playEntranceAnimation();
+
     _load();
+  }
+
+  void _playEntranceAnimation() {
+    _entranceController.forward(from: 0.0);
   }
 
   @override
   void dispose() {
+    _entranceController.dispose();
     _barsAnimationController.dispose();
     super.dispose();
   }
@@ -368,6 +426,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     // Refresh dashboard data after returning
     if (mounted) {
       await _load();
+      _playEntranceAnimation();
     }
   }
 
@@ -395,15 +454,20 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     if (_teacher != null) {
       print('🔍 Profile Debug - Navigating to profile with teacher data');
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => ProfileScreen(
-            teacher: _teacher!,
-            schoolName: _schoolName,
-            teacherProfile: _teacherProfile,
-          ),
-        ),
-      );
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute(
+              builder: (_) => ProfileScreen(
+                teacher: _teacher!,
+                schoolName: _schoolName,
+                teacherProfile: _teacherProfile,
+              ),
+            ),
+          )
+          .then((_) {
+            _load();
+            _playEntranceAnimation();
+          });
     } else {
       print('🔍 Profile Debug - Teacher data is null, showing error');
       // Show error message to user
@@ -431,7 +495,10 @@ class _DashboardScreenState extends State<DashboardScreen>
         context,
         staffId: _teacher!.id,
         baseUrl: ApiConfig.getBaseUrl().replaceAll('/api', '/index.php'),
-      );
+      ).then((_) {
+        _load();
+        _playEntranceAnimation();
+      });
     } else {
       print('🔍 Statistics Debug - Teacher data is null, showing error');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -446,76 +513,125 @@ class _DashboardScreenState extends State<DashboardScreen>
   // Build bottom navigation bar using reusable widget
   // Navigation is now handled automatically by CustomBottomNavBar
   Widget _buildBottomNavigationBar() {
+    // Get navigation items based on user role
+    final userRole = SessionManager.instance.currentTeacher?.role;
+    final navItems = BottomNavConfigs.getItemsForRole(userRole);
+
+    // Check if user is a teacher (role can be numeric like "3" or string like "Teacher")
+    // Role 3 is typically teacher role ID, or check if role contains 'teacher'/'instructor'
+    final isTeacher =
+        userRole != null &&
+        (userRole == '3' || // Numeric teacher role ID
+            userRole.toLowerCase().contains('teacher') ||
+            userRole.toLowerCase().contains('instructor') ||
+            userRole.toLowerCase().contains('staff') // Staff are teachers
+            );
+
+    print('\n🔍 Bottom Nav Debug:');
+    print('👨‍🏫 User Role: $userRole (type: ${userRole.runtimeType})');
+    print('🏷️ Is Teacher: $isTeacher');
+    print('📋 Nav Items Count: ${navItems.length}');
+
     return CustomBottomNavBar(
       currentIndex: _selectedIndex,
       primaryColor: AppTheme.dashboardPrimary,
       accentColor: AppTheme.dashboardAccentLight,
-      items: BottomNavConfigs.dashboardItems,
-      // Custom onTap for dashboard-specific actions (refresh on home tap)
+      items: navItems,
+      // Custom onTap for dashboard-specific actions
       onTap: (index) {
+        print('\n🔘 Bottom Nav Tapped - Index: $index');
+        print('🏷️ Is Teacher: $isTeacher');
+
+        // Make sure index is valid
+        if (index >= navItems.length) {
+          print('❌ Index $index is out of bounds for ${navItems.length} items');
+          return;
+        }
+
         setState(() {
           _selectedIndex = index;
         });
 
-        if (index == 0) {
-          // Home - already on dashboard, just refresh or scroll to top
-          return;
-        }
+        // Get the label of the tapped item to determine navigation
+        final itemLabel = navItems[index].label.toLowerCase().trim();
+        print(
+          '📍 Index $index: "${navItems[index].label}" (label: "$itemLabel")',
+        );
 
-        // For other tabs, use centralized navigation
-        // But we can still keep custom methods if needed
-        switch (index) {
-          case 1: // Attendance
-            _openTeacherAttendance();
-            break;
-          case 2: // Classes
-            _openClasses();
-            break;
-          case 3: // Students
-            _openStudentsList();
-            break;
-          case 4: // Profile
-            _openProfile();
-            break;
+        // Navigate based on item label (works for all roles)
+        if (itemLabel.contains('home')) {
+          print('📍 Home tapped');
+          return; // Already on dashboard
+        } else if (itemLabel.contains('attendance')) {
+          print('📍 Attendance tapped');
+          _openTeacherAttendance();
+        } else if (itemLabel.contains('schedule')) {
+          print('📍 Schedule tapped - Opening TeacherScheduleScreen');
+          _openTeacherSchedule();
+        } else if (itemLabel.contains('class')) {
+          print('📍 Classes tapped');
+          _openClasses();
+        } else if (itemLabel.contains('student')) {
+          print('📍 Students tapped');
+          _openStudentsList();
+        } else if (itemLabel.contains('profile')) {
+          print('📍 Profile tapped');
+          _openProfile();
+        } else {
+          print('❌ Unknown label: $itemLabel');
         }
       },
       autoNavigation: false, // Dashboard has custom navigation logic
     );
   }
 
-  // Navigate to classes screen
-  Future<void> _openClasses() async {
+  // Navigate to teacher schedule screen
+  Future<void> _openTeacherSchedule() async {
     try {
-      final baseUrl = ApiConfig.getBaseUrl().replaceAll('/api', '/index.php');
-      final response = await http.post(
-        Uri.parse('$baseUrl/api/getClassList'),
-        headers: {'Content-Type': 'application/json'},
+      print('\n🔍 DEBUG: _openTeacherSchedule called');
+      print(
+        '📱 Current user role: ${SessionManager.instance.currentTeacher?.role}',
       );
+      print('👨‍🏫 Teacher ID: ${SessionManager.instance.currentTeacher?.id}');
+      print('📝 Teacher Name: ${SessionManager.instance.currentTeacher?.name}');
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['status'] == 'success') {
-          if (mounted) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => _ClassesScreen(classes: data['data'] ?? []),
-              ),
-            );
-          }
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(data['message'] ?? 'Failed to load classes'),
-            ),
-          );
-        }
+      if (mounted) {
+        print('✅ Context is mounted, pushing TeacherScheduleScreen');
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => const TeacherScheduleScreen(),
+            settings: const RouteSettings(name: 'teacher_schedule'),
+          ),
+        ).then((_) {
+          print('✅ TeacherScheduleScreen popped (returned)');
+          _load(); // Refresh dashboard data
+          _playEntranceAnimation();
+        });
+      } else {
+        print('❌ Context is not mounted!');
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      print('❌ Error navigating to schedule: $e');
+      print('📍 Stack trace: ${StackTrace.current}');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     }
+  }
+
+  // Navigate to classes screen (Today's Schedule)
+  Future<void> _openClasses() async {
+    // Navigate to Teacher Schedule screen (Today's Schedule with Classes/View tabs)
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const TeacherScheduleScreen()),
+    ).then((_) {
+      _load();
+      _playEntranceAnimation();
+    }); // Refresh dashboard data on return
   }
 
   // Navigate to teachers list screen
@@ -523,17 +639,16 @@ class _DashboardScreenState extends State<DashboardScreen>
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const _TeachersListScreen()),
-    );
+    ).then((_) => _playEntranceAnimation());
   }
 
   // Navigate to students list screen
   void _openStudentsList() {
-    // Navigate to My Classes screen first, where user can select a class
-    // Then they can view students for that class
+    // Navigate to My Classes screen where teacher can select a class to view students
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const MyClassesScreen()),
-    );
+    ).then((_) => _playEntranceAnimation());
   }
 
   // Deprecated: Old class selection method - keeping for reference
@@ -576,20 +691,20 @@ class _DashboardScreenState extends State<DashboardScreen>
         return false;
       },
       child: Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        drawer: const AppSidebar(),
+        extendBodyBehindAppBar: true,
+        backgroundColor: Colors.transparent,
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(60),
           child: CustomAppBar(
             title: _schoolName ?? 'School',
-            primaryColor: AppTheme.dashboardPrimary,
-            showThemeToggle: true,
-            leading: Builder(
-              builder: (context) => IconButton(
-                icon: const Icon(Icons.menu),
-                onPressed: () => Scaffold.of(context).openDrawer(),
-              ),
+            backgroundColor: Colors.transparent,
+            gradient: const LinearGradient(
+              colors: [Colors.transparent, Colors.transparent],
             ),
+            elevation: 0,
+            showRoundedCorners: false,
+            showThemeToggle: true,
+            automaticallyImplyLeading: true,
             actions: [
               // Logout button - shows when user is NOT logged in (to get unstuck)
               if (!SessionManager.instance.isLoggedIn)
@@ -627,215 +742,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             ],
           ),
         ),
-        body: SafeArea(
-          child: _isLoading
-              ? const ModernLoadingView()
-              : RefreshIndicator(
-                  onRefresh: _load,
-                  color: const Color(0xFF2A2376),
-                  backgroundColor: Colors.white,
-                  child: NotificationListener<ScrollNotification>(
-                    onNotification: (notification) {
-                      if (notification is ScrollUpdateNotification) {
-                        final offset = notification.metrics.pixels;
-
-                        if (offset > _lastScrollOffset + 5 && _showBars) {
-                          // Scrolling down - hide bars
-                          setState(() => _showBars = false);
-                          _barsAnimationController.reverse();
-                        } else if (offset < _lastScrollOffset - 5 &&
-                            !_showBars) {
-                          // Scrolling up - show bars
-                          setState(() => _showBars = true);
-                          _barsAnimationController.forward();
-                        } else if (offset < 50 && !_showBars) {
-                          // Near top - always show bars
-                          setState(() => _showBars = true);
-                          _barsAnimationController.forward();
-                        }
-
-                        _lastScrollOffset = offset;
-                      }
-                      return false;
-                    },
-                    child: CustomScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(
-                        parent: BouncingScrollPhysics(),
-                      ),
-                      slivers: [
-                        SliverToBoxAdapter(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const SizedBox(height: 20),
-                              ProfileCard(
-                                profile: _profile,
-                                onProfileTap: _openProfile,
-                                isEnrolled: _isEnrolled,
-                              ),
-                              const SizedBox(height: 20),
-                              if (_teacher != null)
-                                WorkingTimerCard(
-                                  key: _timerKey,
-                                  teacher: _teacher,
-                                ),
-                              if (_teacher != null) const SizedBox(height: 20),
-                            ],
-                          ),
-                        ),
-                        SliverToBoxAdapter(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      'Your Statistics',
-                                      style: TextStyle(
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w800,
-                                        color: Theme.of(
-                                          context,
-                                        ).textTheme.bodyLarge?.color,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                _StatCardsRow(
-                                  presentDays: _profile?.presentDays ?? 0,
-                                  absentDays: _profile?.absentDays ?? 0,
-                                  onAnalyticsTap: _openStatistics,
-                                ),
-                                // Quick Actions section hidden per request
-                                // const SizedBox(height: 20),
-                                // // Teacher Features Menu
-                                // const TeacherFeaturesMenu(),
-                                // const SizedBox(height: 20),
-                                // Check In/Out buttons hidden per request
-                                // Column(
-                                //   children: [
-                                //     Row(
-                                //       children: [
-                                //         Expanded(
-                                //           child: _CheckInOutButton(
-                                //             title: 'Check In',
-                                //             icon: Icons.login_rounded,
-                                //             color: Colors.green[600]!,
-                                //             onTap: _isEnrolled
-                                //                 ? () => _openQuickAttendance(
-                                //                     'checkin',
-                                //                   )
-                                //                 : null,
-                                //           ),
-                                //         ),
-                                //         const SizedBox(width: 12),
-                                //         Expanded(
-                                //           child: _CheckInOutButton(
-                                //             title: 'Check Out',
-                                //             icon: Icons.logout_rounded,
-                                //             color: Colors.red[600]!,
-                                //             onTap: _isEnrolled
-                                //                 ? () => _openQuickAttendance(
-                                //                     'checkout',
-                                //                   )
-                                //                 : null,
-                                //           ),
-                                //         ),
-                                //       ],
-                                //     ),
-                                //     // Manual Mark attendance card hidden per request
-                                //     // F2F registration/analyzer hidden per request
-                                //   ],
-                                // ),
-                                const SizedBox(height: 16),
-                                _TeacherAttendanceCard(
-                                  onTap: _openTeacherAttendance,
-                                  isEnrolled: _isEnrolled,
-                                  isCheckedIn: _isCheckedIn,
-                                  username: widget.username,
-                                  password: widget.password,
-                                  onEnrollmentComplete: (success) async {
-                                    // Refresh enrollment status after enrollment
-                                    if (success) {
-                                      try {
-                                        final dashboardData =
-                                            await DashboardService.fetchDashboardData(
-                                              username: widget.username,
-                                              password: widget.password,
-                                            );
-                                        if (mounted) {
-                                          setState(() {
-                                            _isEnrolled = dashboardData
-                                                .teacher
-                                                .faceEnrolled;
-                                            _showEnrollSuccess = true;
-                                          });
-
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            const SnackBar(
-                                              content: Text(
-                                                'Face enrolled successfully! You can now use attendance.',
-                                              ),
-                                              backgroundColor: Colors.green,
-                                              duration: Duration(seconds: 3),
-                                            ),
-                                          );
-
-                                          // Auto-hide success message
-                                          Future.delayed(
-                                            const Duration(seconds: 3),
-                                            () {
-                                              if (mounted) {
-                                                setState(() {
-                                                  _showEnrollSuccess = false;
-                                                });
-                                              }
-                                            },
-                                          );
-                                        }
-                                      } catch (e) {
-                                        print(
-                                          'Error refreshing enrollment status: $e',
-                                        );
-                                      }
-                                    }
-                                  },
-                                ),
-                                const SizedBox(height: 20),
-                                const SizedBox(height: 16),
-                                if (_showSuccess)
-                                  const _InfoBanner.success(
-                                    'Success! Marked Attendance successfully.',
-                                  ),
-                                if (_showSuccess) const SizedBox(height: 16),
-                                if (_showEnrollSuccess)
-                                  const _InfoBanner.success(
-                                    'Success! Face enrolled successfully.',
-                                  ),
-                                if (_showEnrollSuccess)
-                                  const SizedBox(height: 16),
-                                if (_showError)
-                                  const _InfoBanner.error(
-                                    'Error! Face not recognized.',
-                                  ),
-                                if (_showError) const SizedBox(height: 16),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-        ),
+        drawer: const AppSidebar(),
         bottomNavigationBar: AnimatedBuilder(
           animation: _bottomBarAnimation,
           builder: (context, child) {
@@ -848,8 +755,396 @@ class _DashboardScreenState extends State<DashboardScreen>
             );
           },
         ),
-        // Floating dev tools button hidden as requested (kept in code but not shown)
-        floatingActionButton: null,
+        floatingActionButton: _ExpandableFloatingButton(
+          isExpanded: _isDevOptionsExpanded,
+          onToggle: () {
+            setState(() {
+              _isDevOptionsExpanded = !_isDevOptionsExpanded;
+            });
+          },
+          onMultiAngleEnroll: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const MultiAngleEnrollScreen()),
+            );
+          },
+          onFaceAnalyzer: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const FaceAnalyzerScreen()),
+            );
+          },
+          onEnrolledList: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const EnrolledFacesListScreen(),
+              ),
+            );
+          },
+          onLogout: _logout,
+        ),
+        body: Stack(
+          children: [
+            // Background Gradient
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppTheme.dashboardPrimary,
+                    AppTheme.dashboardPrimary.withBlue(100).withRed(40),
+                  ],
+                  stops: const [0.0, 1.0],
+                ),
+              ),
+            ),
+            // Decorative shapes
+            Positioned(
+              top: -50,
+              right: -50,
+              child: Container(
+                width: 200,
+                height: 200,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.1),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 100,
+              left: -30,
+              child: Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.05),
+                ),
+              ),
+            ),
+            SafeArea(
+              child: _isLoading
+                  ? const ModernLoadingView()
+                  : RefreshIndicator(
+                      onRefresh: _load,
+                      color: Colors.white,
+                      backgroundColor: AppTheme.dashboardPrimary,
+                      child: NotificationListener<ScrollNotification>(
+                        onNotification: (notification) {
+                          // Bars hiding logic removed as per request
+                          return false;
+                        },
+                        child: CustomScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(
+                            parent: BouncingScrollPhysics(),
+                          ),
+                          slivers: [
+                            SliverToBoxAdapter(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const SizedBox(height: 20),
+                                  // Show ProfileCard only if NOT enrolled/verified
+                                  if (!_isEnrolled)
+                                    AnimatedBuilder(
+                                      animation: _profileAnimation,
+                                      builder: (context, child) {
+                                        return Transform.translate(
+                                          offset: Offset(
+                                            0,
+                                            30 * (1 - _profileAnimation.value),
+                                          ),
+                                          child: Opacity(
+                                            opacity: _profileAnimation.value,
+                                            child: child,
+                                          ),
+                                        );
+                                      },
+                                      child: ProfileCard(
+                                        profile: _profile,
+                                        onProfileTap: _openProfile,
+                                        isEnrolled: _isEnrolled,
+                                      ),
+                                    ),
+                                  if (!_isEnrolled) const SizedBox(height: 20),
+                                  // Show Working Timer only for teachers (role 3, 4, 5) and principal (role 2)
+                                  // Hide for other roles like superadmin
+                                  if (_teacher != null &&
+                                      (_teacher!.role == '2' ||
+                                          _teacher!.role == '3' ||
+                                          _teacher!.role == '4' ||
+                                          _teacher!.role == '5'))
+                                    AnimatedBuilder(
+                                      animation: _timerAnimation,
+                                      builder: (context, child) {
+                                        return Transform.translate(
+                                          offset: Offset(
+                                            0,
+                                            30 * (1 - _timerAnimation.value),
+                                          ),
+                                          child: Opacity(
+                                            opacity: _timerAnimation.value,
+                                            child: child,
+                                          ),
+                                        );
+                                      },
+                                      child: WorkingTimerCard(
+                                        key: _timerKey,
+                                        teacher: _teacher,
+                                      ),
+                                    ),
+                                  if (_teacher != null &&
+                                      (_teacher!.role == '2' ||
+                                          _teacher!.role == '3' ||
+                                          _teacher!.role == '4' ||
+                                          _teacher!.role == '5'))
+                                    const SizedBox(height: 20),
+
+                                  // Single Class Widget - Shows either current (if ongoing) or next class
+                                  if (_teacher != null &&
+                                      (_teacher!.role == '2' ||
+                                          _teacher!.role == '3' ||
+                                          _teacher!.role == '4' ||
+                                          _teacher!.role == '5') &&
+                                      _isCheckedIn)
+                                    AnimatedBuilder(
+                                      animation: _classAnimation,
+                                      builder: (context, child) {
+                                        return Transform.translate(
+                                          offset: Offset(
+                                            0,
+                                            30 * (1 - _classAnimation.value),
+                                          ),
+                                          child: Opacity(
+                                            opacity: _classAnimation.value,
+                                            child: child,
+                                          ),
+                                        );
+                                      },
+                                      child: const SingleClassWidget(),
+                                    ),
+                                  if (_teacher != null &&
+                                      (_teacher!.role == '2' ||
+                                          _teacher!.role == '3' ||
+                                          _teacher!.role == '4' ||
+                                          _teacher!.role == '5') &&
+                                      _isCheckedIn)
+                                    const SizedBox(height: 20),
+                                ],
+                              ),
+                            ),
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  20,
+                                  20,
+                                  20,
+                                ),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        AnimatedBuilder(
+                                          animation: _statsTitleAnimation,
+                                          builder: (context, child) {
+                                            return Opacity(
+                                              opacity:
+                                                  _statsTitleAnimation.value,
+                                              child: child,
+                                            );
+                                          },
+                                          child: const Text(
+                                            'Your Statistics',
+                                            style: TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    AnimatedBuilder(
+                                      animation: _statsContentAnimation,
+                                      builder: (context, child) {
+                                        return Transform.translate(
+                                          offset: Offset(
+                                            0,
+                                            30 *
+                                                (1 -
+                                                    _statsContentAnimation
+                                                        .value),
+                                          ),
+                                          child: Opacity(
+                                            opacity:
+                                                _statsContentAnimation.value,
+                                            child: child,
+                                          ),
+                                        );
+                                      },
+                                      child: _StatCardsRow(
+                                        presentDays: _profile?.presentDays ?? 0,
+                                        absentDays: _profile?.absentDays ?? 0,
+                                        onAnalyticsTap: _openStatistics,
+                                      ),
+                                    ),
+                                    // Quick Actions section hidden per request
+                                    // const SizedBox(height: 20),
+                                    // // Teacher Features Menu
+                                    // const TeacherFeaturesMenu(),
+                                    // const SizedBox(height: 20),
+                                    // Check In/Out buttons hidden per request
+                                    // Column(
+                                    //   children: [
+                                    //     Row(
+                                    //       children: [
+                                    //         Expanded(
+                                    //           child: _CheckInOutButton(
+                                    //             title: 'Check In',
+                                    //             icon: Icons.login_rounded,
+                                    //             color: Colors.green[600]!,
+                                    //             onTap: _isEnrolled
+                                    //                 ? () => _openQuickAttendance(
+                                    //                     'checkin',
+                                    //                   )
+                                    //                 : null,
+                                    //           ),
+                                    //         ),
+                                    //         const SizedBox(width: 12),
+                                    //         Expanded(
+                                    //           child: _CheckInOutButton(
+                                    //             title: 'Check Out',
+                                    //             icon: Icons.logout_rounded,
+                                    //             color: Colors.red[600]!,
+                                    //             onTap: _isEnrolled
+                                    //                 ? () => _openQuickAttendance(
+                                    //                     'checkout',
+                                    //                   )
+                                    //                 : null,
+                                    //           ),
+                                    //         ),
+                                    //       ],
+                                    //     ),
+                                    //     // Manual Mark attendance card hidden per request
+                                    //     // F2F registration/analyzer hidden per request
+                                    //   ],
+                                    // ),
+                                    const SizedBox(height: 16),
+                                    AnimatedBuilder(
+                                      animation: _attendanceCardAnimation,
+                                      builder: (context, child) {
+                                        return Transform.translate(
+                                          offset: Offset(
+                                            0,
+                                            30 *
+                                                (1 -
+                                                    _attendanceCardAnimation
+                                                        .value),
+                                          ),
+                                          child: Opacity(
+                                            opacity:
+                                                _attendanceCardAnimation.value,
+                                            child: child,
+                                          ),
+                                        );
+                                      },
+                                      child: _TeacherAttendanceCard(
+                                        onTap: _openTeacherAttendance,
+                                        isEnrolled: _isEnrolled,
+                                        isCheckedIn: _isCheckedIn,
+                                        username: widget.username,
+                                        password: widget.password,
+                                        onEnrollmentComplete: (success) async {
+                                          // Refresh enrollment status after enrollment
+                                          if (success) {
+                                            try {
+                                              final dashboardData =
+                                                  await DashboardService.fetchDashboardData(
+                                                    username: widget.username,
+                                                    password: widget.password,
+                                                  );
+                                              if (mounted) {
+                                                setState(() {
+                                                  _isEnrolled = dashboardData
+                                                      .teacher
+                                                      .faceEnrolled;
+                                                  _showEnrollSuccess = true;
+                                                });
+
+                                                ScaffoldMessenger.of(
+                                                  context,
+                                                ).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text(
+                                                      'Face enrolled successfully! You can now use attendance.',
+                                                    ),
+                                                    backgroundColor:
+                                                        Colors.green,
+                                                    duration: Duration(
+                                                      seconds: 3,
+                                                    ),
+                                                  ),
+                                                );
+
+                                                // Auto-hide success message
+                                                Future.delayed(
+                                                  const Duration(seconds: 3),
+                                                  () {
+                                                    if (mounted) {
+                                                      setState(() {
+                                                        _showEnrollSuccess =
+                                                            false;
+                                                      });
+                                                    }
+                                                  },
+                                                );
+                                              }
+                                            } catch (e) {
+                                              print(
+                                                'Error refreshing enrollment status: $e',
+                                              );
+                                            }
+                                          }
+                                        },
+                                      ),
+                                    ),
+
+                                    const SizedBox(height: 20),
+                                    const SizedBox(height: 16),
+                                    if (_showSuccess)
+                                      const _InfoBanner.success(
+                                        'Success! Marked Attendance successfully.',
+                                      ),
+                                    if (_showSuccess)
+                                      const SizedBox(height: 16),
+                                    if (_showEnrollSuccess)
+                                      const _InfoBanner.success(
+                                        'Success! Face enrolled successfully.',
+                                      ),
+                                    if (_showEnrollSuccess)
+                                      const SizedBox(height: 16),
+                                    if (_showError)
+                                      const _InfoBanner.error(
+                                        'Error! Face not recognized.',
+                                      ),
+                                    if (_showError) const SizedBox(height: 16),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -919,12 +1214,9 @@ class _StatCardsRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF2A2376), Color(0xFF6D63B8)],
-          ),
+          borderRadius: BorderRadius.circular(16),
+          gradient: AppTheme.primaryGradient,
+          boxShadow: AppTheme.buttonShadow,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -1046,11 +1338,7 @@ class _MiniStatCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF2A2376), Color(0xFF6D63B8)],
-        ),
+        gradient: AppTheme.primaryGradient,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1109,11 +1397,7 @@ class _MarkAttendanceCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF241A78), Color(0xFF0E0D3A)],
-          ),
+          gradient: AppTheme.primaryGradient,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.white24, width: 1.5),
         ),
@@ -1262,12 +1546,9 @@ class _TotalStudentsCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF2A2376), Color(0xFF6D63B8)],
-        ),
-        borderRadius: BorderRadius.circular(16),
+        gradient: AppTheme.primaryGradient,
+        borderRadius: BorderRadius.circular(24),
+        boxShadow: AppTheme.buttonShadow,
       ),
       child: Row(
         children: [
@@ -1326,7 +1607,7 @@ class _StudentAttendanceCTA extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF10C69C),
+        color: AppTheme.accentGreen,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -1379,7 +1660,7 @@ class _TotalsRow extends StatelessWidget {
       children: [
         Expanded(
           child: _TotalBox(
-            color: const Color(0xFF2BBE63),
+            color: AppTheme.successGreen,
             title: 'Total Present',
             value: totalPresent.toString(),
             icon: Icons.person,
@@ -1388,7 +1669,7 @@ class _TotalsRow extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: _TotalBox(
-            color: const Color(0xFFFF4E6A),
+            color: AppTheme.errorRed,
             title: 'Total Absent',
             value: totalAbsent.toString(),
             icon: Icons.person_off,
@@ -1512,14 +1793,7 @@ class _ProfileButton extends StatelessWidget {
       width: double.infinity,
       height: 60,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFFD700), // Gold/Yellow
-            Color(0xFFFFA500), // Orange
-          ],
-        ),
+        gradient: AppTheme.warningGradient,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -1610,11 +1884,7 @@ class _SelfAttendanceButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF4CAF50), Color(0xFF45A049)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          gradient: AppTheme.successGradient,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -1683,11 +1953,7 @@ class _CompactFaceCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          gradient: AppTheme.primaryGradient,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -1749,11 +2015,7 @@ class _QuickAttendanceCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF4CAF50), Color(0xFF45A049)],
-          ),
+          gradient: AppTheme.successGradient,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.white24, width: 1.5),
           boxShadow: [
@@ -1861,11 +2123,7 @@ class _CompactF2FCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF10B981), Color(0xFF059669)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          gradient: AppTheme.successGradient,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
@@ -2054,13 +2312,17 @@ class _TeacherAttendanceCard extends StatelessWidget {
               end: Alignment.bottomRight,
               colors: isCheckedIn
                   ? [
-                      const Color(0xFFEF4444),
-                      const Color(0xFFDC2626),
-                    ] // Red gradient for check out
+                      const Color(
+                        0xFFFEE2E2,
+                      ).withOpacity(0.7), // Semi-transparent faded red
+                      const Color(0xFFFECACA).withOpacity(0.5),
+                    ]
                   : [
-                      const Color(0xFF10C69C),
-                      const Color(0xFF059669),
-                    ], // Green gradient for check in
+                      const Color(
+                        0xFFD1FAE5,
+                      ).withOpacity(0.7), // Semi-transparent faded green
+                      const Color(0xFFA7F3D0).withOpacity(0.5),
+                    ],
             ),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
@@ -2073,9 +2335,9 @@ class _TeacherAttendanceCard extends StatelessWidget {
                     (isCheckedIn
                             ? const Color(0xFFEF4444)
                             : const Color(0xFF10C69C))
-                        .withOpacity(0.3),
-                blurRadius: 12,
-                offset: const Offset(0, 6),
+                        .withOpacity(0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
@@ -2087,8 +2349,10 @@ class _TeacherAttendanceCard extends StatelessWidget {
                   children: [
                     Text(
                       isCheckedIn ? 'Check Out' : 'Check In',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: isCheckedIn
+                            ? const Color(0xFF991B1B)
+                            : const Color(0xFF065F46),
                         fontWeight: FontWeight.w800,
                         fontSize: 20,
                       ),
@@ -2101,9 +2365,9 @@ class _TeacherAttendanceCard extends StatelessWidget {
                                 : 'Quick Check In with Face Recognition')
                           : 'Face enrollment required',
                       style: TextStyle(
-                        color: isEnrolled
-                            ? const Color(0xFFE8F5E8)
-                            : Colors.white70,
+                        color: isCheckedIn
+                            ? const Color(0xFF991B1B).withOpacity(0.7)
+                            : const Color(0xFF065F46).withOpacity(0.7),
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
                       ),
@@ -2132,14 +2396,20 @@ class _TeacherAttendanceCard extends StatelessWidget {
                       isEnrolled
                           ? (isCheckedIn ? Icons.logout : Icons.login)
                           : Icons.lock,
-                      color: Colors.white,
+                      color: isCheckedIn
+                          ? const Color(0xFF991B1B)
+                          : const Color(0xFF065F46),
                       size: 16,
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      isEnrolled ? (isCheckedIn ? '' : 'CHECK IN') : 'LOCKED',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      isEnrolled
+                          ? (isCheckedIn ? 'CHECK OUT' : 'CHECK IN')
+                          : 'LOCKED',
+                      style: TextStyle(
+                        color: isCheckedIn
+                            ? const Color(0xFF991B1B)
+                            : const Color(0xFF065F46),
                         fontWeight: FontWeight.w700,
                         fontSize: 12,
                       ),
@@ -2372,7 +2642,7 @@ class _SectionsScreenState extends State<_SectionsScreen> {
         foregroundColor: Colors.white,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppLoadingIndicator()
           : _sections.isEmpty
           ? const Center(child: Text('No sections found'))
           : ListView.builder(
@@ -2502,7 +2772,7 @@ class _TeachersListScreenState extends State<_TeachersListScreen> {
         foregroundColor: Colors.white,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppLoadingIndicator()
           : _teachers.isEmpty
           ? const Center(child: Text('No teachers found'))
           : RefreshIndicator(
@@ -2673,7 +2943,7 @@ class _StudentsSectionScreenState extends State<_StudentsSectionScreen> {
         foregroundColor: Colors.white,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppLoadingIndicator()
           : _sections.isEmpty
           ? const Center(child: Text('No sections found'))
           : ListView.builder(
@@ -2786,7 +3056,7 @@ class _StudentsListScreenState extends State<_StudentsListScreen> {
         foregroundColor: Colors.white,
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const AppLoadingIndicator()
           : _students.isEmpty
           ? const Center(child: Text('No students found'))
           : RefreshIndicator(

@@ -55,6 +55,72 @@ class Teacher {
     required this.faceEnrolled,
   });
 
+  static bool _isTruthy(dynamic value) {
+    if (value == null) return false;
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    final s = value.toString().trim().toLowerCase();
+    return s == '1' || s == 'true' || s == 'yes' || s == 'y';
+  }
+
+  Teacher copyWith({
+    String? id,
+    String? staffId,
+    String? name,
+    String? email,
+    String? mobileNo,
+    String? sex,
+    String? religion,
+    String? bloodGroup,
+    String? birthday,
+    String? presentAddress,
+    String? permanentAddress,
+    String? photo,
+    String? designation,
+    String? department,
+    String? joiningDate,
+    String? qualification,
+    String? experienceDetails,
+    String? totalExperience,
+    String? facebookUrl,
+    String? linkedinUrl,
+    String? twitterUrl,
+    String? username,
+    String? role,
+    String? branchId,
+    bool? active,
+    bool? faceEnrolled,
+  }) {
+    return Teacher(
+      id: id ?? this.id,
+      staffId: staffId ?? this.staffId,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      mobileNo: mobileNo ?? this.mobileNo,
+      sex: sex ?? this.sex,
+      religion: religion ?? this.religion,
+      bloodGroup: bloodGroup ?? this.bloodGroup,
+      birthday: birthday ?? this.birthday,
+      presentAddress: presentAddress ?? this.presentAddress,
+      permanentAddress: permanentAddress ?? this.permanentAddress,
+      photo: photo ?? this.photo,
+      designation: designation ?? this.designation,
+      department: department ?? this.department,
+      joiningDate: joiningDate ?? this.joiningDate,
+      qualification: qualification ?? this.qualification,
+      experienceDetails: experienceDetails ?? this.experienceDetails,
+      totalExperience: totalExperience ?? this.totalExperience,
+      facebookUrl: facebookUrl ?? this.facebookUrl,
+      linkedinUrl: linkedinUrl ?? this.linkedinUrl,
+      twitterUrl: twitterUrl ?? this.twitterUrl,
+      username: username ?? this.username,
+      role: role ?? this.role,
+      branchId: branchId ?? this.branchId,
+      active: active ?? this.active,
+      faceEnrolled: faceEnrolled ?? this.faceEnrolled,
+    );
+  }
+
   factory Teacher.fromJson(Map<String, dynamic> data) {
     return Teacher(
       id:
@@ -87,7 +153,7 @@ class Teacher {
       role: data['role']?.toString() ?? '',
       branchId: data['branch_id']?.toString() ?? '',
       active: data['active'] == true,
-      faceEnrolled: data['face_enrolled'] == true,
+      faceEnrolled: _isTruthy(data['face_enrolled']),
     );
   }
 
@@ -123,7 +189,7 @@ class Teacher {
       role: data['role']?.toString() ?? '',
       branchId: data['branch_id']?.toString() ?? '',
       active: data['active'] == true,
-      faceEnrolled: data['face_enrolled'] == true,
+      faceEnrolled: _isTruthy(data['face_enrolled']),
     );
   }
 

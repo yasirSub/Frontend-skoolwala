@@ -120,14 +120,25 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF7B61FF), Color(0xFF6246EA)],
+            ),
+          ),
+        ),
+        foregroundColor: Colors.white,
         title: Text(
           widget.teacherClass?.displayName ??
               widget.className ??
               'Attendance Report',
+          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.filter_alt),
+            icon: const Icon(Icons.filter_alt_rounded),
             onPressed: () {
               showDialog(
                 context: context,
@@ -170,12 +181,10 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
                 ),
               );
             },
-            tooltip: 'Filter',
           ),
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             onPressed: _loadReport,
-            tooltip: 'Refresh',
           ),
         ],
       ),

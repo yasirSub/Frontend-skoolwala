@@ -408,6 +408,19 @@ class AttendanceService {
     }
   }
 
+  // Get Attendance Type API - Fetch whether school uses Day-Wise or Subject-Wise attendance
+  static Future<Map<String, dynamic>> getAttendanceType() async {
+    try {
+      final response = await HttpClient().post(
+        'getAttendanceTypeAPI',
+        requireAuth: true,
+      );
+      return response;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   // Convert hex string to face data array format [0.233, -0.562, 0.781, -0.110]
   static List<double> _convertHexToArray(String hexString) {
     // Use ACTUAL hex string to generate UNIQUE face data for each face

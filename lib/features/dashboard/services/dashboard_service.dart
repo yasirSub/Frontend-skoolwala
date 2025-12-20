@@ -112,54 +112,49 @@ class DashboardService {
         print('🔍 DashboardService Debug - Error fetching school: $e');
       }
     }
-
-    // Fetch attendance counts (only for teachers/staff, not for admins)
-    if (teacher.role == '3' || teacher.role == '4' || teacher.role == '5') {
-      try {
-        if (_debugLogs)
-          print('🔍 DashboardService Debug - Fetching present days...');
-        final presentResponse =
-            await AttendanceService.getTeacherPresentDaysCount();
-        if (_debugLogs)
-          print(
-            '🔍 DashboardService Debug - Present response: $presentResponse',
-          );
-        if (presentResponse['status'] == 'success' &&
-            presentResponse['data'] != null) {
-          presentDays = presentResponse['data']['present_days_count'] ?? 0;
-          if (_debugLogs)
-            print('🔍 DashboardService Debug - Present days: $presentDays');
-        }
-      } catch (e) {
-        if (_debugLogs)
-          print('🔍 DashboardService Debug - Error fetching present days: $e');
-        debugPrint('Error fetching present days: $e');
-      }
-
-      try {
-        if (_debugLogs)
-          print('🔍 DashboardService Debug - Fetching absent days...');
-        final absentResponse =
-            await AttendanceService.getTeacherAbsentDaysCount();
-        if (_debugLogs)
-          print('🔍 DashboardService Debug - Absent response: $absentResponse');
-        if (absentResponse['status'] == 'success' &&
-            absentResponse['data'] != null) {
-          absentDays = absentResponse['data']['absent_days_count'] ?? 0;
-          if (_debugLogs)
-            print('🔍 DashboardService Debug - Absent days: $absentDays');
-        }
-      } catch (e) {
-        if (_debugLogs)
-          print('🔍 DashboardService Debug - Error fetching absent days: $e');
-        debugPrint('Error fetching absent days: $e');
-      }
-    } else {
-      if (_debugLogs) {
+    // Fetch attendance counts for all users (role-based analytics)
+    // The backend will return data if available for the user's role
+    // Role 1: Super Admin, Role 2: Principal, Role 3: Teacher, Role 4: Staff, etc.
+    try {
+      if (_debugLogs)
         print(
-          '🔍 DashboardService Debug - Skipping attendance fetch for non-teacher role: ${teacher.role}',
+          '🔍 DashboardService Debug - Fetching present days for role: ${teacher.role}',
         );
+      final presentResponse =
+          await AttendanceService.getTeacherPresentDaysCount();
+      if (_debugLogs)
+        print('🔍 DashboardService Debug - Present response: $presentResponse');
+      if (presentResponse['status'] == 'success' &&
+          presentResponse['data'] != null) {
+        presentDays = presentResponse['data']['present_days_count'] ?? 0;
+        if (_debugLogs)
+          print('🔍 DashboardService Debug - Present days: $presentDays');
       }
+    } catch (e) {
+      if (_debugLogs)
+        print('🔍 DashboardService Debug - Error fetching present days: $e');
+      debugPrint('Error fetching present days: $e');
+    }
+
+    try {
+      if (_debugLogs)
+        print(
+          '🔍 DashboardService Debug - Fetching absent days for role: ${teacher.role}',
+        );
+      final absentResponse =
+          await AttendanceService.getTeacherAbsentDaysCount();
+      if (_debugLogs)
+        print('🔍 DashboardService Debug - Absent response: $absentResponse');
+      if (absentResponse['status'] == 'success' &&
+          absentResponse['data'] != null) {
+        absentDays = absentResponse['data']['absent_days_count'] ?? 0;
+        if (_debugLogs)
+          print('🔍 DashboardService Debug - Absent days: $absentDays');
+      }
+    } catch (e) {
+      if (_debugLogs)
+        print('🔍 DashboardService Debug - Error fetching absent days: $e');
+      debugPrint('Error fetching absent days: $e');
     }
 
     // Fetch class list for student count calculation

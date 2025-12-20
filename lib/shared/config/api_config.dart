@@ -14,7 +14,14 @@ class ApiConfig {
   // ============================================
 
   /// Current environment: 'development' or 'production'
-  static const String environment = 'development';
+  ///
+  /// Override at runtime with:
+  ///   flutter run --dart-define=ENV=production
+  ///   flutter run --dart-define=ENV=development
+  static const String environment = String.fromEnvironment(
+    'ENV',
+    defaultValue: 'production',
+  );
 
   /// Enable debug logging
   static const bool enableDebugLogging = false;
@@ -73,6 +80,11 @@ class ApiConfig {
   static const String getSubjectsForClassSection = 'getSubjectsForClassSection';
   static const String getTeacherTimetable = 'getTeacherTimetable';
   static const String getStaffList = 'getStaffList';
+  static const String getTeacherClasses = 'getTeacherClasses';
+  static const String getTeacherTodayClasses = 'getTeacherTodayClasses';
+  static const String getTeacherSchedule = 'getTeacherSchedule';
+  static const String checkTeacherPresentToday = 'checkTeacherPresentToday';
+  static const String getNextUpcomingClass = 'getNextUpcomingClass';
 
   // ============================================
   // SCHOOL ENDPOINTS

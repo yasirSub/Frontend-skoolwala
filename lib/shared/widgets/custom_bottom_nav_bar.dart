@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/bottom_nav_handler.dart';
+import 'package:skoolwala/shared/theme/app_theme.dart';
 
 /// Custom Bottom Navigation Bar Widget
 /// Reusable bottom navigation bar with modern design
@@ -35,11 +36,9 @@ class CustomBottomNavBar extends StatelessWidget {
     // Adapt colors based on theme
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final defaultPrimaryColor =
-        primaryColor ??
-        (isDark ? const Color(0xFF2A2A2A) : const Color(0xFF1A1F3E));
+        primaryColor ?? (isDark ? AppTheme.darkPurple : AppTheme.primaryPurple);
     final defaultAccentColor =
-        accentColor ??
-        (isDark ? const Color(0xFF90E0EF) : const Color(0xFF90E0EF));
+        accentColor ?? (isDark ? AppTheme.accentCyan : AppTheme.accentCyan);
 
     return Container(
       height: height,
@@ -165,22 +164,10 @@ class BottomNavConfigs {
       tooltip: 'Dashboard',
     ),
     BottomNavItem(
-      icon: Icons.fact_check_outlined,
-      selectedIcon: Icons.fact_check_rounded,
-      label: 'Attendance',
-      tooltip: 'Check In/Out',
-    ),
-    BottomNavItem(
       icon: Icons.class_outlined,
       selectedIcon: Icons.class_rounded,
       label: 'Classes',
       tooltip: 'View Classes',
-    ),
-    BottomNavItem(
-      icon: Icons.school_outlined,
-      selectedIcon: Icons.school_rounded,
-      label: 'Students',
-      tooltip: 'View Students',
     ),
     BottomNavItem(
       icon: Icons.person_outline_rounded,
@@ -219,6 +206,28 @@ class BottomNavConfigs {
     ),
   ];
 
+  // Teacher-focused navigation items
+  static List<BottomNavItem> get teacherItems => const [
+    BottomNavItem(
+      icon: Icons.home_outlined,
+      selectedIcon: Icons.home_rounded,
+      label: 'Home',
+      tooltip: 'Dashboard',
+    ),
+    BottomNavItem(
+      icon: Icons.schedule_rounded,
+      selectedIcon: Icons.schedule,
+      label: 'Schedule',
+      tooltip: 'My Classes',
+    ),
+    BottomNavItem(
+      icon: Icons.person_outline_rounded,
+      selectedIcon: Icons.person_rounded,
+      label: 'Profile',
+      tooltip: 'My Profile',
+    ),
+  ];
+
   // Admin-focused navigation items
   static List<BottomNavItem> get adminItems => const [
     BottomNavItem(
@@ -247,4 +256,35 @@ class BottomNavConfigs {
       label: 'Profile',
     ),
   ];
+
+  /// Get navigation items based on user role
+  static List<BottomNavItem> getItemsForRole(String? role) {
+    print('🔍 BottomNavConfigs.getItemsForRole called with role: $role');
+
+    // Check if user is a teacher
+    if (role != null &&
+        (role.toLowerCase().contains('teacher') ||
+            role.toLowerCase().contains('instructor'))) {
+      print('✅ Returning teacher items');
+      return teacherItems;
+    }
+
+    // For non-teacher roles (like admin/role 2), return dashboard items but without Classes
+    if (role != null && role != '3') {
+      // Remove Classes item for non-teacher roles
+      print('⚠️ Role $role is not 3, removing Classes item');
+      final filtered = dashboardItems
+          .where((item) => item.label != 'Classes')
+          .toList();
+      print('📊 Filtered items count: ${filtered.length}');
+      for (var item in filtered) {
+        print('  - ${item.label}');
+      }
+      return filtered;
+    }
+
+    // Default to dashboard items (for role 3 or when role is null)
+    print('✅ Returning full dashboard items (role is 3 or null)');
+    return dashboardItems;
+  }
 }

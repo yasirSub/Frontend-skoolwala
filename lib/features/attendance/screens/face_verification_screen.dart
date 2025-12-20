@@ -11,8 +11,9 @@ import 'package:skoolwala/features/attendance/services/face_attendance_service.d
 import 'package:skoolwala/features/attendance/services/location_service.dart';
 import 'package:skoolwala/shared/services/session_manager.dart';
 import 'package:skoolwala/features/attendance/services/attendance_service.dart';
-import 'package:skoolwala/shared/widgets/location_verification_widget.dart';
 import 'package:skoolwala/features/teacher_attendance/simple/spoofing_detector.dart';
+import 'package:skoolwala/shared/theme/app_theme.dart';
+import 'dart:ui';
 
 class FaceVerificationScreen extends StatefulWidget {
   final bool verifyMode; // false => enroll, true => verify
@@ -248,12 +249,19 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen>
             _lastRightEye = rEye;
           }
           // Enhanced liveness check with strict spoofing detection
-          final isLiveFace = SpoofingDetector.isLiveFace(result.face, strict: true);
-          final hasLiveness = SpoofingDetector.checkLiveness(result.face, strict: true);
-          _livenessPassed = _livenessEvents >= 2 && 
-                           (result.confidence >= 0.7) && 
-                           isLiveFace && 
-                           hasLiveness;
+          final isLiveFace = SpoofingDetector.isLiveFace(
+            result.face,
+            strict: true,
+          );
+          final hasLiveness = SpoofingDetector.checkLiveness(
+            result.face,
+            strict: true,
+          );
+          _livenessPassed =
+              _livenessEvents >= 2 &&
+              (result.confidence >= 0.7) &&
+              isLiveFace &&
+              hasLiveness;
         } else {
           _livenessPassed = false;
           _lastLeftEye = null;
@@ -419,7 +427,7 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen>
             });
             return;
           }
-          
+
           // SPOOFING PROTECTION: During verification, check for photo spoofing (STRICT MODE)
           if (widget.verifyMode) {
             final face = result.face;
@@ -428,19 +436,22 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen>
               setState(() {
                 _errorMessage = spoofingMessage;
               });
-              print('⚠️ Spoofing detected during verification: $spoofingMessage');
+              print(
+                '⚠️ Spoofing detected during verification: $spoofingMessage',
+              );
               return;
             }
-            
+
             if (!SpoofingDetector.checkLiveness(face, strict: true)) {
               setState(() {
-                _errorMessage = 'Please use your live face. Photos or screens are not accepted. Blink naturally.';
+                _errorMessage =
+                    'Please use your live face. Photos or screens are not accepted. Blink naturally.';
               });
               print('⚠️ Liveness check failed during verification');
               return;
             }
           }
-          
+
           // SPOOFING PROTECTION: During enrollment, check for photo spoofing (LENIENT MODE)
           if (!widget.verifyMode) {
             final face = result.face;
@@ -452,10 +463,11 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen>
               print('⚠️ Spoofing detected during enrollment: $spoofingMessage');
               return;
             }
-            
+
             if (!SpoofingDetector.checkLiveness(face, strict: false)) {
               setState(() {
-                _errorMessage = 'Please use your live face. Blink naturally and ensure good lighting.';
+                _errorMessage =
+                    'Please use your live face. Blink naturally and ensure good lighting.';
               });
               print('⚠️ Liveness check failed during enrollment');
               return;
@@ -612,6 +624,12 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen>
         setState(() {
           _statusMessage = 'Enrollment successful!';
         });
+
+        // Keep session state in sync with backend enrollment.
+        await sessionManager.updateTeacherData(
+          currentTeacher.copyWith(faceEnrolled: true),
+        );
+
         _showSuccessDialog(
           'Face Enrollment Successful',
           'Your face has been enrolled using multi-angle capture and liveness.',
@@ -840,409 +858,315 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: const Color(0xFF0A0A0A),
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: Colors.white,
-        toolbarHeight: 50,
+        centerTitle: true,
+        flexibleSpace: ClipRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+            child: Container(color: AppTheme.darkPurple.withOpacity(0.5)),
+          ),
+        ),
         leading: IconButton(
           icon: Container(
-            padding: const EdgeInsets.all(6),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(10),
+              color: Colors.black.withOpacity(0.3),
+              shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.arrow_back, color: Colors.white, size: 18),
+            child: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: Colors.white,
+              size: 18,
+            ),
           ),
           onPressed: () => Navigator.of(context).pop(false),
         ),
         title: Text(
-          widget.verifyMode ? 'Face Verification' : 'Face Enrollment',
+          (widget.verifyMode ? 'Face Verification' : 'Face Enrollment')
+              .toUpperCase(),
           style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 2,
           ),
         ),
-        centerTitle: true,
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF1a1a2e), Color(0xFF16213e), Color(0xFF0f3460)],
-          ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight:
-                    MediaQuery.of(context).size.height -
-                    MediaQuery.of(context).padding.top,
+      body: Stack(
+        children: [
+          // Main vibrant gradient background matching the app dashboard
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  AppTheme.dashboardPrimaryLight,
+                  AppTheme.dashboardPrimary,
+                ],
               ),
-              child: IntrinsicHeight(
-                child: Column(
-                  children: [
-                    Expanded(flex: 4, child: _buildCameraView()),
-                    _buildStatusAndControls(),
+            ),
+          ),
+
+          // Subtle decorative tech elements
+          Positioned(
+            top: -100,
+            right: -50,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppTheme.primaryPurple.withOpacity(0.3),
+                    AppTheme.primaryPurple.withOpacity(0),
                   ],
                 ),
               ),
             ),
           ),
-        ),
+
+          // Technical background pattern (subtle)
+          Positioned.fill(
+            child: Opacity(
+              opacity: 0.1,
+              child: CustomPaint(painter: _GridPainter()),
+            ),
+          ),
+
+          SafeArea(
+            child: Column(
+              children: [
+                Expanded(child: _buildCameraView()),
+                _buildStatusAndControls(),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildCameraView() {
     if (!_isInitialized) {
-      return Container(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment.center,
-            radius: 1.0,
-            colors: [Color(0xFF2c3e50), Color(0xFF1a1a2e)],
-          ),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.2),
-                    width: 1,
-                  ),
-                ),
-                child: const CircularProgressIndicator(
-                  color: Color(0xFF00E5FF),
-                  strokeWidth: 3,
-                ),
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(color: Colors.cyanAccent),
+            const SizedBox(height: 24),
+            Text(
+              'INITIALIZING BIOMETRICS...',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 2,
               ),
-              const SizedBox(height: 24),
-              const Text(
-                'Initializing Camera...',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0.5,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Please wait while we set up face verification',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
-                  fontSize: 14,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     }
 
-    return Stack(
-      children: [
-        // Camera preview - full screen
-        if (_useMLKit &&
-            _cameraController != null &&
-            _cameraController!.value.isInitialized)
-          Positioned.fill(
-            child: ClipRRect(
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
-              ),
-              child: CameraPreview(_cameraController!),
-            ),
-          )
-        else
-          Container(
-            decoration: const BoxDecoration(
-              gradient: RadialGradient(
-                center: Alignment.center,
-                radius: 1.0,
-                colors: [Color(0xFF2c3e50), Color(0xFF1a1a2e)],
-              ),
-            ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.2),
-                        width: 1,
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.camera_alt_outlined,
-                      size: 64,
-                      color: Color(0xFF00E5FF),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Camera not available',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Please check camera permissions',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
-                      fontSize: 14,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+    final boxColor =
+        _isFaceDetected && (widget.verifyMode || _isTargetAngleSatisfied)
+        ? AppTheme.accentGreen
+        : AppTheme.accentCyan;
 
-        // Minimal instruction chip (only when not ready)
-        if (!_isFaceDetected ||
-            (!widget.verifyMode && !_isTargetAngleSatisfied))
-          Positioned(
-            top: 14,
-            left: 14,
-            right: 14,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.4),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.15),
-                  width: 1,
-                ),
-              ),
-              child: Text(
-                widget.verifyMode
-                    ? 'Align face in circle'
-                    : (_currentAngleIndex == 0
-                          ? 'Look straight'
-                          : _currentAngleIndex == 1
-                          ? 'Turn LEFT'
-                          : 'Turn RIGHT'),
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-
-        // Modern face detection overlay
-        if (_useMLKit && _cameraController != null)
-          Center(
-            child: Container(
-              width: 260,
-              height: 260,
+    return Center(
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          // Camera Preview
+          if (_cameraController != null &&
+              _cameraController!.value.isInitialized)
+            Container(
+              width: 320,
+              height: 320,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color:
-                      _isFaceDetected &&
-                          (widget.verifyMode || _isTargetAngleSatisfied)
-                      ? const Color(0xFF4CAF50)
-                      : const Color(0xFF00E5FF),
-                  width: 4,
+                  color: Colors.white.withOpacity(0.2),
+                  width: 3,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color:
-                        (_isFaceDetected &&
-                                    (widget.verifyMode ||
-                                        _isTargetAngleSatisfied)
-                                ? const Color(0xFF4CAF50)
-                                : const Color(0xFF00E5FF))
-                            .withOpacity(0.3),
-                    blurRadius: 20,
-                    spreadRadius: 2,
+                    color: Colors.black.withOpacity(0.2),
+                    blurRadius: 15,
+                    spreadRadius: 5,
                   ),
                 ],
               ),
-              child: Stack(
-                children: [
-                  // Scanning animation
-                  if (!_isFaceDetected)
-                    AnimatedBuilder(
-                      animation: _scanAnimation,
-                      builder: (context, child) {
-                        return Positioned(
-                          top: _scanAnimation.value * 260,
-                          left: 0,
-                          right: 0,
-                          child: Container(
-                            height: 3,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  Colors.transparent,
-                                  const Color(0xFF00E5FF).withOpacity(0.8),
-                                  const Color(0xFF00E5FF),
-                                  const Color(0xFF00E5FF).withOpacity(0.8),
-                                  Colors.transparent,
-                                ],
-                              ),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                        );
-                      },
+              child: ClipOval(child: CameraPreview(_cameraController!)),
+            ),
+
+          // Techy Frame Overlays
+          // Outer Glow
+          AnimatedBuilder(
+            animation: _scanController,
+            builder: (context, child) {
+              return Container(
+                width: 340,
+                height: 340,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: boxColor.withOpacity(
+                        0.1 + (0.1 * _scanController.value),
+                      ),
+                      blurRadius: 30 + (20 * _scanController.value),
+                      spreadRadius: 2,
                     ),
-                  // Center icon
-                  Center(
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color:
-                            (_isFaceDetected &&
-                                        (widget.verifyMode ||
-                                            _isTargetAngleSatisfied)
-                                    ? const Color(0xFF4CAF50)
-                                    : const Color(0xFF00E5FF))
-                                .withOpacity(0.2),
-                        shape: BoxShape.circle,
+                  ],
+                ),
+              );
+            },
+          ),
+
+          // Scanning Line (Circular)
+          if (!_isFaceDetected || _isProcessing)
+            AnimatedBuilder(
+              animation: _scanAnimation,
+              builder: (context, child) {
+                return Positioned(
+                  top: 320 * _scanAnimation.value,
+                  child: Container(
+                    width: 300,
+                    height: 2,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          boxColor.withOpacity(0),
+                          boxColor,
+                          boxColor.withOpacity(0),
+                        ],
                       ),
-                      child: Icon(
-                        _isFaceDetected &&
-                                (widget.verifyMode || _isTargetAngleSatisfied)
-                            ? Icons.check_circle_rounded
-                            : Icons.face_rounded,
-                        color:
-                            _isFaceDetected &&
-                                (widget.verifyMode || _isTargetAngleSatisfied)
-                            ? const Color(0xFF4CAF50)
-                            : const Color(0xFF00E5FF),
-                        size: 32,
-                      ),
-                    ),
-                  ),
-                  // Status message in circle
-                  Positioned(
-                    bottom: 26,
-                    left: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _isProcessing
-                            ? Colors.orange.withOpacity(0.3)
-                            : Colors.black.withOpacity(0.4),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Text(
-                        _isProcessing
-                            ? _statusMessage
-                            : (!_isFaceDetected
-                                  ? 'Position your face in frame'
-                                  : (widget.verifyMode
-                                        ? 'Hold steady'
-                                        : (_currentAngleIndex == 0
-                                              ? 'Hold straight'
-                                              : _currentAngleIndex == 1
-                                              ? 'Hold LEFT'
-                                              : 'Hold RIGHT'))),
-                        style: TextStyle(
-                          color: _isProcessing ? Colors.orange : Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
+                      boxShadow: [
+                        BoxShadow(
+                          color: boxColor.withOpacity(0.5),
+                          blurRadius: 10,
+                          spreadRadius: 1,
                         ),
-                        textAlign: TextAlign.center,
-                      ),
+                      ],
                     ),
                   ),
-                ],
+                );
+              },
+            ),
+
+          // Corner Guides (Stylized for Circle)
+          ...List.generate(4, (i) => _buildCircularCorner(i, boxColor)),
+
+          // Instruction Overlay
+          Positioned(
+            bottom: -20,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.darkPurple.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: boxColor.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    (_isProcessing
+                            ? _statusMessage
+                            : !_isFaceDetected
+                            ? 'POSITION FACE IN CENTER'
+                            : widget.verifyMode
+                            ? 'HOLD STEADY'
+                            : (_currentAngleIndex == 0
+                                  ? 'LOOK STRAIGHT'
+                                  : _currentAngleIndex == 1
+                                  ? 'TURN FACE LEFT'
+                                  : 'TURN FACE RIGHT'))
+                        .toUpperCase(),
+                    style: TextStyle(
+                      color: boxColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.5,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
-      ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCircularCorner(int index, Color color) {
+    final angles = [0.0, 1.57, 3.14, 4.71];
+    return Transform.rotate(
+      angle: angles[index],
+      child: Container(
+        width: 380,
+        height: 380,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(190),
+          border: Border(
+            top: BorderSide(color: color.withOpacity(0.5), width: 3),
+            left: BorderSide(color: color.withOpacity(0.5), width: 3),
+          ),
+        ),
+      ),
     );
   }
 
   Widget _buildStatusAndControls() {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF0f3460), Color(0xFF16213e)],
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 40),
+      decoration: BoxDecoration(
+        color: AppTheme.darkPurple.withOpacity(0.95),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(40),
+          topRight: Radius.circular(40),
         ),
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
-        ),
+        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.5),
+            blurRadius: 30,
+            offset: const Offset(0, -10),
+          ),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Location verification widget
-          if (_locationVerificationRequired && !_locationVerified) ...[
-            LocationVerificationWidget(
-              staffId: SessionManager.instance.teacherId ?? '',
-              branchId:
-                  SessionManager.instance.currentTeacher?.branchId.toString() ??
-                  '',
-              onVerificationComplete: (verified, data) {
-                setState(() {
-                  _locationVerified = verified;
-                });
-              },
-            ),
-            const SizedBox(height: 16),
-          ],
-
-          // Status messages
-          if (_errorMessage != null) ...[
-            Container(
+          // Error messages - Dynamic Chip
+          if (_errorMessage != null)
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.only(bottom: 24),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF2D1B1B),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFFE53E3E).withOpacity(0.3),
-                  width: 1,
-                ),
+                color: Colors.redAccent.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
               ),
               child: Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE53E3E).withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.error_outline_rounded,
-                      color: Color(0xFFE53E3E),
-                      size: 20,
-                    ),
+                  const Icon(
+                    Icons.info_outline_rounded,
+                    color: Colors.redAccent,
+                    size: 20,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -1250,183 +1174,122 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen>
                       _errorMessage!,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-          ],
 
-          if (_isFaceDetected) ...[
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1B2D1B),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFF48BB78).withOpacity(0.3),
-                  width: 1,
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF48BB78).withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.check_circle_outline_rounded,
-                      color: Color(0xFF48BB78),
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      widget.verifyMode
-                          ? 'Face detected — ready to verify!'
-                          : 'Face detected — ready to enroll!',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-
-          // Step indicator for enrollment
+          // Enrollment Steps
           if (!widget.verifyMode) ...[
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(3, (i) {
-                final bool done = _stepsCompleted[i];
-                final bool current = _currentAngleIndex == i;
-                final Color color = done
-                    ? const Color(0xFF48BB78)
-                    : (current ? const Color(0xFF00E5FF) : Colors.white24);
+                final done = _stepsCompleted[i];
+                final current = _currentAngleIndex == i;
                 return Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 6),
-                  padding: const EdgeInsets.all(8),
+                  margin: const EdgeInsets.symmetric(horizontal: 8),
+                  width: 40,
+                  height: 4,
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: color, width: 2),
-                  ),
-                  child: Icon(
-                    done
-                        ? Icons.check
-                        : (current ? Icons.radio_button_checked : Icons.circle),
-                    size: 14,
-                    color: color,
+                    color: done
+                        ? AppTheme.accentGreen
+                        : current
+                        ? AppTheme.accentCyan
+                        : Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(2),
+                    boxShadow: [
+                      if (current)
+                        BoxShadow(
+                          color: Colors.cyanAccent.withOpacity(0.5),
+                          blurRadius: 8,
+                          spreadRadius: 1,
+                        ),
+                    ],
                   ),
                 );
               }),
             ),
-            const SizedBox(height: 8),
-            Text(
-              _currentAngleIndex == 0
-                  ? 'Step 1/3'
-                  : _currentAngleIndex == 1
-                  ? 'Step 2/3'
-                  : 'Step 3/3',
-              style: const TextStyle(
-                color: Colors.white70,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 24),
           ],
 
-          // Control buttons
+          // Action Row
           Row(
             children: [
+              // Cancel Button
               Expanded(
-                child: Container(
-                  height: 48,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.3),
-                      width: 1,
+                flex: 1,
+                child: TextButton(
+                  onPressed: _isProcessing
+                      ? null
+                      : () => Navigator.of(context).pop(false),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
                     ),
                   ),
-                  child: TextButton(
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
-                    onPressed: _isProcessing
-                        ? null
-                        : () => Navigator.of(context).pop(false),
-                    child: const Text(
-                      'Cancel',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5,
-                      ),
+                  child: Text(
+                    'CANCEL',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.5),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 12,
+                      letterSpacing: 1,
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: 16),
+              // Primary Action
               Expanded(
                 flex: 2,
-                child: Container(
-                  height: 48,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  height: 64,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(16),
                     gradient: LinearGradient(
                       colors: _isFaceDetected
-                          ? [const Color(0xFF48BB78), const Color(0xFF38A169)]
-                          : [const Color(0xFF00E5FF), const Color(0xFF00BCD4)],
+                          ? [AppTheme.primaryPurple, AppTheme.darkPurple]
+                          : [
+                              Colors.white.withOpacity(0.1),
+                              Colors.white.withOpacity(0.05),
+                            ],
                     ),
+                    borderRadius: BorderRadius.circular(20),
                     boxShadow: [
-                      BoxShadow(
-                        color:
-                            (_isFaceDetected
-                                    ? const Color(0xFF48BB78)
-                                    : const Color(0xFF00E5FF))
-                                .withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
+                      if (_isFaceDetected)
+                        BoxShadow(
+                          color: Colors.greenAccent.withOpacity(0.3),
+                          blurRadius: 15,
+                          offset: const Offset(0, 8),
+                        ),
                     ],
                   ),
                   child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                    ),
                     onPressed:
                         (_isProcessing ||
                             (_locationVerificationRequired &&
                                 !_locationVerified))
                         ? null
                         : _captureAndVerifyFace,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                    ),
                     child: _isProcessing
                         ? const SizedBox(
-                            height: 20,
-                            width: 20,
+                            width: 24,
+                            height: 24,
                             child: CircularProgressIndicator(
-                              color: Colors.white,
                               strokeWidth: 2,
+                              color: Colors.white,
                             ),
                           )
                         : Row(
@@ -1434,24 +1297,20 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen>
                             children: [
                               Icon(
                                 widget.verifyMode
-                                    ? Icons.verified_user_rounded
-                                    : Icons.person_add_rounded,
+                                    ? Icons.verified_user
+                                    : Icons.person_add,
                                 size: 20,
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 12),
                               Text(
-                                _locationVerificationRequired &&
-                                        !_locationVerified
-                                    ? 'Verify Location First'
-                                    : _isFaceDetected
-                                    ? (widget.verifyMode
-                                          ? 'Verify Face'
-                                          : 'Enroll Face')
-                                    : 'Position Face',
+                                (widget.verifyMode
+                                        ? 'VERIFY FACE'
+                                        : 'ENROLL FACE')
+                                    .toUpperCase(),
                                 style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.5,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 13,
+                                  letterSpacing: 1,
                                 ),
                               ),
                             ],
@@ -1527,4 +1386,24 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen>
       },
     );
   }
+}
+
+class _GridPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white.withOpacity(0.05)
+      ..strokeWidth = 1.0;
+
+    const double step = 30.0;
+    for (double i = 0; i < size.width; i += step) {
+      canvas.drawLine(Offset(i, 0), Offset(i, size.height), paint);
+    }
+    for (double i = 0; i < size.height; i += step) {
+      canvas.drawLine(Offset(0, i), Offset(size.width, i), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

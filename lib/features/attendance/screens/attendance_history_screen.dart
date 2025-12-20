@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:skoolwala/shared/theme/app_theme.dart';
+import '../services/attendance_service.dart';
 
 class AttendanceHistoryScreen extends StatefulWidget {
   final int presentDays;
@@ -24,10 +25,35 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
+  // Attendance type variables
+  int _attendanceType = 0;
+  String _attendanceTypeDisplay = 'Day-Wise Attendance';
+  bool _attendanceTypeLoading = true;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _loadAttendanceType();
+  }
+
+  Future<void> _loadAttendanceType() async {
+    try {
+      final response = await AttendanceService.getAttendanceType();
+      if (response['status'] == 'success' && response['data'] != null) {
+        setState(() {
+          _attendanceType = response['data']['attendance_type'] ?? 0;
+          _attendanceTypeDisplay =
+              response['data']['type_display'] ?? 'Day-Wise Attendance';
+          _attendanceTypeLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading attendance type: $e');
+      setState(() {
+        _attendanceTypeLoading = false;
+      });
+    }
   }
 
   @override
@@ -93,6 +119,44 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen>
                     presentDays: widget.presentDays,
                     absentDays: widget.absentDays,
                   ),
+                  const SizedBox(height: 16),
+                  // Attendance Type Badge
+                  if (!_attendanceTypeLoading)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _attendanceType == 0
+                                ? Icons.calendar_today
+                                : Icons.book,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _attendanceTypeDisplay,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ),

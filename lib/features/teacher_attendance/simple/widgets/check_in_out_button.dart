@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:skoolwala/shared/theme/app_theme.dart';
 
 class CheckInOutButton extends StatelessWidget {
   final bool schoolLocationLoaded;
@@ -62,7 +63,6 @@ class CheckInOutButton extends StatelessWidget {
     if (faceAnalysisStatus == null) return null;
     final status = faceAnalysisStatus!.toLowerCase();
 
-    // Check for specific error types
     if (status.contains('mismatch') || status.contains('not match')) {
       return 'Face not match';
     }
@@ -70,30 +70,20 @@ class CheckInOutButton extends StatelessWidget {
       return 'Face not found';
     }
     if (status.contains('failed') || status.contains('fail')) {
-      if (status.contains('face')) {
-        return 'Face analysis failed';
-      }
-      if (status.contains('validation')) {
-        return 'Validation failed';
-      }
-      if (status.contains('location') || status.contains('gps')) {
+      if (status.contains('face')) return 'Face analysis failed';
+      if (status.contains('validation')) return 'Validation failed';
+      if (status.contains('location') || status.contains('gps'))
         return 'Location failed';
-      }
       return 'Failed';
     }
     if (status.contains('error')) {
-      if (status.contains('network')) {
-        return 'Network error';
-      }
+      if (status.contains('network')) return 'Network error';
       return 'Error occurred';
     }
-
     return null;
   }
 
   String _getButtonLabel() {
-    // Priority 1: Show active processing flags (these take highest priority)
-    // Check if we're in an analyzing state (either from flag or status)
     bool isInAnalyzingState = isAnalyzingFace;
     if (!isInAnalyzingState && faceAnalysisStatus != null) {
       final status = faceAnalysisStatus!.toLowerCase();
@@ -106,317 +96,163 @@ class CheckInOutButton extends StatelessWidget {
     }
 
     if (isInAnalyzingState || isAnalyzingFace) {
-      // ALWAYS show attempt counter when analyzing (even on first attempt when noMatchCount = 0)
-      // This helps user see progress: (1/3), (2/3), (3/3)
-      return 'Analyzing face... (${noMatchCount + 1}/3)';
+      return 'ANALYZING FACE... (${noMatchCount + 1}/3)';
     }
 
     if (isFetchingMobileLocation) {
-      return 'Fetching mobile location...';
+      return 'FETCHING LOCATION...';
     }
 
     if (isProcessing) {
-      return 'Processing...';
+      return 'PROCESSING...';
     }
 
     if (!schoolLocationLoaded) {
-      return 'Fetching school location...';
+      return 'FETCHING SCHOOL...';
     }
 
-    // Priority 2: Show specific status from faceAnalysisStatus
-    // This is important because isAnalyzingFace might be false but we're still in retry cycle
     if (faceAnalysisStatus != null) {
       final status = faceAnalysisStatus!.toLowerCase();
-
-      // Check for processing states first (before errors)
       if (status.contains('starting') ||
           status.contains('initializing') ||
           status.contains('starting automatic')) {
-        // Show counter if we're in retry cycle
-        if (noMatchCount > 0 && noMatchCount < 3) {
-          return 'Initializing... (${noMatchCount + 1}/3)';
-        }
-        return 'Initializing...';
-      }
-      if (status.contains('analyzing face') ||
-          status.contains('analyzing...') ||
-          status.contains('analyzing')) {
-        // Show attempt counter if we're analyzing and in retry cycle
-        if (noMatchCount < 3) {
-          return 'Analyzing face... (${noMatchCount + 1}/3)';
-        }
-        return 'Analyzing face...';
-      }
-      if (status.contains('capturing') || status.contains('capturing image')) {
-        if (noMatchCount < 3) {
-          return 'Capturing image... (${noMatchCount + 1}/3)';
-        }
-        return 'Capturing image...';
-      }
-      if (status.contains('validating') || status.contains('validating face')) {
-        if (noMatchCount < 3) {
-          return 'Validating face... (${noMatchCount + 1}/3)';
-        }
-        return 'Validating face...';
-      }
-      if (status.contains('verifying') ||
-          status.contains('verifying face') ||
-          status.contains('verifying face identity')) {
-        if (noMatchCount < 3) {
-          return 'Matching data... (${noMatchCount + 1}/3)';
-        }
-        return 'Matching data...';
-      }
-      if (status.contains('matching') || status.contains('matching data')) {
-        if (noMatchCount < 3) {
-          return 'Matching data... (${noMatchCount + 1}/3)';
-        }
-        return 'Matching data...';
-      }
-
-      // Only show errors if not in active processing and after retries exhausted
-      if (_hasErrorStatus && _canShowTryAgainButton) {
-        final errorMsg = _getErrorMessage();
-        if (errorMsg != null) {
-          return errorMsg;
-        }
+        return noMatchCount > 0 && noMatchCount < 3
+            ? 'INITIALIZING... (${noMatchCount + 1}/3)'
+            : 'INITIALIZING...';
       }
     }
 
-    // Priority 3: Check for configuration errors
     if (schoolLocationLoaded && schoolLocation == null) {
-      return 'School location not set';
+      return 'ZONE NOT SET';
     }
 
-    // Priority 4: Show intermediate states when not everything is ready
     if (!isFaceValidatedForLoggedInUser) {
-      if (faceAnalysisStatus != null) {
-        final status = faceAnalysisStatus!.toLowerCase();
-        if (status.contains('analyzing')) {
-          if (noMatchCount < 3) {
-            return 'Analyzing face... (${noMatchCount + 1}/3)';
-          }
-          return 'Analyzing face...';
-        }
-        if (status.contains('validating')) {
-          if (noMatchCount < 3) {
-            return 'Validating face... (${noMatchCount + 1}/3)';
-          }
-          return 'Validating face...';
-        }
-        if (status.contains('matching') || status.contains('verifying')) {
-          if (noMatchCount < 3) {
-            return 'Matching data... (${noMatchCount + 1}/3)';
-          }
-          return 'Matching data...';
-        }
-        if (status.contains('capturing')) {
-          return 'Capturing image...';
-        }
-        if (status.contains('starting')) {
-          return 'Initializing...';
-        }
-      }
-      // Default analyzing state with counter
-      if (noMatchCount < 3) {
-        return 'Analyzing... (${noMatchCount + 1}/3)';
-      }
-      return 'Analyzing...';
+      if (noMatchCount >= 3) return 'TRY AGAIN';
+      return 'ANALYZING... (${noMatchCount + 1}/3)';
     }
 
     if (schoolLocation == null) {
-      return 'Waiting for location...';
+      return 'WAITING...';
     }
 
-    // Priority 5: Check if we should show "Try Again" (after 3 failed attempts)
-    // This must come BEFORE "Ready" state to ensure it shows when needed
-    // Show "Try Again" when 3 attempts are done, regardless of error status
-    if (noMatchCount >= 3) {
-      // If face is not validated after 3 attempts, show Try Again
-      if (!isFaceValidatedForLoggedInUser) {
-        return 'Try Again';
-      }
-    }
-
-    // Priority 6: Everything is ready - show final state (ONLY if not processing)
-    // Don't show "Ready" if we're still processing, analyzing, or fetching
     if (!isProcessing &&
         !isAnalyzingFace &&
         !isFetchingMobileLocation &&
-        schoolLocationLoaded &&
-        isFaceValidatedForLoggedInUser &&
         schoolLocation != null) {
       return isCurrentlyCheckedIn
-          ? 'Ready for Check Out'
-          : 'Ready for Check In';
+          ? 'READY FOR CHECK OUT'
+          : 'READY FOR CHECK IN';
     }
 
-    // Default fallback - show analyzing state if nothing else matches
-    if (!isFaceValidatedForLoggedInUser) {
-      if (noMatchCount < 3) {
-        return 'Analyzing... (${noMatchCount + 1}/3)';
-      }
-      return 'Analyzing...';
-    }
-
-    return 'Check In';
-  }
-
-  VoidCallback? get _onPressedCallback {
-    // ALWAYS disable during any processing/fetching/analyzing
-    if (isProcessing ||
-        isAnalyzingFace ||
-        !schoolLocationLoaded ||
-        isFetchingMobileLocation) {
-      return null;
-    }
-
-    // Enable for "Try Again" button when 3 attempts failed
-    // Show Try Again when 3 attempts are done and face is not validated
-    if (noMatchCount >= 3 && !isFaceValidatedForLoggedInUser) {
-      return onRestartFaceAnalysis;
-    }
-
-    // Also check using the helper method
-    if (_canShowTryAgainButton) {
-      return onRestartFaceAnalysis;
-    }
-
-    // ONLY enable when EVERYTHING is completely ready:
-    // - Face must be validated for logged-in user
-    // - School location must be loaded and available
-    // - No mismatch errors
-    // - Not currently processing anything
-    if (isFaceValidatedForLoggedInUser &&
-        schoolLocation != null &&
-        !_hasMismatchError) {
-      return () =>
-          onMarkAttendance(isCurrentlyCheckedIn ? 'check_out' : 'check_in');
-    }
-
-    // Keep disabled while fetching/analyzing/preparing
-    return null;
-  }
-
-  Widget _buildButton(
-    BuildContext context,
-    bool schoolNotConfigured,
-    bool hasLocation,
-  ) {
-    if (schoolNotConfigured) {
-      return ElevatedButton.icon(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('School location not set'),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 2),
-            ),
-          );
-          onSchoolLocationNotSet();
-        },
-        icon: Icon(Icons.location_off, size: 22),
-        label: Text(
-          'School location not set',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
-          ),
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.red[600]!,
-          foregroundColor: Colors.white,
-          elevation: 4,
-          padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          minimumSize: Size(double.infinity, 58),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          shadowColor: Colors.red.withOpacity(0.3),
-        ),
-      );
-    }
-
-    final String buttonLabel = _getButtonLabel();
-    final String displayLabel = buttonLabel.isEmpty ? 'Check In' : buttonLabel;
-
-    // Determine button colors and styling
-    final bool isDisabled =
-        isProcessing ||
-        isAnalyzingFace ||
-        !schoolLocationLoaded ||
-        isFetchingMobileLocation;
-
-    final bool isReady = isFaceValidatedForLoggedInUser && hasLocation;
-    final bool isTryAgain =
-        _canShowTryAgainButton ||
-        (noMatchCount >= 3 && !isFaceValidatedForLoggedInUser);
-
-    Color backgroundColor;
-    Color foregroundColor;
-    IconData buttonIcon;
-
-    if (isDisabled) {
-      backgroundColor = Colors.grey[600]!;
-      foregroundColor = Colors.white;
-      buttonIcon = Icons.hourglass_empty;
-    } else if (schoolNotConfigured) {
-      backgroundColor = Colors.red[600]!;
-      foregroundColor = Colors.white;
-      buttonIcon = Icons.location_off;
-    } else if (isReady) {
-      backgroundColor = isCurrentlyCheckedIn
-          ? Colors.red[600]!
-          : Colors.green[600]!;
-      foregroundColor = Colors.white;
-      buttonIcon = isCurrentlyCheckedIn ? Icons.logout : Icons.login;
-    } else if (isTryAgain) {
-      backgroundColor = Colors.orange[600]!;
-      foregroundColor = Colors.white;
-      buttonIcon = Icons.refresh;
-    } else {
-      backgroundColor = Colors.grey[600]!;
-      foregroundColor = Colors.white;
-      buttonIcon = Icons.access_time;
-    }
-
-    return ElevatedButton.icon(
-      onPressed: _onPressedCallback,
-      icon: Icon(buttonIcon, size: 22),
-      label: Text(
-        displayLabel,
-        style: TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.5,
-        ),
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: backgroundColor,
-        foregroundColor: foregroundColor,
-        elevation: isDisabled ? 0 : 4,
-        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        minimumSize: Size(double.infinity, 58),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        shadowColor: backgroundColor.withOpacity(0.3),
-      ),
-    );
+    return 'CHECK IN';
   }
 
   @override
   Widget build(BuildContext context) {
     final bool schoolNotConfigured =
         schoolLocationLoaded && schoolLocation == null;
-    final bool hasLocation = schoolLocation != null;
+    final bool isDisabled =
+        isProcessing ||
+        isAnalyzingFace ||
+        !schoolLocationLoaded ||
+        isFetchingMobileLocation;
+    final bool isReady =
+        isFaceValidatedForLoggedInUser && schoolLocation != null && !isDisabled;
+    final bool isTryAgain =
+        !isReady && (noMatchCount >= 3 || _hasErrorStatus) && !isDisabled;
 
-    // Ensure button is always visible - using Container with explicit size constraints
-    return Container(
-      width: double.infinity,
-      constraints: BoxConstraints(
-        minHeight: 56, // Material Design minimum touch target
+    final label = _getButtonLabel();
+
+    Color color1;
+    Color color2;
+    IconData icon;
+
+    if (isDisabled) {
+      color1 = Colors.grey[800]!;
+      color2 = Colors.grey[900]!;
+      icon = Icons.hourglass_top_rounded;
+    } else if (schoolNotConfigured) {
+      color1 = AppTheme.errorRed;
+      color2 = AppTheme.darkPurple;
+      icon = Icons.location_off_rounded;
+    } else if (isReady) {
+      if (isCurrentlyCheckedIn) {
+        color1 = AppTheme.errorRed;
+        color2 = AppTheme.errorRed.withOpacity(0.8);
+        icon = Icons.logout_rounded;
+      } else {
+        color1 = AppTheme.successGreen;
+        color2 = AppTheme.successGreen.withOpacity(0.8);
+        icon = Icons.login_rounded;
+      }
+    } else if (isTryAgain) {
+      color1 = AppTheme.warningOrange;
+      color2 = AppTheme.warningOrange.withOpacity(0.8);
+      icon = Icons.refresh_rounded;
+    } else {
+      color1 = AppTheme.primaryPurple;
+      color2 = AppTheme.darkPurple;
+      icon = Icons.face_retouching_natural;
+    }
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      height: 64,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [color1, color2],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          if (!isDisabled)
+            BoxShadow(
+              color: color1.withOpacity(0.4),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+              spreadRadius: -2,
+            ),
+        ],
       ),
-      child: _buildButton(context, schoolNotConfigured, hasLocation),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: isDisabled
+              ? null
+              : () {
+                  if (schoolNotConfigured) {
+                    onSchoolLocationNotSet();
+                  } else if (isTryAgain) {
+                    onRestartFaceAnalysis();
+                  } else if (isReady) {
+                    onMarkAttendance(
+                      isCurrentlyCheckedIn ? 'check_out' : 'check_in',
+                    );
+                  }
+                },
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, color: Colors.white, size: 24),
+                const SizedBox(width: 16),
+                Text(
+                  label.toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

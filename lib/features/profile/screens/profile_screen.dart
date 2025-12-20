@@ -2,14 +2,18 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:skoolwala/shared/models/teacher.dart';
 import 'package:skoolwala/features/auth/services/profile_service.dart';
 import 'package:skoolwala/features/auth/screens/login_screen.dart';
+import 'package:skoolwala/features/profile/widgets/developer_attendance_fab.dart';
 import 'package:skoolwala/features/school/screens/school_selection_screen.dart';
 import 'package:skoolwala/shared/services/session_manager.dart';
 import 'package:skoolwala/shared/services/persistent_storage.dart';
 import '../models/teacher_profile.dart';
 import '../services/teacher_profile_service.dart';
+import 'package:skoolwala/shared/theme/app_theme.dart';
 // import '../widgets/set_location_widget.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -115,9 +119,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop('complete'),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
-            ),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Complete Logout'),
           ),
         ],
@@ -141,13 +143,11 @@ class _ProfileScreenState extends State<ProfileScreen>
       if (isCompleteLogout) {
         // Complete logout: Clear everything including selected school
         await SessionManager.instance.completeLogout();
-        
+
         // Navigate to school selection screen
         if (mounted) {
           Navigator.of(navigatorContext).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => const SchoolSelectionScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const SchoolSelectionScreen()),
             (route) => false,
           );
         }
@@ -182,9 +182,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         await SessionManager.instance.completeLogout();
         if (mounted) {
           Navigator.of(navigatorContext).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => const SchoolSelectionScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const SchoolSelectionScreen()),
             (route) => false,
           );
         }
@@ -194,7 +192,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         final schoolName = savedSchool?['name'] ?? 'SKOOLWALA INSTITUTION';
         final mainLogo = savedSchool?['main_logo'];
         final branchId = savedSchool?['id'];
-        
+
         if (mounted) {
           Navigator.of(navigatorContext).pushAndRemoveUntil(
             MaterialPageRoute(
@@ -304,88 +302,103 @@ class _ProfileScreenState extends State<ProfileScreen>
     print('🔍 Profile Debug - Teacher Designation: ${displayData.designation}');
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        titleTextStyle: const TextStyle(color: Colors.white),
-        title: const Text(
-          'Profile',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              AppTheme.dashboardPrimary,
+              AppTheme.dashboardPrimary.withBlue(100).withRed(40),
+            ],
           ),
         ),
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-            ),
-          ),
-        ),
-        actions: [
-          // Edit button
-          IconButton(
-            onPressed: () => _showEditProfileDialog(context, displayData),
-            icon: const Icon(Icons.edit, color: Colors.white),
-            tooltip: 'Edit Profile',
-          ),
-          // Logout button
-          IconButton(
-            onPressed: () => _handleLogout(context),
-            icon: const Icon(Icons.logout, color: Colors.white),
-            tooltip: 'Logout',
-          ),
-        ],
-      ),
-      // Floating developer attendance button hidden as requested (kept in codebase but not shown)
-      floatingActionButton: null,
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _refreshProfileData,
-          color: const Color(0xFF6366F1),
-          backgroundColor: Colors.white,
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              // Enhanced Header with fade animation
-              SliverToBoxAdapter(
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: _EnhancedProfileHeader(
-                    teacher: displayData,
-                    schoolName: widget.schoolName,
-                    onLogout: _handleLogout,
-                  ),
-                ),
+        child: Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            centerTitle: true,
+            iconTheme: const IconThemeData(color: Colors.white),
+            title: const Text(
+              'My Profile',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                letterSpacing: 0.5,
               ),
-
-              // Profile details with slide animation
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 8,
+            ),
+            actions: [
+              // Edit button
+              IconButton(
+                onPressed: () => _showEditProfileDialog(context, displayData),
+                icon: const Icon(
+                  Icons.mode_edit_outline_outlined,
+                  color: Colors.white,
                 ),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate([
-                    SlideTransition(
-                      position: _slideAnimation,
-                      child: FadeTransition(
-                        opacity: _staggerAnimation,
-                        child: _ProfileDetails(
-                          teacher: displayData,
-                          schoolName: widget.schoolName,
-                        ),
+                tooltip: 'Edit Profile',
+              ),
+              // Logout button
+              IconButton(
+                onPressed: () => _handleLogout(context),
+                icon: const Icon(
+                  Icons.logout_rounded,
+                  color: AppTheme.errorRed,
+                ),
+                tooltip: 'Logout',
+              ),
+              const SizedBox(width: 8),
+            ],
+          ),
+          // Floating developer attendance button returns when running in debug mode
+          floatingActionButton: kDebugMode
+              ? DeveloperAttendanceFAB(teacher: displayData)
+              : null,
+          body: SafeArea(
+            child: RefreshIndicator(
+              onRefresh: _refreshProfileData,
+              color: AppTheme.primaryPurple,
+              backgroundColor: Colors.white,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  // Enhanced Header with fade animation
+                  SliverToBoxAdapter(
+                    child: FadeTransition(
+                      opacity: _fadeAnimation,
+                      child: _EnhancedProfileHeader(
+                        teacher: displayData,
+                        schoolName: widget.schoolName,
+                        onLogout: _handleLogout,
                       ),
                     ),
-                  ]),
-                ),
+                  ),
+
+                  // Profile details with slide animation
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate([
+                        SlideTransition(
+                          position: _slideAnimation,
+                          child: FadeTransition(
+                            opacity: _staggerAnimation,
+                            child: _ProfileDetails(
+                              teacher: displayData,
+                              schoolName: widget.schoolName,
+                            ),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -393,71 +406,162 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 }
 
-class _SectionCard extends StatelessWidget {
+class _SectionCard extends StatefulWidget {
   final String title;
   final IconData icon;
   final List<Widget> children;
+  final bool initiallyExpanded;
 
   const _SectionCard({
     required this.title,
     required this.icon,
     required this.children,
+    this.initiallyExpanded = false,
   });
+
+  @override
+  State<_SectionCard> createState() => _SectionCardState();
+}
+
+class _SectionCardState extends State<_SectionCard>
+    with SingleTickerProviderStateMixin {
+  late bool _isExpanded;
+  late AnimationController _controller;
+  late Animation<double> _iconTurns;
+
+  @override
+  void initState() {
+    super.initState();
+    _isExpanded = widget.initiallyExpanded;
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _iconTurns = _controller.drive(Tween<double>(begin: 0.0, end: 0.5));
+    if (_isExpanded) {
+      _controller.value = 1.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _toggleExpansion() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+      if (_isExpanded) {
+        _controller.forward();
+      } else {
+        _controller.reverse();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      margin: const EdgeInsets.only(bottom: 24),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withOpacity(0.12),
+            Colors.white.withOpacity(0.04),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.2),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).shadowColor.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 30,
+            offset: const Offset(0, 15),
+          ),
+          BoxShadow(
+            color: Colors.white.withOpacity(0.05),
+            blurRadius: 1,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Section Header
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
+          // Section Header (Clickable)
+          InkWell(
+            onTap: _toggleExpansion,
+            borderRadius: BorderRadius.circular(28),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(widget.icon, color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: -0.3,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black26,
+                            offset: Offset(0, 2),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  RotationTransition(
+                    turns: _iconTurns,
+                    child: Icon(
+                      Icons.expand_more_rounded,
+                      color: Colors.white.withOpacity(0.7),
+                      size: 24,
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: Row(
+          ),
+
+          SizeTransition(
+            sizeFactor: CurvedAnimation(
+              parent: _controller,
+              curve: Curves.easeInOut,
+            ),
+            child: Column(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).primaryColor,
-                    borderRadius: BorderRadius.circular(8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Divider(
+                    height: 1,
+                    color: Colors.white.withOpacity(0.1),
                   ),
-                  child: Icon(icon, color: Colors.white, size: 20),
                 ),
-                const SizedBox(width: 12),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).textTheme.bodyLarge?.color,
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: widget.children,
                   ),
                 ),
               ],
             ),
-          ),
-
-          // Section Content
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(mainAxisSize: MainAxisSize.min, children: children),
           ),
         ],
       ),
@@ -479,174 +583,287 @@ class _EnhancedProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-        ),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(30),
-          bottomRight: Radius.circular(30),
-        ),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 30),
+      child: Column(
+        children: [
+          // Avatar with depth and glow ring
+          Stack(
+            alignment: Alignment.center,
             children: [
-              const SizedBox(height: 16),
-
-              // Horizontal layout: Profile picture on left, details on right
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // Profile picture on left
-                  Container(
-                    width: 70,
-                    height: 70,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 3),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 12,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    child: CircleAvatar(
-                      backgroundColor: Colors.white,
-                      child: teacher.photo.isNotEmpty
-                          ? ClipOval(
-                              child: Image.network(
-                                'https://skoolwala.com/uploads/staff/${teacher.photo}',
-                                width: 80,
-                                height: 80,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Icon(
-                                    Icons.person,
-                                    size: 35,
-                                    color: Theme.of(context).primaryColor,
-                                  );
-                                },
-                                loadingBuilder:
-                                    (context, child, loadingProgress) {
-                                      if (loadingProgress == null) return child;
-                                      return Container(
-                                        width: 80,
-                                        height: 80,
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey[200],
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Center(
-                                          child: CircularProgressIndicator(
-                                            value:
-                                                loadingProgress
-                                                        .expectedTotalBytes !=
-                                                    null
-                                                ? loadingProgress
-                                                          .cumulativeBytesLoaded /
-                                                      loadingProgress
-                                                          .expectedTotalBytes!
-                                                : null,
-                                            strokeWidth: 2,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                              ),
-                            )
-                          : Icon(
-                              Icons.person,
-                              size: 35,
-                              color: Theme.of(context).primaryColor,
-                            ),
-                    ),
+              // Outer Glow
+              Container(
+                width: 136,
+                height: 136,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      Colors.white.withOpacity(0.12),
+                      Colors.transparent,
+                    ],
                   ),
-
-                  const SizedBox(width: 16),
-
-                  // Details on right
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Name
-                        Text(
-                          teacher.name,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
+                ),
+              ),
+              // Avatar Container
+              Container(
+                width: 110,
+                height: 110,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.1),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.2),
+                    width: 4,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 25,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: Hero(
+                  tag: 'profile_avatar',
+                  child: CircleAvatar(
+                    backgroundColor: Colors.white.withOpacity(0.1),
+                    child: teacher.photo.isNotEmpty
+                        ? ClipOval(
+                            child: Image.network(
+                              'https://skoolwala.com/uploads/staff/${teacher.photo}',
+                              width: 110,
+                              height: 110,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(
+                                    Icons.person_rounded,
+                                    size: 50,
+                                    color: Colors.white,
+                                  ),
+                            ),
+                          )
+                        : const Icon(
+                            Icons.person_rounded,
+                            size: 50,
                             color: Colors.white,
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 6),
-
-                        // Role badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Text(
-                            teacher.role,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-
-                        // School info
-                        if (schoolName != null) ...[
-                          const SizedBox(height: 6),
-                          Row(
-                            children: [
-                              const Icon(
-                                Icons.school,
-                                color: Colors.white70,
-                                size: 14,
-                              ),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  schoolName!,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.white70,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
                   ),
-                ],
+                ),
               ),
-
-              const SizedBox(height: 16),
             ],
           ),
-        ),
+          const SizedBox(height: 20),
+
+          // Name with dramatic shadow
+          Text(
+            teacher.name,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 26,
+              fontWeight: FontWeight.w900,
+              color: Colors.white,
+              letterSpacing: -0.8,
+              shadows: [
+                Shadow(
+                  color: Colors.black45,
+                  offset: Offset(0, 4),
+                  blurRadius: 10,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+
+          // Designation / Role Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      Colors.white.withOpacity(0.15),
+                      Colors.white.withOpacity(0.05),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.1),
+                    width: 1,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  teacher.designation.toUpperCase(),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (teacher.role == '3')
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppTheme.warningOrange.withOpacity(0.3),
+                        AppTheme.warningOrange.withOpacity(0.1),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: AppTheme.warningOrange.withOpacity(0.4),
+                      width: 1,
+                    ),
+                  ),
+                  child: const Text(
+                    'FACULTY',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.warningOrange,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+              if (schoolName != null) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.successGreen.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: AppTheme.successGreen.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.school_rounded,
+                        size: 12,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        schoolName!.split(' ').take(2).join(' ').toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(height: 24),
+
+          // Quick Action Icons Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _buildQuickAction(
+                Icons.call_rounded,
+                AppTheme.successGreen,
+                () => _launchUrl('tel:${teacher.mobileNo}'),
+              ),
+              const SizedBox(width: 16),
+              _buildQuickAction(
+                Icons.chat_bubble_rounded,
+                const Color(0xFF25D366), // WhatsApp color
+                () => _launchUrl('https://wa.me/${teacher.mobileNo}'),
+              ),
+              const SizedBox(width: 16),
+              _buildQuickAction(
+                Icons.email_rounded,
+                AppTheme.infoBlue,
+                () => _launchUrl('mailto:${teacher.email}'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
+  }
+
+  Widget _buildQuickAction(
+    IconData icon,
+    Color color,
+    VoidCallback onTap, {
+    String? label,
+  }) {
+    return Column(
+      children: [
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [color.withOpacity(0.2), color.withOpacity(0.05)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 22),
+          ),
+        ),
+        if (label != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              color: Colors.white.withOpacity(0.8),
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _launchUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    }
   }
 }
 
@@ -662,10 +879,11 @@ class _ProfileDetails extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Personal Information Card
+        // Personal Information Card (Expandable)
         _SectionCard(
           title: 'Personal Information',
           icon: Icons.person_outline,
+          initiallyExpanded: false,
           children: [
             _AnimatedProfileDetailItem(
               label: 'E-mail',
@@ -720,10 +938,13 @@ class _ProfileDetails extends StatelessWidget {
 
         const SizedBox(height: 16),
 
-        // Professional Information Card
+        // Dynamic Professional/Faculty Information Card (Expandable)
         _SectionCard(
-          title: 'Professional Information',
+          title: teacher.role == '3'
+              ? 'Faculty Information'
+              : 'Professional Information',
           icon: Icons.work_outline,
+          initiallyExpanded: false,
           children: [
             _AnimatedProfileDetailItem(
               label: 'Branch',
@@ -778,36 +999,39 @@ class _ProfileDetails extends StatelessWidget {
 
         const SizedBox(height: 16),
 
-        // Social Media Card (only if there are social media links)
+        // Social Media Card (Expandable)
         if (teacher.facebookUrl.isNotEmpty ||
             teacher.linkedinUrl.isNotEmpty ||
             teacher.twitterUrl.isNotEmpty)
           _SectionCard(
             title: 'Social Media',
             icon: Icons.share_outlined,
+            initiallyExpanded: false,
             children: [
-              if (teacher.facebookUrl.isNotEmpty)
+              if (teacher.facebookUrl.isNotEmpty) ...[
                 _AnimatedProfileDetailItem(
                   label: 'Facebook',
                   value: teacher.facebookUrl,
                   icon: Icons.facebook_outlined,
                   index: 16,
                 ),
-              if (teacher.linkedinUrl.isNotEmpty)
+              ],
+              if (teacher.linkedinUrl.isNotEmpty) ...[
                 _AnimatedProfileDetailItem(
                   label: 'LinkedIn',
                   value: teacher.linkedinUrl,
-                  icon: Icons
-                      .link, // Use a generic link icon since Icons.linkedin_outlined does not exist
+                  icon: Icons.link,
                   index: 17,
                 ),
-              if (teacher.twitterUrl.isNotEmpty)
+              ],
+              if (teacher.twitterUrl.isNotEmpty) ...[
                 _AnimatedProfileDetailItem(
                   label: 'Twitter',
                   value: teacher.twitterUrl,
                   icon: Icons.alternate_email,
                   index: 18,
                 ),
+              ],
             ],
           ),
       ],
@@ -920,59 +1144,122 @@ class _ProfileDetailItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).dividerColor, width: 1),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white.withOpacity(0.1)
-                  : Theme.of(context).primaryColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(10),
+    return InkWell(
+      onLongPress: () {
+        if (value.isNotEmpty) {
+          Clipboard.setData(ClipboardData(text: value));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$label copied to clipboard'),
+              behavior: SnackBarBehavior.floating,
+              backgroundColor: AppTheme.primaryPurple,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              width: 250,
             ),
-            child: Icon(
-              icon,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white
-                  : Theme.of(context).primaryColor,
-              size: 20,
-            ),
+          );
+        }
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              Colors.white.withOpacity(0.08),
+              Colors.white.withOpacity(0.02),
+            ],
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).textTheme.bodyMedium?.color,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  value.isEmpty ? 'N/A' : value,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).textTheme.bodyLarge?.color,
-                  ),
-                ),
-              ],
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
             ),
-          ),
-        ],
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white.withOpacity(0.15),
+                    Colors.white.withOpacity(0.05),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.1),
+                  width: 1,
+                ),
+              ),
+              child: Icon(icon, color: Colors.white, size: 22),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        label.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white.withOpacity(0.6),
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      if (value.isNotEmpty)
+                        Icon(
+                          Icons.copy_rounded,
+                          size: 10,
+                          color: Colors.white.withOpacity(0.4),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    value.isEmpty ? 'Not Provided' : value,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (value.isNotEmpty &&
+                (label.contains('E-mail') || label.contains('Mobile')))
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.white.withOpacity(0.3),
+                  size: 20,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

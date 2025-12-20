@@ -10,8 +10,18 @@ import '../../features/profile/screens/profile_screen.dart';
 import '../../features/messages/screens/message_screen.dart';
 import '../../features/students/screens/students_list_screen.dart'; // Import Students List
 import '../../features/hr/screens/employee_list_screen.dart'; // Import Employee List
+import '../../features/hr/screens/add_employee_screen.dart';
 import '../../features/fees/screens/fees_invoice_list_screen.dart'; // Import Fees Invoice List
 import '../../features/exam/screens/exam_list_screen.dart'; // Import Exam List
+import '../../features/inventory/screens/product_list_screen.dart';
+import '../../features/inventory/screens/category_list_screen.dart';
+import '../../features/inventory/screens/store_list_screen.dart';
+import '../../features/inventory/screens/supplier_list_screen.dart';
+import '../../features/inventory/screens/unit_list_screen.dart';
+import '../../features/inventory/screens/purchase_list_screen.dart';
+import '../../features/inventory/screens/sales_list_screen.dart';
+import '../../features/inventory/screens/issue_list_screen.dart';
+import '../../features/custom_domain/screens/custom_domain_list_screen.dart';
 import '../screens/feature_under_construction_screen.dart'; // Import Placeholder
 import '../services/session_manager.dart';
 import '../services/menu_service.dart';
@@ -42,7 +52,27 @@ class _AppSidebarState extends State<AppSidebar> {
 
   Future<void> _loadMenuItems() async {
     try {
+      print('\n🔷 ============ SIDEBAR MENU LOADING ============');
+      print(
+        '🔷 Current Teacher: ${SessionManager.instance.currentTeacher?.name}',
+      );
+      print('🔷 Current Role: ${SessionManager.instance.currentTeacher?.role}');
+
       final items = await _menuService.fetchMenuItems();
+
+      print('\n🔷 📋 RAW MENU ITEMS FROM API (${items.length} items):');
+      for (int i = 0; i < items.length; i++) {
+        final item = items[i];
+        print(
+          '   [$i] ID: ${item.id}, Title: ${item.title}, Type: ${item.type}, Icon: ${item.icon}',
+        );
+        if (item.isParent && item.children != null) {
+          for (int j = 0; j < item.children!.length; j++) {
+            print('       └─ [${j}] ${item.children![j].title}');
+          }
+        }
+      }
+
       setState(() {
         _menuItems = items;
         _isLoading = false;
@@ -53,8 +83,12 @@ class _AppSidebarState extends State<AppSidebar> {
           }
         }
       });
+
+      print('\n🔷 ✅ Menu items loaded successfully');
+      print('🔷 ============================================\n');
     } catch (e) {
-      print('❌ AppSidebar: Error loading menu items: $e');
+      print('\n🔷 ❌ AppSidebar: Error loading menu items: $e');
+      print('🔷 ============================================\n');
       setState(() {
         _isLoading = false;
       });
@@ -89,6 +123,26 @@ class _AppSidebarState extends State<AppSidebar> {
       'class': Icons.class_,
       'shopping_cart': Icons.shopping_cart,
       'mail': Icons.mail,
+      // Inventory Icons
+      'inventory': Icons.inventory,
+      'shopping_bag': Icons.shopping_bag,
+      'category': Icons.category,
+      'store': Icons.store,
+      'local_shipping': Icons.local_shipping,
+      'straighten': Icons.straighten,
+      'receipt': Icons.receipt,
+      'outbox': Icons.outbox,
+      // Other Icons
+      'monetization_on': Icons.monetization_on,
+      'block': Icons.block,
+      'person_add': Icons.person_add,
+      'school': Icons.school,
+      'assignment_turned_in': Icons.assignment_turned_in,
+      'language': Icons.language,
+      'today': Icons.today,
+      // Support/Help icons
+      'support': Icons.support_agent,
+      'help': Icons.help_outline,
     };
     return iconMap[iconName] ?? Icons.menu;
   }
@@ -246,6 +300,40 @@ class _AppSidebarState extends State<AppSidebar> {
           MaterialPageRoute(builder: (_) => const EmployeeListScreen()),
         );
         break;
+      case '/employee/add':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const AddEmployeeScreen()),
+        );
+        break;
+      case '/employee/department':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                const FeatureUnderConstructionScreen(title: 'Department'),
+          ),
+        );
+        break;
+      case '/employee/designation':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                const FeatureUnderConstructionScreen(title: 'Designation'),
+          ),
+        );
+        break;
+      case '/employee/disable_authentication':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const FeatureUnderConstructionScreen(
+              title: 'Disable Authentication',
+            ),
+          ),
+        );
+        break;
       case '/employee/payroll':
         Navigator.push(
           context,
@@ -315,6 +403,87 @@ class _AppSidebarState extends State<AppSidebar> {
             builder: (_) =>
                 const FeatureUnderConstructionScreen(title: 'Global Settings'),
           ),
+        );
+        break;
+
+      // --- Support / Help ---
+      case '/support':
+      case '/help':
+      case '/need-support':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                const FeatureUnderConstructionScreen(title: 'Need Support'),
+          ),
+        );
+        break;
+
+      // --- Inventory ---
+      case '/inventory/product':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ProductListScreen()),
+        );
+        break;
+      case '/inventory/category':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const CategoryListScreen()),
+        );
+        break;
+      case '/inventory/store':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const StoreListScreen()),
+        );
+        break;
+      case '/inventory/supplier':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const SupplierListScreen()),
+        );
+        break;
+      case '/inventory/unit':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const UnitListScreen()),
+        );
+        break;
+      case '/inventory/purchase':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const PurchaseListScreen()),
+        );
+        break;
+      case '/inventory/sales':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const SalesListScreen()),
+        );
+        break;
+      case '/inventory/issue':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const IssueListScreen()),
+        );
+        break;
+
+      // --- Custom Domain ---
+      case '/custom_domain/list':
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const FeatureUnderConstructionScreen(
+              title: 'Custom Domain List',
+            ),
+          ),
+        );
+        break;
+      case '/custom_domain/mylist':
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const CustomDomainListScreen()),
         );
         break;
 
@@ -555,7 +724,22 @@ class _AppSidebarState extends State<AppSidebar> {
 
     List<Widget> widgets = [];
 
+    // Get current user role from SessionManager
+    final currentUserRole = SessionManager.instance.currentTeacher?.role;
+
+    print('\n🔶 ============ SIDEBAR FILTERING ============');
+    print('🔶 Current user role: $currentUserRole');
+    print('🔶 Total menu items from API: ${_menuItems.length}');
+    print('\n🔶 📊 FILTERING RESULTS:');
+
+    int shownCount = 0;
+    int hiddenCount = 0;
+
     for (var item in _menuItems) {
+      // All items from API are already filtered by backend based on admin permissions
+      print('   ✅ SHOW: "${item.title}" (ID: ${item.id})');
+      shownCount++;
+
       if (item.isParent && item.children != null && item.children!.isNotEmpty) {
         // Parent menu item with children
         widgets.add(_buildExpandableMenuItemFromApi(item));
@@ -564,6 +748,11 @@ class _AppSidebarState extends State<AppSidebar> {
         widgets.add(_buildMenuItemFromApi(item));
       }
     }
+
+    print('\n🔶 📈 SUMMARY:');
+    print('   Total shown: $shownCount');
+    print('   Total hidden: $hiddenCount');
+    print('🔶 ==========================================\n');
 
     // Add divider before profile if profile exists
     final profileIndex = _menuItems.indexWhere((item) => item.id == 'profile');

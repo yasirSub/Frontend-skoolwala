@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../theme/theme_provider.dart';
+import 'package:skoolwala/shared/theme/app_theme.dart';
 
 /// Custom App Bar Widget
 /// Reusable top app bar with modern design
-class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
+class CustomAppBar extends StatefulWidget implements PreferredSizeWidget {
   final String title;
+  final Widget? titleWidget;
   final bool centerTitle;
   final bool automaticallyImplyLeading;
   final Widget? leading;
@@ -23,7 +26,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   const CustomAppBar({
     super.key,
-    required this.title,
+    this.title = '',
+    this.titleWidget,
     this.centerTitle = true,
     this.automaticallyImplyLeading = false,
     this.leading,
@@ -41,18 +45,37 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   });
 
   @override
+  State<CustomAppBar> createState() => _CustomAppBarState();
+
+  @override
+  Size get preferredSize =>
+      Size.fromHeight(60 + (bottom?.preferredSize.height ?? 0));
+}
+
+class _CustomAppBarState extends State<CustomAppBar> {
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     // Adapt colors based on theme
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final defaultPrimaryColor =
-        primaryColor ??
-        (isDark ? const Color(0xFF2A2A2A) : const Color(0xFF1A1F3E));
+        widget.primaryColor ??
+        (isDark ? AppTheme.darkPurple : AppTheme.primaryPurple);
     final defaultForegroundColor =
-        foregroundColor ?? (isDark ? Colors.white : Colors.white);
+        widget.foregroundColor ?? (isDark ? Colors.white : Colors.white);
 
     // Build actions list with optional theme toggle
-    List<Widget> appBarActions = List.from(actions);
-    if (showThemeToggle) {
+    List<Widget> appBarActions = List.from(widget.actions);
+    if (widget.showThemeToggle) {
       appBarActions.add(
         Consumer<ThemeProvider>(
           builder: (context, themeProvider, child) {
@@ -70,8 +93,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     }
 
     return PreferredSize(
-      preferredSize: preferredSize,
-      child: showRoundedCorners
+      preferredSize: widget.preferredSize,
+      child: widget.showRoundedCorners
           ? ClipRRect(
               borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(25),
@@ -80,7 +103,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               child: Container(
                 decoration: BoxDecoration(
                   gradient:
-                      gradient ??
+                      widget.gradient ??
                       LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
@@ -105,51 +128,49 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
                 child: AppBar(
                   backgroundColor: Colors.transparent,
-                  elevation: elevation ?? 0,
-                  centerTitle: centerTitle,
-                  automaticallyImplyLeading: automaticallyImplyLeading,
-                  leading: leading,
+                  elevation: widget.elevation ?? 0,
+                  centerTitle: widget.centerTitle,
+                  automaticallyImplyLeading: widget.automaticallyImplyLeading,
+                  leading: widget.leading,
                   actions: appBarActions,
-                  title: Text(
-                    title,
-                    style: TextStyle(
-                      color: defaultForegroundColor,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  titleSpacing: titleSpacing,
-                  flexibleSpace: flexibleSpace,
-                  bottom: bottom,
+                  title:
+                      widget.titleWidget ??
+                      Text(
+                        widget.title,
+                        style: TextStyle(
+                          color: defaultForegroundColor,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                  titleSpacing: widget.titleSpacing,
+                  flexibleSpace: widget.flexibleSpace,
+                  bottom: widget.bottom,
                 ),
               ),
             )
           : AppBar(
-              backgroundColor: backgroundColor ?? defaultPrimaryColor,
-              foregroundColor: foregroundColor ?? defaultForegroundColor,
-              elevation: elevation ?? 0,
-              centerTitle: centerTitle,
-              automaticallyImplyLeading: automaticallyImplyLeading,
-              leading: leading,
+              backgroundColor: widget.backgroundColor ?? defaultPrimaryColor,
+              foregroundColor: widget.foregroundColor ?? defaultForegroundColor,
+              elevation: widget.elevation ?? 0,
+              centerTitle: widget.centerTitle,
+              automaticallyImplyLeading: widget.automaticallyImplyLeading,
+              leading: widget.leading,
               actions: appBarActions,
               title: Text(
-                title,
+                widget.title,
                 style: TextStyle(
-                  color: foregroundColor ?? defaultForegroundColor,
+                  color: widget.foregroundColor ?? defaultForegroundColor,
                   fontSize: 20,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              titleSpacing: titleSpacing,
-              flexibleSpace: flexibleSpace,
-              bottom: bottom,
+              titleSpacing: widget.titleSpacing,
+              flexibleSpace: widget.flexibleSpace,
+              bottom: widget.bottom,
             ),
     );
   }
-
-  @override
-  Size get preferredSize =>
-      Size.fromHeight(kToolbarHeight + (bottom?.preferredSize.height ?? 0.0));
 }
 
 /// Simple App Bar for basic screens

@@ -14,11 +14,7 @@ class StudentAttendanceEntry {
   });
 
   Map<String, dynamic> toJson() {
-    return {
-      'enroll_id': enrollId,
-      'status': status,
-      'remark': remark ?? '',
-    };
+    return {'enroll_id': enrollId, 'status': status, 'remark': remark ?? ''};
   }
 }
 
@@ -108,10 +104,12 @@ class StudentAttendanceReportItem {
       absentCount: int.parse(json['absent_count']?.toString() ?? '0'),
       lateCount: int.parse(json['late_count']?.toString() ?? '0'),
       halfdayCount: int.parse(json['halfday_count']?.toString() ?? '0'),
-      totalAttendanceDays:
-          int.parse(json['total_attendance_days']?.toString() ?? '0'),
-      attendancePercentage:
-          double.parse(json['attendance_percentage']?.toString() ?? '0'),
+      totalAttendanceDays: int.parse(
+        json['total_attendance_days']?.toString() ?? '0',
+      ),
+      attendancePercentage: double.parse(
+        json['attendance_percentage']?.toString() ?? '0',
+      ),
     );
   }
 }
@@ -140,8 +138,7 @@ class StudentAttendanceReportResponse {
     required this.message,
   });
 
-  factory StudentAttendanceReportResponse.fromJson(
-      Map<String, dynamic> json) {
+  factory StudentAttendanceReportResponse.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? {};
     final studentsList = data['students'] as List<dynamic>? ?? [];
     final summaryData = data['summary'] as Map<String, dynamic>? ?? {};
@@ -154,8 +151,11 @@ class StudentAttendanceReportResponse {
       endDate: data['end_date']?.toString() ?? '',
       totalDays: int.parse(data['total_days']?.toString() ?? '0'),
       students: studentsList
-          .map((item) =>
-              StudentAttendanceReportItem.fromJson(item as Map<String, dynamic>))
+          .map(
+            (item) => StudentAttendanceReportItem.fromJson(
+              item as Map<String, dynamic>,
+            ),
+          )
           .toList(),
       summary: AttendanceSummary.fromJson(summaryData),
       message: json['message']?.toString() ?? '',
@@ -194,12 +194,13 @@ class AttendanceSummary {
 
 /// Service for Student Attendance Management
 class StudentAttendanceService {
-  /// Get student attendance for a specific date and class-section
+  /// Get student attendance for a specific date and class-section (with optional subject for subject-wise)
   /// Uses existing studentAttendance API with action='get'
   static Future<Map<String, dynamic>> getStudentAttendance({
     required int classId,
     required int sectionId,
     String? date,
+    int? subjectId, // For subject-wise attendance
   }) async {
     try {
       final response = await HttpClient().post(
@@ -209,6 +210,7 @@ class StudentAttendanceService {
           'class_id': classId.toString(),
           'section_id': sectionId.toString(),
           if (date != null) 'date': date,
+          if (subjectId != null) 'subject_id': subjectId.toString(),
         },
         requireAuth: true,
       );
@@ -226,6 +228,7 @@ class StudentAttendanceService {
     required String status,
     String? date,
     String? remark,
+    int? subjectId,
   }) async {
     try {
       final response = await HttpClient().post(
@@ -236,6 +239,7 @@ class StudentAttendanceService {
           'status': status,
           if (date != null) 'date': date,
           if (remark != null) 'remark': remark,
+          if (subjectId != null) 'subject_id': subjectId.toString(),
         },
         requireAuth: true,
       );
@@ -246,12 +250,13 @@ class StudentAttendanceService {
     }
   }
 
-  /// Mark attendance for multiple students at once
+  /// Mark attendance for multiple students at once (with optional subject for subject-wise)
   static Future<BulkAttendanceResponse> markStudentAttendanceBulk({
     required int classId,
     required int sectionId,
     required List<StudentAttendanceEntry> attendanceEntries,
     String? date,
+    int? subjectId, // For subject-wise attendance
   }) async {
     try {
       final attendanceData = attendanceEntries.map((e) => e.toJson()).toList();
@@ -264,6 +269,7 @@ class StudentAttendanceService {
           'section_id': sectionId.toString(),
           'attendance': attendanceData,
           if (date != null) 'date': date,
+          if (subjectId != null) 'subject_id': subjectId.toString(),
         },
         requireAuth: true,
       );
@@ -304,4 +310,3 @@ class StudentAttendanceService {
     }
   }
 }
-

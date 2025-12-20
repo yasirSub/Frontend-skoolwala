@@ -1,13 +1,11 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-
-import '../services/school_service.dart';
-import '../../../shared/models/school.dart';
-import '../../auth/screens/login_screen.dart';
-import '../../../shared/widgets/animated_face_scan.dart';
-import '../../../shared/services/persistent_storage.dart';
+import 'package:skoolwala/shared/models/school.dart';
+import 'package:skoolwala/shared/theme/app_theme.dart';
+import 'package:skoolwala/shared/services/persistent_storage.dart';
+import 'package:skoolwala/features/school/services/school_service.dart';
+import 'package:skoolwala/features/auth/screens/login_screen.dart';
 
 class SchoolSelectionScreen extends StatefulWidget {
   const SchoolSelectionScreen({super.key});
@@ -18,40 +16,25 @@ class SchoolSelectionScreen extends StatefulWidget {
 
 class _SchoolSelectionScreenState extends State<SchoolSelectionScreen>
     with SingleTickerProviderStateMixin {
-  final SchoolService _service = const SchoolService();
-  late Future<List<School>> _schoolsFuture;
   School? _selectedSchool;
-  late final AnimationController _scanController;
-  double _scanProgress = 0.0; // 0..1
+  late Future<List<School>> _schoolsFuture;
+  late AnimationController _scanController;
+  double _scanProgress = 0.0;
 
   @override
   void initState() {
     super.initState();
-    _schoolsFuture = _service.fetchSchools();
+    _schoolsFuture = const SchoolService().fetchSchools();
+    _scanController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat(reverse: true);
 
-    // Make status bar transparent
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarIconBrightness: Brightness.light,
-      ),
-    );
-
-    _scanController =
-        AnimationController(
-            vsync: this,
-            duration: const Duration(seconds: 3),
-            lowerBound: 0,
-            upperBound: 1,
-          )
-          ..addListener(() {
-            setState(() {
-              _scanProgress = _scanController.value;
-            });
-          })
-          ..repeat(reverse: true);
+    _scanController.addListener(() {
+      setState(() {
+        _scanProgress = _scanController.value;
+      });
+    });
   }
 
   @override
@@ -67,322 +50,361 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen>
       body: Container(
         width: size.width,
         height: size.height,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF1E2A39), Color(0xFF0C9F8E)],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
         child: SafeArea(
-          child: SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight:
-                    size.height -
-                    MediaQuery.of(context).padding.top -
-                    MediaQuery.of(context).padding.bottom,
+          child: Stack(
+            children: [
+              // Decorative circles
+              Positioned(
+                top: -100,
+                right: -100,
+                child: Container(
+                  width: 300,
+                  height: 300,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.05),
+                  ),
+                ),
               ),
-              child: Stack(
-                children: [
-                  // Main content column
-                  Column(
+
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 1000),
+                curve: Curves.easeOutCubic,
+                builder: (context, value, child) {
+                  return Transform.translate(
+                    offset: Offset(0, 30 * (1 - value)),
+                    child: Opacity(opacity: value, child: child),
+                  );
+                },
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Column(
                     children: [
-                      const SizedBox(height: 24),
-                      // Logo image
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Image.asset(
-                            'assets/Skoolwala Logo.png',
-                            height: 60,
-                            fit: BoxFit.contain,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 24),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 4,
-                        ),
-                        child: FutureBuilder<List<School>>(
-                          future: _schoolsFuture,
-                          builder: (context, snapshot) {
-                            if (snapshot.connectionState ==
-                                ConnectionState.waiting) {
-                              return const SizedBox(
-                                height: 52,
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }
-                            if (snapshot.hasError) {
-                              return Container(
-                                padding: const EdgeInsets.all(16),
-                                child: Column(
-                                  children: [
-                                    const Icon(
-                                      Icons.error,
-                                      color: Colors.red,
-                                      size: 48,
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Failed to load schools: ${snapshot.error}',
-                                      style: const TextStyle(
-                                        color: Colors.black,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }
-                            final schools = snapshot.data ?? const <School>[];
-                            return DropdownButtonHideUnderline(
-                              child: DropdownButton<School>(
-                                isExpanded: true,
-                                hint: const Text(
-                                  'Select School',
-                                  style: TextStyle(color: Colors.black54),
-                                ),
-                                value: _selectedSchool,
-                                style: const TextStyle(color: Colors.black),
-                                dropdownColor: Colors.white,
-                                items: schools
-                                    .map(
-                                      (school) => DropdownMenuItem<School>(
-                                        value: school,
-                                        child: Text(
-                                          school.name,
-                                          style: const TextStyle(
-                                            color: Colors.black,
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
-                                onChanged: (v) =>
-                                    setState(() => _selectedSchool = v),
+                      const SizedBox(height: 48),
+                      // App Logo
+                      Hero(
+                        tag: 'app_logo',
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.transparent,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.15),
+                                blurRadius: 30,
+                                offset: const Offset(0, 10),
                               ),
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      // Proceed button - full width and better styling
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _selectedSchool == null
-                                ? Colors.grey[400]
-                                : const Color(
-                                    0xFF0C9F8E,
-                                  ), // Teal/green color to match theme
-                            foregroundColor: Colors.white,
-                            elevation: 4,
-                            shadowColor: Colors.black.withOpacity(0.3),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            disabledBackgroundColor: Colors.grey[300],
+                            ],
                           ),
-                          onPressed: _selectedSchool == null
-                              ? null
-                              : () async {
-                                  if (_selectedSchool == null) return;
-
-                                  // Log school logo information before navigation
-                                  print(
-                                    '🔍 School Selection - Navigating to Login:',
-                                  );
-                                  print(
-                                    '   School Name: ${_selectedSchool!.name}',
-                                  );
-                                  print(
-                                    '   School ID (branch_id): ${_selectedSchool!.id}',
-                                  );
-                                  print(
-                                    '   📝 Text Logo URL: ${_selectedSchool!.textLogo} (NOT USED in Login)',
-                                  );
-                                  print(
-                                    '   ⚙️  SYSTEM LOGO (mainLogo) URL: ${_selectedSchool!.mainLogo} (THIS WILL BE USED)',
-                                  );
-                                  print(
-                                    '   Text Logo is empty: ${_selectedSchool!.textLogo.isEmpty}',
-                                  );
-                                  print(
-                                    '   System Logo is empty: ${_selectedSchool!.mainLogo.isEmpty}',
-                                  );
-                                  if (_selectedSchool!.mainLogo.isEmpty) {
-                                    print(
-                                      '   ⚠️  WARNING: System Logo is empty! Login screen will show text only.',
-                                    );
-                                  } else {
-                                    print(
-                                      '   ✅ System Logo found! This will be displayed on login screen.',
-                                    );
-                                  }
-
-                                  // Save selected school to persistent storage
-                                  print(
-                                    '💾 SchoolSelection: Saving school selection',
-                                  );
-                                  print(
-                                    '   School ID (branch_id): ${_selectedSchool!.id}',
-                                  );
-                                  print(
-                                    '   School Name: ${_selectedSchool!.name}',
-                                  );
-
-                                  await PersistentStorage.saveSelectedSchool(
-                                    schoolId: _selectedSchool!.id,
-                                    schoolName: _selectedSchool!.name,
-                                    schoolUrl: _selectedSchool!.url,
-                                    textLogo: _selectedSchool!.textLogo,
-                                    mainLogo: _selectedSchool!.mainLogo,
-                                  );
-
-                                  // Verify it was saved
-                                  final saved =
-                                      await PersistentStorage.getSelectedSchool();
-                                  print(
-                                    '✅ SchoolSelection: Verified saved school',
-                                  );
-                                  print('   Saved ID: ${saved?['id']}');
-                                  print('   Saved Name: ${saved?['name']}');
-
-                                  if (mounted) {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) => LoginScreen(
-                                          schoolName: _selectedSchool!.name,
-                                          mainLogo: _selectedSchool!.mainLogo,
-                                          branchId: _selectedSchool!
-                                              .id, // Pass branch_id directly
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                },
-                          child: const Text(
-                            'Proceed',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.0,
-                              color: Colors.white,
-                            ),
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 500),
+                            child:
+                                _selectedSchool != null &&
+                                    _selectedSchool!.mainLogo.isNotEmpty
+                                ? Image.network(
+                                    _selectedSchool!.mainLogo,
+                                    key: ValueKey(_selectedSchool!.mainLogo),
+                                    height: 60,
+                                    width: 60,
+                                    fit: BoxFit.contain,
+                                    errorBuilder:
+                                        (context, error, stackTrace) =>
+                                            Image.asset(
+                                              'assets/Skoolwala Logo.png',
+                                              height: 60,
+                                              fit: BoxFit.contain,
+                                            ),
+                                  )
+                                : Image.asset(
+                                    'assets/Skoolwala Logo.png',
+                                    key: const ValueKey('default_logo'),
+                                    height: 60,
+                                    fit: BoxFit.contain,
+                                  ),
                           ),
                         ),
                       ),
                       const SizedBox(height: 32),
-                      // Logo display (if school is selected) - this will scroll with content
-                      if (_selectedSchool != null)
-                        Container(
-                          width: double.infinity,
-                          constraints: const BoxConstraints(
-                            maxHeight: 200,
-                            minHeight: 80,
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 10,
-                          ),
-                          alignment: Alignment.center,
-                          child: _selectedSchool!.mainLogo.isNotEmpty
-                              ? Image.network(
-                                  _selectedSchool!.mainLogo,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (context, _, __) =>
-                                      const SizedBox.shrink(),
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      // Spacer to push content up and make room for fixed animated box
-                      SizedBox(height: size.height * 0.35),
-                    ],
-                  ),
-                  // Fixed positioned animated box at the bottom - stays in place regardless of school selection
-                  Positioned(
-                    left: 8,
-                    right: 8,
-                    bottom: 40, // Moved down more from bottom
-                    child: Container(
-                      width: double.infinity,
-                      height: 280,
-                      decoration: BoxDecoration(
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: Colors.tealAccent.withOpacity(0.5),
-                          width: 2,
+                      const Text(
+                        'Welcome to SkoolWala',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.5,
                         ),
                       ),
-                      clipBehavior: Clip.antiAlias,
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final lineHeight = 3.0;
-                          final travel = constraints.maxHeight - lineHeight;
-                          final top = travel * _scanProgress;
-                          return Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              // Pure Flutter animated face scan (no video)
-                              const AnimatedFaceScan(),
-                              // Scan overlay to match the rest of the UI
-                              Positioned(
-                                left: 0,
-                                right: 0,
-                                top: top,
-                                child: Container(
-                                  height: lineHeight,
-                                  decoration: const BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Colors.transparent,
-                                        Color(0xFF00FFE0),
-                                        Colors.transparent,
-                                      ],
-                                      begin: Alignment.centerLeft,
-                                      end: Alignment.centerRight,
+                      const SizedBox(height: 6),
+                      Text(
+                        _selectedSchool == null
+                            ? 'Please select your school to continue'
+                            : 'School selected successfully',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 48),
+
+                      // School Selection Card (Glassmorphism)
+                      Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.white.withOpacity(0.12),
+                              Colors.white.withOpacity(0.05),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(32),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.15),
+                            width: 1.2,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              blurRadius: 30,
+                              offset: const Offset(0, 15),
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.all(28),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'SCHOOL',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 2.0,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            FutureBuilder<List<School>>(
+                              future: _schoolsFuture,
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const Center(
+                                    child: Padding(
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: 8.0,
+                                      ),
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white,
+                                      ),
                                     ),
+                                  );
+                                }
+                                if (snapshot.hasError) {
+                                  return Text(
+                                    'Error: ${snapshot.error}',
+                                    style: const TextStyle(color: Colors.white),
+                                  );
+                                }
+                                final schools = snapshot.data ?? [];
+                                return DropdownButtonHideUnderline(
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: Colors.white.withOpacity(0.2),
+                                        width: 1.5,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.1),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: DropdownButton<School>(
+                                      isExpanded: true,
+                                      dropdownColor: const Color(0xFF4B43B2),
+                                      underline: const SizedBox.shrink(),
+                                      hint: Text(
+                                        'Choose your school',
+                                        style: TextStyle(
+                                          color: Colors.white.withOpacity(0.6),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      value: _selectedSchool,
+                                      icon: const Icon(
+                                        Icons.keyboard_arrow_down_rounded,
+                                        color: Colors.white,
+                                      ),
+                                      items: schools.map((s) {
+                                        return DropdownMenuItem(
+                                          value: s,
+                                          child: Text(
+                                            s.name,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
+                                      onChanged: (v) =>
+                                          setState(() => _selectedSchool = v),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 32),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 56,
+                              child: ElevatedButton(
+                                onPressed: _selectedSchool == null
+                                    ? null
+                                    : () async {
+                                        await PersistentStorage.saveSelectedSchool(
+                                          schoolId: _selectedSchool!.id,
+                                          schoolName: _selectedSchool!.name,
+                                          schoolUrl: _selectedSchool!.url,
+                                          textLogo: _selectedSchool!.textLogo,
+                                          mainLogo: _selectedSchool!.mainLogo,
+                                        );
+
+                                        if (mounted) {
+                                          Navigator.of(context).push(
+                                            MaterialPageRoute(
+                                              builder: (_) => LoginScreen(
+                                                schoolName:
+                                                    _selectedSchool!.name,
+                                                mainLogo:
+                                                    _selectedSchool!.mainLogo,
+                                                branchId: _selectedSchool!.id,
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.white,
+                                  foregroundColor: AppTheme.primaryPurple,
+                                  disabledBackgroundColor: Colors.white
+                                      .withOpacity(0.12),
+                                  disabledForegroundColor: Colors.white
+                                      .withOpacity(0.35),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child: const Text(
+                                  'PROCEED',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 1.5,
                                   ),
                                 ),
                               ),
-                            ],
-                          );
-                        },
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+
+                      const SizedBox(height: 48),
+
+                      // Scanner Section
+                      Text(
+                        'AI POWERED ATTENDANCE',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.6),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2.0,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Container(
+                        width: double.infinity,
+                        height: 240,
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.2),
+                            width: 2,
+                          ),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            return Stack(
+                              children: [
+                                // Scanner background image and line only
+                                Center(
+                                  child: Opacity(
+                                    opacity: 0.3,
+                                    child: Image.asset(
+                                      'assets/FACEdect.png',
+                                      fit: BoxFit.contain,
+                                      width: constraints.maxWidth * 0.8,
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  top:
+                                      (constraints.maxHeight - 4) *
+                                      _scanProgress,
+                                  left: 0,
+                                  right: 0,
+                                  child: Container(
+                                    height: 4,
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          Colors.transparent,
+                                          const Color(
+                                            0xFF00FFE0,
+                                          ).withOpacity(0.8),
+                                          Colors.transparent,
+                                        ],
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: const Color(
+                                            0xFF00FFE0,
+                                          ).withOpacity(0.4),
+                                          blurRadius: 10,
+                                          spreadRadius: 2,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 60),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),

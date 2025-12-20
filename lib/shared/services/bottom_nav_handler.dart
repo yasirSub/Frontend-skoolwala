@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:skoolwala/features/dashboard/screens/dashboard_screen.dart';
 import 'package:skoolwala/features/teacher_attendance/simple_teacher_attendance.dart';
 import 'package:skoolwala/features/teacher/screens/my_classes_screen.dart';
+import 'package:skoolwala/features/teacher/screens/teacher_schedule_screen.dart';
 import 'package:skoolwala/features/profile/screens/profile_screen.dart';
 import 'package:skoolwala/shared/services/session_manager.dart';
+import 'package:skoolwala/shared/widgets/custom_bottom_nav_bar.dart';
 
 /// Centralized Bottom Navigation Handler
 /// Handles all navigation logic for bottom navigation bar
@@ -21,26 +23,40 @@ class BottomNavHandler {
       return false;
     }
 
-    // Navigate based on selected tab
-    switch (newIndex) {
-      case 0: // Home/Dashboard
-        _navigateToDashboard(context);
-        break;
-      case 1: // Attendance
-        _navigateToAttendance(context);
-        break;
-      case 2: // Classes
-        _navigateToClasses(context);
-        break;
-      case 3: // Students
-        _navigateToStudents(context);
-        break;
-      case 4: // Profile
-        _navigateToProfile(context);
-        break;
-      default:
-        return false;
+    // Get the user's role to determine which nav items are available
+    final userRole = SessionManager.instance.currentTeacher?.role;
+    final navItems = BottomNavConfigs.getItemsForRole(userRole);
+
+    // Make sure the newIndex is valid
+    if (newIndex >= navItems.length) {
+      return false;
     }
+
+    // Get the label of the tapped item to determine navigation
+    final itemLabel = navItems[newIndex].label.toLowerCase().trim();
+
+    print(
+      '🔍 BottomNavHandler: Tab $newIndex tapped - Label: "${navItems[newIndex].label}" (lowercase: "$itemLabel")',
+    );
+
+    // Navigate based on selected tab label (more flexible than hardcoded indices)
+    if (itemLabel.contains('home') || itemLabel == 'home') {
+      _navigateToDashboard(context);
+    } else if (itemLabel.contains('attendance') || itemLabel == 'attendance') {
+      _navigateToAttendance(context);
+    } else if (itemLabel.contains('class') || itemLabel == 'classes') {
+      _navigateToClasses(context);
+    } else if (itemLabel.contains('schedule') || itemLabel == 'schedule') {
+      _navigateToSchedule(context);
+    } else if (itemLabel.contains('student') || itemLabel == 'students') {
+      _navigateToStudents(context);
+    } else if (itemLabel.contains('profile') || itemLabel == 'profile') {
+      _navigateToProfile(context);
+    } else {
+      print('🔍 BottomNavHandler: No matching label for: "$itemLabel"');
+      return false;
+    }
+
     return true;
   }
 
@@ -92,11 +108,25 @@ class BottomNavHandler {
     ).push(MaterialPageRoute(builder: (_) => const SimpleTeacherAttendance()));
   }
 
-  /// Navigate to Classes
+  /// Navigate to Classes (Teacher Schedule - Today's Schedule)
   static void _navigateToClasses(BuildContext context) {
-    // Classes navigation is handled by dashboard
-    // So we just go back to dashboard
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    // Navigate to Teacher Schedule screen (Today's Schedule)
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const TeacherScheduleScreen(),
+        settings: const RouteSettings(name: 'schedule'),
+      ),
+    );
+  }
+
+  /// Navigate to Schedule (Teacher's class schedule)
+  static void _navigateToSchedule(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => const TeacherScheduleScreen(),
+        settings: const RouteSettings(name: 'schedule'),
+      ),
+    );
   }
 
   /// Navigate to Students

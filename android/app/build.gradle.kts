@@ -5,10 +5,34 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+import java.util.Properties
+
 android {
-    namespace = "com.example.skoolwala"
+    namespace = "com.skoolwala.skoolwala"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
+
+    // Load keystore properties from android/key.properties
+    val keystoreProperties = Properties().apply {
+        val keyPropsFile = file("../key.properties")
+        if (keyPropsFile.exists()) {
+            keyPropsFile.inputStream().use { input ->
+                this.load(input)
+            }
+        }
+    }
+
+    signingConfigs {
+        create("release") {
+            val storeFilePath = keystoreProperties.getProperty("storeFile")
+            if (storeFilePath != null) {
+                storeFile = file(storeFilePath)
+            }
+            storePassword = keystoreProperties.getProperty("storePassword")
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+        }
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -20,8 +44,8 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.skoolwala"
+        // Use a unique application ID for Play Store
+        applicationId = "com.skoolwala.skoolwala"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 26
@@ -32,9 +56,8 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // Use release keystore for signed builds
+            signingConfig = signingConfigs.getByName("release")
             // Temporarily disable code shrinking to fix timer issue
             isMinifyEnabled = false
             isShrinkResources = false

@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:skoolwala/shared/config/api_config.dart';
+import 'package:skoolwala/shared/services/session_manager.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../../../shared/widgets/app_loading_indicator.dart';
 import '../services/teacher_class_service.dart';
 import '../../students/services/student_service.dart';
@@ -32,55 +36,62 @@ class _MyClassesScreenState extends State<MyClassesScreen> {
     });
 
     try {
-      // Try to get classes from getMyClasses first
-      try {
-        final response = await TeacherClassService.getMyClasses();
-        if (response.isSuccess && response.classes.isNotEmpty) {
-          // Group by classId to get unique classes
-          final Map<int, Map<String, dynamic>> uniqueClassesMap = {};
-          for (var teacherClass in response.classes) {
-            if (!uniqueClassesMap.containsKey(teacherClass.classId)) {
-              uniqueClassesMap[teacherClass.classId] = {
-                'classId': teacherClass.classId,
-                'className': teacherClass.className,
-                'sectionCount': 0,
-                'totalStudents': 0,
-              };
-            }
-            uniqueClassesMap[teacherClass.classId]!['sectionCount'] =
-                (uniqueClassesMap[teacherClass.classId]!['sectionCount']
-                    as int) +
-                1;
-            uniqueClassesMap[teacherClass.classId]!['totalStudents'] =
-                (uniqueClassesMap[teacherClass.classId]!['totalStudents']
-                    as int) +
-                teacherClass.studentCount;
+      // Use new teacher_schedule API to get all classes
+      final baseUrl = ApiConfig.getBaseUrl();
+      final url = '$baseUrl/teacher_schedule?action=getAllClasses';
+
+      print('📚 Loading all teacher classes from: $url');
+
+      final response = await http
+          .get(
+            Uri.parse(url),
+            headers: SessionManager.instance.getAuthHeaders(),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print('✅ API Response: ${data['status']}');
+        print('📊 Classes found: ${(data['data'] as List).length}');
+
+        if (data['status'] == 'success') {
+          final classesList = (data['data'] as List);
+
+          if (classesList.isEmpty) {
+            setState(() {
+              _errorMessage = 'No classes assigned to you yet';
+              _isLoading = false;
+            });
+            return;
           }
+
+          // Convert API response to ClassModel
+          final classes = classesList.map((classData) {
+            return ClassModel(
+              classId: classData['classId'].toString(),
+              className: classData['className'] as String,
+            );
+          }).toList();
+
           setState(() {
-            _classes = uniqueClassesMap.values.map((data) {
-              return ClassModel(
-                classId: data['classId'].toString(),
-                className: data['className'] as String,
-              );
-            }).toList();
+            _classes = classes;
             _isLoading = false;
           });
+          print('✅ Successfully loaded ${classes.length} classes');
           return;
         }
-      } catch (e) {
-        // If getMyClasses fails, fall back to getClassList
-        print('getMyClasses failed, trying getClassList: $e');
       }
 
-      // Fallback: Use getClassList to get all classes
-      final classes = await StudentService.getClassList();
+      // If new API fails, show error
       setState(() {
-        _classes = classes;
+        _errorMessage = 'Failed to load classes. Please check your connection.';
         _isLoading = false;
       });
+      print('❌ API Error: ${response.statusCode}');
     } catch (e) {
+      print('❌ Error loading classes: $e');
       setState(() {
-        _errorMessage = 'Failed to load classes: $e';
+        _errorMessage = 'Error: $e';
         _isLoading = false;
       });
     }

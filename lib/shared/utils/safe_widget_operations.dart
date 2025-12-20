@@ -2,13 +2,6 @@ import 'package:flutter/material.dart';
 
 /// Utility class for safe widget operations to prevent layout boundary assertion errors
 class SafeWidgetOperations {
-  /// Safely executes setState only if the widget is still mounted
-  static void safeSetState(State state, VoidCallback fn) {
-    if (state.mounted) {
-      state.setState(fn);
-    }
-  }
-
   /// Safely executes animation forward only if not already animating
   static void safeAnimationForward(AnimationController controller) {
     if (!controller.isAnimating && !controller.isCompleted) {
@@ -86,7 +79,8 @@ class SafeWidgetOperations {
 mixin SafeWidgetMixin<T extends StatefulWidget> on State<T> {
   /// Safe setState that checks if widget is mounted
   void safeSetState(VoidCallback fn) {
-    SafeWidgetOperations.safeSetState(this, fn);
+    if (!mounted) return;
+    setState(fn);
   }
 
   /// Safe delayed operation

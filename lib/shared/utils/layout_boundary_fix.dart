@@ -37,15 +37,6 @@ class LayoutBoundaryFix {
     }
   }
 
-  /// Safely executes setState with layout boundary protection
-  static void safeSetState(State state, VoidCallback fn) {
-    if (!state.mounted) return;
-
-    safeLayoutOperation(() {
-      state.setState(fn);
-    });
-  }
-
   /// Safely executes animation operations
   static void safeAnimationOperation(VoidCallback animationCallback) {
     safeLayoutOperation(() {
@@ -82,7 +73,10 @@ class LayoutBoundaryFix {
 mixin LayoutBoundaryMixin<T extends StatefulWidget> on State<T> {
   /// Safe setState with layout boundary protection
   void safeSetState(VoidCallback fn) {
-    LayoutBoundaryFix.safeSetState(this, fn);
+    if (!mounted) return;
+    LayoutBoundaryFix.safeLayoutOperation(() {
+      setState(fn);
+    });
   }
 
   /// Safe animation operation

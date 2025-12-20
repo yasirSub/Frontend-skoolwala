@@ -1,0 +1,1850 @@
+{
+  "info": {
+    "_postman_id": "skoolwala-complete-api-collection",
+    "name": "SkoolWala Complete API Collection",
+    "description": "Complete collection of all SkoolWala APIs for backend and frontend testing",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "skoolwala-api"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://192.168.31.129:8080",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "teacherId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "staffId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Auth Login (V1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"teacher1\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            },
+            "description": "Generic authentication endpoint for all user types"
+          },
+          "response": []
+        },
+        {
+          "name": "Teacher Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "username",
+                  "value": "teacher1",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "password123",
+                  "type": "text"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/teacherLogin",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teacherLogin"]
+            },
+            "description": "Teacher-specific login endpoint (Role 3)"
+          },
+          "response": []
+        },
+        {
+          "name": "Teacher Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/teacherLogout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teacherLogout"]
+            },
+            "description": "Logout teacher session"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Side Menu / Navigation",
+      "item": [
+        {
+          "name": "Get User Menu (Side Menu)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"teacher1\",\n  \"password\": \"password123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/getUserMenu",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "getUserMenu"]
+            },
+            "description": "Get side menu/navigation menu items based on user role and permissions. Returns hierarchical menu structure with icons, routes, and permissions. Can be called with session (if logged in) or with username/password for stateless authentication."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Teacher Profile",
+      "item": [
+        {
+          "name": "Get Teacher Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/teacherProfile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teacherProfile"]
+            },
+            "description": "Get teacher profile information"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Teacher Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"teacher_id\": \"{{teacherId}}\",\n  \"field\": \"name\",\n  \"value\": \"Updated Name\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/updateTeacherProfile",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "updateTeacherProfile"]
+            },
+            "description": "Update teacher profile field"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Attendance",
+      "item": [
+        {
+          "name": "Teacher Attendance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"teacher_id\": \"{{teacherId}}\",\n  \"attendance_type\": \"P\",\n  \"lat\": \"23.8103\",\n  \"long\": \"90.4125\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/teacherAttendance",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teacherAttendance"]
+            },
+            "description": "Mark teacher attendance (P=Present, A=Absent)"
+          },
+          "response": []
+        },
+        {
+          "name": "Teacher Self Attendance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attendance_type\": \"P\",\n  \"in_time\": \"09:00:00\",\n  \"lat\": \"23.8103\",\n  \"long\": \"90.4125\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/teacherSelfAttendance",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teacherSelfAttendance"]
+            },
+            "description": "Teacher marks own attendance"
+          },
+          "response": []
+        },
+        {
+          "name": "Quick Attendance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"staff_id\": \"{{staffId}}\",\n  \"status\": \"P\",\n  \"lat\": \"23.8103\",\n  \"long\": \"90.4125\",\n  \"remark\": \"Face recognition verified\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/quickAttendance",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "quickAttendance"]
+            },
+            "description": "Quick attendance marking with location"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Today Attendance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/attendance/today/{{staffId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "attendance", "today", "{{staffId}}"]
+            },
+            "description": "Get today's attendance for a staff member"
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Attendance With Face",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"staff_id\": \"{{staffId}}\",\n  \"embedding\": [0.1, 0.2, 0.3],\n  \"lat\": \"23.8103\",\n  \"long\": \"90.4125\",\n  \"status\": \"P\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/attendance/mark",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "attendance", "mark"]
+            },
+            "description": "Mark attendance using face recognition"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Attendance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"attendance_id\": \"123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/deleteAttendance",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "deleteAttendance"]
+            },
+            "description": "Delete an attendance record"
+          },
+          "response": []
+        },
+        {
+          "name": "Teacher Present Days Count",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"teacher_id\": \"{{teacherId}}\",\n  \"start_date\": \"2025-01-01\",\n  \"end_date\": \"2025-01-31\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/teacherPresentDaysCount",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teacherPresentDaysCount"]
+            },
+            "description": "Get count of present days for teacher"
+          },
+          "response": []
+        },
+        {
+          "name": "Teacher Absent Days Count",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"teacher_id\": \"{{teacherId}}\",\n  \"start_date\": \"2025-01-01\",\n  \"end_date\": \"2025-01-31\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/teacherAbsentDaysCount",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teacherAbsentDaysCount"]
+            },
+            "description": "Get count of absent days for teacher"
+          },
+          "response": []
+        },
+        {
+          "name": "Teacher Monthly Present Count",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"year\": \"2025\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/teacherMonthlyPresentCount",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teacherMonthlyPresentCount"]
+            },
+            "description": "Get monthly present count for teacher for a year (returns count for each month)"
+          },
+          "response": []
+        },
+        {
+          "name": "Teacher Monthly Absent Count",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"year\": \"2025\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/teacherMonthlyAbsentCount",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teacherMonthlyAbsentCount"]
+            },
+            "description": "Get monthly absent count for teacher for a year (returns count for each month)"
+          },
+          "response": []
+        },
+        {
+          "name": "Student Attendance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"get\",\n  \"date\": \"2025-01-15\",\n  \"class_id\": \"1\",\n  \"section_id\": \"1\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/studentAttendance",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "studentAttendance"]
+            },
+            "description": "Get or set student attendance. Use action='get' to retrieve attendance or action='save' to save attendance data"
+          },
+          "response": []
+        },
+        {
+          "name": "Staff QR Attendance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"staff_id\": \"{{staffId}}\",\n  \"in_out_time\": \"in_time\",\n  \"remark\": \"QR code scanned\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/staffQrAttendance",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "staffQrAttendance"]
+            },
+            "description": "Mark staff attendance using QR code. in_out_time can be 'in_time' or 'out_time'"
+          },
+          "response": []
+        },
+        {
+          "name": "Teacher Face Attendance",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"face_data\": \"face_hash_or_string\",\n  \"confidence\": \"95\",\n  \"device_id\": \"device123\",\n  \"remark\": \"Face recognition verified\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/teacherFaceAttendance",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teacherFaceAttendance"]
+            },
+            "description": "Mark teacher attendance using face recognition"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Teacher Self Attendance Stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/getTeacherSelfAttendanceStats?staff_id={{staffId}}&filter_type=date&filter_value=2025-01-15",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "getTeacherSelfAttendanceStats"],
+              "query": [
+                {
+                  "key": "staff_id",
+                  "value": "{{staffId}}"
+                },
+                {
+                  "key": "filter_type",
+                  "value": "date"
+                },
+                {
+                  "key": "filter_value",
+                  "value": "2025-01-15"
+                }
+              ]
+            },
+            "description": "Get teacher self-attendance statistics"
+          },
+          "response": []
+        },
+        {
+          "name": "Attendance For Teacher",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"staff_id\": \"{{staffId}}\",\n  \"status\": \"P\",\n  \"lat\": \"23.8103\",\n  \"long\": \"90.4125\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/attendanceForTeacher",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "attendanceForTeacher"]
+            },
+            "description": "Mark attendance for teacher"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Face Recognition",
+      "item": [
+        {
+          "name": "Face Enroll",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"staff_id\": \"{{staffId}}\",\n  \"embedding\": [0.1, 0.2, 0.3, 0.4],\n  \"model_name\": \"mobilefacenet\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/face/enroll",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "face", "enroll"]
+            },
+            "description": "Enroll face embedding for staff member"
+          },
+          "response": []
+        },
+        {
+          "name": "Face Identify",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"embedding\": [0.1, 0.2, 0.3, 0.4]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/face/identify",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "face", "identify"]
+            },
+            "description": "Identify face from embedding"
+          },
+          "response": []
+        },
+        {
+          "name": "Face Check Duplicate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"embedding\": [0.1, 0.2, 0.3, 0.4]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/face/check-duplicate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "face", "check-duplicate"]
+            },
+            "description": "Check if face already exists"
+          },
+          "response": []
+        },
+        {
+          "name": "Face Analyze",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"image\": \"base64_encoded_image\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/face/analyze",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "face", "analyze"]
+            },
+            "description": "Analyze face from image"
+          },
+          "response": []
+        },
+        {
+          "name": "Face Test Analyzer",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/face/testAnalyzer",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "face", "testAnalyzer"]
+            },
+            "description": "Test face analyzer endpoint"
+          },
+          "response": []
+        },
+        {
+          "name": "Check Face Enrollment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/face/enrollment/check/{{staffId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "face", "enrollment", "check", "{{staffId}}"]
+            },
+            "description": "Check if face is enrolled for staff"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Face Enrollment",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/face/delete/{{staffId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "face", "delete", "{{staffId}}"]
+            },
+            "description": "Delete face enrollment for staff"
+          },
+          "response": []
+        },
+        {
+          "name": "List Enrolled Faces",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/listEnrolledFaces",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "listEnrolledFaces"]
+            },
+            "description": "List all enrolled faces"
+          },
+          "response": []
+        },
+        {
+          "name": "Enroll Face",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"staff_id\": \"{{staffId}}\",\n  \"embedding\": [0.1, 0.2, 0.3, 0.4],\n  \"model_name\": \"mobilefacenet\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enrollFace",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "enrollFace"]
+            },
+            "description": "Enroll face using embedding array"
+          },
+          "response": []
+        },
+        {
+          "name": "Enroll Face Image",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"staff_id\": \"{{staffId}}\",\n  \"image\": \"base64_encoded_image\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/enrollFaceImage",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "enrollFaceImage"]
+            },
+            "description": "Enroll face from image"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Face",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"staff_id\": \"{{staffId}}\",\n  \"embedding\": [0.1, 0.2, 0.3, 0.4]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/verifyFace",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "verifyFace"]
+            },
+            "description": "Verify face against enrolled face"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Face Image",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"staff_id\": \"{{staffId}}\",\n  \"image\": \"base64_encoded_image\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/verifyFaceImage",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "verifyFaceImage"]
+            },
+            "description": "Verify face from image"
+          },
+          "response": []
+        },
+        {
+          "name": "Check Face Duplicate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"embedding\": [0.1, 0.2, 0.3, 0.4]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/checkFaceDuplicate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "checkFaceDuplicate"]
+            },
+            "description": "Check for duplicate face"
+          },
+          "response": []
+        },
+        {
+          "name": "Enroll Face 3D",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"staff_id\": \"{{staffId}}\",\n  \"embedding_straight\": [0.1, 0.2],\n  \"embedding_right\": [0.3, 0.4],\n  \"embedding_left\": [0.5, 0.6]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/face/enroll3D",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "face", "enroll3D"]
+            },
+            "description": "Enroll 3D face (multi-angle)"
+          },
+          "response": []
+        },
+        {
+          "name": "Identify Face 3D",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"embedding_straight\": [0.1, 0.2],\n  \"embedding_right\": [0.3, 0.4],\n  \"embedding_left\": [0.5, 0.6]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/face/identify3D",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "face", "identify3D"]
+            },
+            "description": "Identify face using 3D embeddings"
+          },
+          "response": []
+        },
+        {
+          "name": "List 3D Faces",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/face/list3D",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "face", "list3D"]
+            },
+            "description": "List all 3D enrolled faces"
+          },
+          "response": []
+        },
+        {
+          "name": "Debug Face Recognition",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/debugFaceRecognition",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "debugFaceRecognition"]
+            },
+            "description": "Debug face recognition system"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "F2F Face Recognition",
+      "item": [
+        {
+          "name": "F2F Test",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/f2f/test",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "f2f", "test"]
+            },
+            "description": "Test F2F API endpoint"
+          },
+          "response": []
+        },
+        {
+          "name": "F2F Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"age\": 30,\n  \"mobile\": \"1234567890\",\n  \"embedding\": [0.1, 0.2, 0.3]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/f2f/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "f2f", "register"]
+            },
+            "description": "Register a person with face"
+          },
+          "response": []
+        },
+        {
+          "name": "F2F Analyze",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"embedding\": [0.1, 0.2, 0.3]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/f2f/analyze",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "f2f", "analyze"]
+            },
+            "description": "Analyze face embedding"
+          },
+          "response": []
+        },
+        {
+          "name": "F2F List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/f2f/list",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "f2f", "list"]
+            },
+            "description": "List all registered persons"
+          },
+          "response": []
+        },
+        {
+          "name": "F2F Check Face",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"embedding\": [0.1, 0.2, 0.3]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/f2f/checkFace",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "f2f", "checkFace"]
+            },
+            "description": "Check if face exists"
+          },
+          "response": []
+        },
+        {
+          "name": "F2F Delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"person_id\": \"1\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/f2f/delete",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "f2f", "delete"]
+            },
+            "description": "Delete a person"
+          },
+          "response": []
+        },
+        {
+          "name": "F2F Delete All",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/f2f/deleteAll",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "f2f", "deleteAll"]
+            },
+            "description": "Delete all registered persons"
+          },
+          "response": []
+        },
+        {
+          "name": "F2F Create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"age\": 30\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/f2f/create",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "f2f", "create"]
+            },
+            "description": "Create a person record"
+          },
+          "response": []
+        },
+        {
+          "name": "F2F Attach",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"person_id\": \"1\",\n  \"embedding\": [0.1, 0.2, 0.3]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/f2f/attach",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "f2f", "attach"]
+            },
+            "description": "Attach embedding to person"
+          },
+          "response": []
+        },
+        {
+          "name": "F2F Attach Image",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"person_id\": \"1\",\n  \"image\": \"base64_encoded_image\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/f2f/attachImage",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "f2f", "attachImage"]
+            },
+            "description": "Attach image to person"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Location Management",
+      "item": [
+        {
+          "name": "Set School Location",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Main Office\",\n  \"latitude\": \"23.8103\",\n  \"longitude\": \"90.4125\",\n  \"address\": \"Dhaka, Bangladesh\",\n  \"radius\": 100,\n  \"school_id\": 1,\n  \"is_active\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/school-location/set",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "school-location", "set"]
+            },
+            "description": "Set or update school location"
+          },
+          "response": []
+        },
+        {
+          "name": "List School Locations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/school-location/list",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "school-location", "list"]
+            },
+            "description": "Get list of all school locations"
+          },
+          "response": []
+        },
+        {
+          "name": "Check School Location",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": \"23.8103\",\n  \"longitude\": \"90.4125\",\n  \"school_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/school-location/check",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "school-location", "check"]
+            },
+            "description": "Check if coordinates are within school location"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete School Location",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/school-location/delete/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "school-location", "delete", "1"]
+            },
+            "description": "Delete a school location"
+          },
+          "response": []
+        },
+        {
+          "name": "Get School Location",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/getSchoolLocation",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "getSchoolLocation"]
+            },
+            "description": "Get school location information"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Navigation & Menu",
+      "item": [
+        {
+          "name": "Get Side Menu (getUserMenu)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"teacher1\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/getUserMenu",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "getUserMenu"]
+            },
+            "description": "Get side menu/navigation menu items based on user role and permissions. IMPORTANT: This API automatically detects user role from login credentials (username/password) or session. The menu items are filtered based on:\n- User role (Admin=1,2, Teacher=3, Accountant=4, Librarian=5, etc.)\n- Role permissions (get_permission checks)\n- Branch access\n\nFor stateless authentication: Send username and password in request body.\nFor session-based: Ensure you're logged in via session (cookies).\n\nThe API returns menu items matching the web version's sidebar menu based on user permissions. Response includes 'debug' object with role_id and permission checks."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "School Management",
+      "item": [
+        {
+          "name": "Get School Info",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/getSchoolInfo",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "getSchoolInfo"]
+            },
+            "description": "Get school information"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Role List",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/getRoleList",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "getRoleList"]
+            },
+            "description": "Get list of roles"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Class List",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/getClassList",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "getClassList"]
+            },
+            "description": "Get list of classes"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Section List By Class",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"class_id\": \"1\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/getSectionListByClass",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "getSectionListByClass"]
+            },
+            "description": "Get sections for a class"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Student List",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"class_id\": \"1\",\n  \"section_id\": \"1\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/getStudentList",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "getStudentList"]
+            },
+            "description": "Get list of students"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Staff List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/getStaffList",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "getStaffList"]
+            },
+            "description": "Get list of staff members"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Employee List",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/getEmployeeList",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "getEmployeeList"]
+            },
+            "description": "Get list of employees"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Fees Invoice List",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/getFeesInvoiceList",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "getFeesInvoiceList"]
+            },
+            "description": "Get list of fee invoices"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Exam List",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/getExamList",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "getExamList"]
+            },
+            "description": "Get list of exams"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Teacher Schedule",
+      "item": [
+        {
+          "name": "Get Daily Schedule",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/teacher_schedule?action=getDailySchedule&date=2025-01-15",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teacher_schedule"],
+              "query": [
+                {
+                  "key": "action",
+                  "value": "getDailySchedule"
+                },
+                {
+                  "key": "date",
+                  "value": "2025-01-15"
+                }
+              ]
+            },
+            "description": "Get teacher's daily schedule"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Weekly Timetable",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/teacher_schedule?action=getWeeklyTimetable&startDate=2025-01-13",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teacher_schedule"],
+              "query": [
+                {
+                  "key": "action",
+                  "value": "getWeeklyTimetable"
+                },
+                {
+                  "key": "startDate",
+                  "value": "2025-01-13"
+                }
+              ]
+            },
+            "description": "Get teacher's weekly timetable"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Classes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/teacher_schedule?action=getAllClasses",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teacher_schedule"],
+              "query": [
+                {
+                  "key": "action",
+                  "value": "getAllClasses"
+                }
+              ]
+            },
+            "description": "Get all classes assigned to teacher"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Upcoming Classes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/teacher_schedule?action=getUpcomingClasses&withinMinutes=120",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "teacher_schedule"],
+              "query": [
+                {
+                  "key": "action",
+                  "value": "getUpcomingClasses"
+                },
+                {
+                  "key": "withinMinutes",
+                  "value": "120"
+                }
+              ]
+            },
+            "description": "Get upcoming classes within specified minutes"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Location Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/locationAnalytics?start_date=2025-01-01&end_date=2025-01-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "locationAnalytics"],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "2025-01-01"
+                },
+                {
+                  "key": "end_date",
+                  "value": "2025-01-31"
+                }
+              ]
+            },
+            "description": "Get comprehensive location analytics"
+          },
+          "response": []
+        },
+        {
+          "name": "Export Location Analytics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/exportLocationAnalytics?start_date=2025-01-01&end_date=2025-01-31",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "exportLocationAnalytics"],
+              "query": [
+                {
+                  "key": "start_date",
+                  "value": "2025-01-01"
+                },
+                {
+                  "key": "end_date",
+                  "value": "2025-01-31"
+                }
+              ]
+            },
+            "description": "Export location analytics data"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Testing & Development",
+      "item": [
+        {
+          "name": "Test API",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/test",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "test"]
+            },
+            "description": "Test API endpoint"
+          },
+          "response": []
+        },
+        {
+          "name": "Test Database",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/testDatabase",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "testDatabase"]
+            },
+            "description": "Test database connection"
+          },
+          "response": []
+        },
+        {
+          "name": "Test Code Version",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/testCodeVersion",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "testCodeVersion"]
+            },
+            "description": "Get code version information"
+          },
+          "response": []
+        },
+        {
+          "name": "Fix Database Schema",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/fixDatabaseSchema",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "fixDatabaseSchema"]
+            },
+            "description": "Fix database schema issues"
+          },
+          "response": []
+        },
+        {
+          "name": "Create 3D Face Table",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/create3DFaceTable",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "create3DFaceTable"]
+            },
+            "description": "Create 3D face table"
+          },
+          "response": []
+        },
+        {
+          "name": "Generate Dummy Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"count\": 10,\n  \"start_date\": \"2025-01-01\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/generateDummyData",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "generateDummyData"]
+            },
+            "description": "Generate dummy attendance data"
+          },
+          "response": []
+        },
+        {
+          "name": "Generate Dummy Data Alt",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"count\": 10\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/generateDummyDataAlt",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "generateDummyDataAlt"]
+            },
+            "description": "Generate dummy data (alternative method)"
+          },
+          "response": []
+        },
+        {
+          "name": "Test Generate Dummy Data Simple",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/testGenerateDummyDataSimple",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "testGenerateDummyDataSimple"]
+            },
+            "description": "Test simple dummy data generation"
+          },
+          "response": []
+        },
+        {
+          "name": "Test Generate Dummy Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/testGenerateDummyData",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "testGenerateDummyData"]
+            },
+            "description": "Test dummy data generation"
+          },
+          "response": []
+        },
+        {
+          "name": "F2F Test Controller",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/f2f/testController",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "f2f", "testController"]
+            },
+            "description": "Test F2F controller"
+          },
+          "response": []
+        },
+        {
+          "name": "F2F Test Delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"person_id\": \"1\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/f2f/testDelete",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "f2f", "testDelete"]
+            },
+            "description": "Test F2F delete functionality"
+          },
+          "response": []
+        },
+        {
+          "name": "F2F Test",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/f2f/test",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "f2f", "test"]
+            },
+            "description": "Test F2F API"
+          },
+          "response": []
+        },
+        {
+          "name": "Attendance For Teacher Test",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/attendanceForTeacherTest",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "attendanceForTeacherTest"]
+            },
+            "description": "Test attendance for teacher endpoint"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
+

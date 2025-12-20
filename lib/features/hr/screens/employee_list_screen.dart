@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/app_loading_indicator.dart';
+import '../../../../shared/services/api_service.dart';
 import '../services/employee_service.dart';
 import '../models/employee.dart';
 
@@ -13,6 +14,8 @@ class EmployeeListScreen extends StatefulWidget {
 class _EmployeeListScreenState extends State<EmployeeListScreen> {
   List<Employee> _employees = [];
   List<Employee> _filteredEmployees = [];
+  List<Map<String, dynamic>> _roles = [];
+  String? _selectedRoleId;
   bool _isLoading = true;
   String? _errorMessage;
   final TextEditingController _searchController = TextEditingController();
@@ -20,7 +23,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
   @override
   void initState() {
     super.initState();
-    _loadEmployees();
+    _loadData();
     _searchController.addListener(_filterEmployees);
   }
 
@@ -30,29 +33,66 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
     super.dispose();
   }
 
-  Future<void> _loadEmployees() async {
+  Future<void> _loadData() async {
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final employees = await EmployeeService.getEmployeeList();
-      setState(() {
-        _employees = employees;
-        _filteredEmployees = employees;
-        _isLoading = false;
-      });
+      // 1. Fetch Roles
+      final rolesResponse = await ApiService.get('getEmployeeRoles');
+      if (rolesResponse['status'] == 'success') {
+        _roles = List<Map<String, dynamic>>.from(rolesResponse['data']);
+        // Select the first role by default if available
+        if (_roles.isNotEmpty) {
+          _selectedRoleId = _roles.first['id'].toString();
+        }
+      }
+
+      // 2. Fetch Employees (initially for the first role)
+      await _loadEmployeesForRole(_selectedRoleId);
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = e.toString().contains('Branch ID mismatch')
-              ? 'Session error. Please login again.'
-              : 'Failed to load employees';
+          _errorMessage = 'Failed to load data: $e';
           _isLoading = false;
         });
       }
-      print(e);
+    }
+  }
+
+  Future<void> _loadEmployeesForRole(String? roleId) async {
+    setState(() => _isLoading = true);
+    try {
+      final employees = await EmployeeService.getEmployeeList(roleId: roleId);
+      if (mounted) {
+        setState(() {
+          _employees = employees;
+          _filteredEmployees = employees;
+          _isLoading = false;
+        });
+        // Re-apply search filter if any
+        if (_searchController.text.isNotEmpty) {
+          _filterEmployees();
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _onRoleSelected(String roleId) {
+    if (_selectedRoleId != roleId) {
+      setState(() {
+        _selectedRoleId = roleId;
+      });
+      _loadEmployeesForRole(roleId);
     }
   }
 
@@ -82,8 +122,78 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
         title: const Text('Employee List'),
         backgroundColor: const Color(0xFF2C3E50),
         foregroundColor: Colors.white,
+        elevation: 0,
       ),
-      body: _buildBody(),
+      body: Column(
+        children: [
+          // Search Bar
+          Container(
+            color: const Color(0xFF2C3E50),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search...',
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 0),
+              ),
+            ),
+          ),
+
+          // Role Tabs
+          if (_roles.isNotEmpty)
+            Container(
+              height: 50,
+              color: Colors.white,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                itemCount: _roles.length,
+                itemBuilder: (context, index) {
+                  final role = _roles[index];
+                  final isSelected = role['id'].toString() == _selectedRoleId;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: ChoiceChip(
+                      label: Text(role['name']),
+                      selected: isSelected,
+                      onSelected: (selected) {
+                        if (selected) {
+                          _onRoleSelected(role['id'].toString());
+                        }
+                      },
+                      selectedColor: Colors.orange,
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.white : Colors.black87,
+                        fontWeight: isSelected
+                            ? FontWeight.bold
+                            : FontWeight.normal,
+                      ),
+                      backgroundColor: Colors.grey[200],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        side: BorderSide(
+                          color: isSelected
+                              ? Colors.orange
+                              : Colors.transparent,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+
+          // Employee List
+          Expanded(child: _buildBody()),
+        ],
+      ),
     );
   }
 
@@ -102,11 +212,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
             Text(_errorMessage!, style: const TextStyle(color: Colors.red)),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: _loadEmployees,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2C3E50),
-                foregroundColor: Colors.white,
-              ),
+              onPressed: () => _loadEmployeesForRole(_selectedRoleId),
               child: const Text('Retry'),
             ),
           ],
@@ -114,138 +220,131 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
       );
     }
 
-    if (_employees.isEmpty) {
-      return const Center(child: Text("No employees found."));
+    if (_filteredEmployees.isEmpty) {
+      return const Center(child: Text('No employees found'));
     }
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: TextField(
-            controller: _searchController,
-            decoration: InputDecoration(
-              hintText: 'Search by Name, Role, Designation...',
-              prefixIcon: const Icon(Icons.search),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              filled: true,
-              fillColor: Colors.white,
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 0,
-                horizontal: 16,
-              ),
+    return ListView.builder(
+      padding: const EdgeInsets.all(8),
+      itemCount: _filteredEmployees.length,
+      itemBuilder: (context, index) {
+        final employee = _filteredEmployees[index];
+        return Card(
+          elevation: 2,
+          margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Photo
+                    CircleAvatar(
+                      radius: 30,
+                      backgroundColor: Colors.grey[200],
+                      backgroundImage: employee.photo != null
+                          ? NetworkImage(employee.photo!)
+                          : null,
+                      child: employee.photo == null
+                          ? const Icon(
+                              Icons.person,
+                              size: 30,
+                              color: Colors.grey,
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 16),
+                    // Details
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            employee.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF2C3E50),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          _buildInfoRow(
+                            Icons.badge,
+                            'ID: ${employee.staffId ?? "N/A"}',
+                          ),
+                          _buildInfoRow(
+                            Icons.work,
+                            '${employee.designation ?? "N/A"} (${employee.department ?? "N/A"})',
+                          ),
+                          _buildInfoRow(
+                            Icons.phone,
+                            employee.mobileNo ?? "N/A",
+                          ),
+                          _buildInfoRow(Icons.email, employee.email ?? "N/A"),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const Divider(),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () {
+                        // View Action
+                      },
+                      icon: const Icon(
+                        Icons.visibility,
+                        size: 18,
+                        color: Colors.blue,
+                      ),
+                      label: const Text(
+                        'View',
+                        style: TextStyle(color: Colors.blue),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () {
+                        // Delete Action
+                      },
+                      icon: const Icon(
+                        Icons.delete,
+                        size: 18,
+                        color: Colors.red,
+                      ),
+                      label: const Text(
+                        'Delete',
+                        style: TextStyle(color: Colors.red),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-        ),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: _loadEmployees,
-            child: ListView.builder(
-              itemCount: _filteredEmployees.length,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              itemBuilder: (context, index) {
-                final employee = _filteredEmployees[index];
-                return _buildEmployeeCard(employee);
-              },
-            ),
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 
-  Widget _buildEmployeeCard(Employee employee) {
-    return Card(
-      elevation: 2,
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(12),
-        leading: CircleAvatar(
-          radius: 28,
-          backgroundColor: Colors.grey[200],
-          backgroundImage: employee.photo != null && employee.photo!.isNotEmpty
-              ? NetworkImage(employee.photo!)
-              : null,
-          child: (employee.photo == null || employee.photo!.isEmpty)
-              ? Text(
-                  employee.name.isNotEmpty
-                      ? employee.name.substring(0, 1).toUpperCase()
-                      : '?',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                    color: Color(0xFF2C3E50),
-                  ),
-                )
-              : null,
-        ),
-        title: Text(
-          employee.name,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    employee.role,
-                    style: const TextStyle(
-                      color: Colors.blue,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                if (employee.designation != null &&
-                    employee.designation!.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      employee.designation!,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                    ),
-                  ),
-                ],
-              ],
+  Widget _buildInfoRow(IconData icon, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: Colors.grey[600]),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+              overflow: TextOverflow.ellipsis,
             ),
-            if (employee.department != null &&
-                employee.department!.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                'Dept: ${employee.department}',
-                style: TextStyle(color: Colors.grey[600], fontSize: 12),
-              ),
-            ],
-            if (employee.mobileNo != null && employee.mobileNo!.isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  Icon(Icons.phone, size: 14, color: Colors.grey[600]),
-                  const SizedBox(width: 4),
-                  Text(
-                    employee.mobileNo!,
-                    style: TextStyle(fontSize: 13, color: Colors.grey[800]),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

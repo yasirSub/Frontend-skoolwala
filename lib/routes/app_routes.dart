@@ -116,9 +116,7 @@ class AppRoutes {
       case teacherStatistics:
         final args = settings.arguments as Map<String, dynamic>?;
         return CustomPageRoute(
-          child: TeacherStatisticsScreen(
-            staffId: args?['staffId'] ?? '',
-          ),
+          child: TeacherStatisticsScreen(staffId: args?['staffId'] ?? ''),
           transitionType: PageTransitionType.slideAndFade,
         );
 
@@ -140,8 +138,8 @@ class AppRoutes {
   }
 
   /// Navigate to school selection
-  static void toSchoolSelection(BuildContext context) {
-    Navigator.pushNamedAndRemoveUntil(
+  static Future<dynamic> toSchoolSelection(BuildContext context) {
+    return Navigator.pushNamedAndRemoveUntil(
       context,
       schoolSelection,
       (route) => false,
@@ -149,17 +147,24 @@ class AppRoutes {
   }
 
   /// Navigate to login
-  static void toLogin(BuildContext context, {required String schoolName}) {
-    Navigator.pushNamed(context, login, arguments: {'schoolName': schoolName});
+  static Future<dynamic> toLogin(
+    BuildContext context, {
+    required String schoolName,
+  }) {
+    return Navigator.pushNamed(
+      context,
+      login,
+      arguments: {'schoolName': schoolName},
+    );
   }
 
   /// Navigate to dashboard
-  static void toDashboard(
+  static Future<dynamic> toDashboard(
     BuildContext context, {
     required String username,
     required String password,
   }) {
-    Navigator.pushReplacementNamed(
+    return Navigator.pushReplacementNamed(
       context,
       dashboard,
       arguments: {'username': username, 'password': password},
@@ -167,24 +172,24 @@ class AppRoutes {
   }
 
   /// Navigate to attendance scan
-  static void toAttendanceScan(BuildContext context) {
-    Navigator.pushNamed(context, attendanceScan);
+  static Future<dynamic> toAttendanceScan(BuildContext context) {
+    return Navigator.pushNamed(context, attendanceScan);
   }
 
   /// Navigate to face verification
-  static void toFaceVerification(BuildContext context) {
-    Navigator.pushNamed(context, faceVerification);
+  static Future<dynamic> toFaceVerification(BuildContext context) {
+    return Navigator.pushNamed(context, faceVerification);
   }
 
   /// Navigate to attendance history
-  static void toAttendanceHistory(
+  static Future<dynamic> toAttendanceHistory(
     BuildContext context, {
     required int presentDays,
     required int absentDays,
     required String username,
     required String password,
   }) {
-    Navigator.pushNamed(
+    return Navigator.pushNamed(
       context,
       attendanceHistory,
       arguments: {
@@ -197,13 +202,13 @@ class AppRoutes {
   }
 
   /// Navigate to profile
-  static void toProfile(
+  static Future<dynamic> toProfile(
     BuildContext context, {
     required Teacher teacher,
     String? schoolName,
     TeacherProfile? teacherProfile,
   }) {
-    Navigator.pushNamed(
+    return Navigator.pushNamed(
       context,
       profile,
       arguments: {
@@ -215,12 +220,12 @@ class AppRoutes {
   }
 
   /// Navigate to statistics
-  static void toStatistics(
+  static Future<dynamic> toStatistics(
     BuildContext context, {
     required String username,
     required String password,
   }) {
-    Navigator.pushNamed(
+    return Navigator.pushNamed(
       context,
       statistics,
       arguments: {'username': username, 'password': password},
@@ -228,12 +233,12 @@ class AppRoutes {
   }
 
   /// Navigate to teacher statistics
-  static void toTeacherStatistics(
+  static Future<dynamic> toTeacherStatistics(
     BuildContext context, {
     required String staffId,
     required String baseUrl,
   }) {
-    Navigator.pushNamed(
+    return Navigator.pushNamed(
       context,
       teacherStatistics,
       arguments: {'staffId': staffId, 'baseUrl': baseUrl},
@@ -241,7 +246,7 @@ class AppRoutes {
   }
 
   /// Navigate to teacher self-attendance
-  static void toTeacherSelfAttendance(BuildContext context) {
-    Navigator.pushNamed(context, teacherSelfAttendance);
+  static Future<dynamic> toTeacherSelfAttendance(BuildContext context) {
+    return Navigator.pushNamed(context, teacherSelfAttendance);
   }
 }

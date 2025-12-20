@@ -3,6 +3,7 @@ import '../../../shared/widgets/app_loading_indicator.dart';
 import '../../students/services/student_service.dart';
 import '../../students/models/class_model.dart';
 import '../../students/screens/students_list_screen.dart';
+import 'mark_student_attendance_screen.dart';
 
 /// Class Sections Screen
 /// Shows sections for a selected class, then navigates to students list
@@ -54,17 +55,87 @@ class _ClassSectionsScreenState extends State<ClassSectionsScreen> {
     }
   }
 
-  void _navigateToStudents(SectionModel section) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => StudentsListScreen(
-          classId: widget.classId,
-          sectionId: int.parse(section.sectionId ?? '0'),
-          className: '${widget.className} - ${section.sectionName}',
+  void _showSectionOptions(SectionModel section) {
+    final sectionId = int.parse(section.sectionId ?? '0');
+    final displayName = '${widget.className} - ${section.sectionName}';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                displayName,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              // View Students Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.people, size: 20),
+                  label: const Text('View Students'),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => StudentsListScreen(
+                          classId: widget.classId,
+                          sectionId: sectionId,
+                          className: displayName,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Mark Attendance Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.fact_check, size: 20),
+                  label: const Text('Mark Attendance'),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => MarkStudentAttendanceScreen(
+                          classId: widget.classId,
+                          sectionId: sectionId,
+                          className: displayName,
+                          subjectId: null,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  void _navigateToStudents(SectionModel section) {
+    // Show options bottom sheet instead of direct navigation
+    _showSectionOptions(section);
   }
 
   @override

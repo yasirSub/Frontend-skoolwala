@@ -1,4 +1,4 @@
-// ignore_for_file: use_build_context_synchronously
+// ignore_for_file: use_build_context_synchronously, avoid_print, unnecessary_brace_in_string_interps, no_leading_underscores_for_local_identifiers, prefer_final_fields, library_private_types_in_public_api
 
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:geolocator/geolocator.dart';
 import 'dart:async';
+import 'dart:ui';
 // Face workflow encapsulates ML and API calls
 import 'package:skoolwala/features/teacher_attendance/simple/face_workflow.dart';
 import 'package:skoolwala/features/teacher_attendance/simple/location_workflow.dart';
@@ -27,8 +28,9 @@ import 'package:skoolwala/features/teacher_attendance/simple/widgets/check_in_ou
 import 'package:skoolwala/features/teacher_attendance/simple/widgets/bottom_status_bar.dart';
 import 'package:skoolwala/features/teacher_attendance/simple/widgets/face_mismatch_dialog.dart';
 import 'package:skoolwala/features/teacher_attendance/simple/widgets/attendance_instructions.dart';
-import 'package:skoolwala/shared/widgets/custom_app_bar.dart';
+
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:skoolwala/shared/theme/app_theme.dart';
 
 class SimpleTeacherAttendance extends StatefulWidget {
   final String? staffId; // optional: provide from dashboard/session
@@ -63,7 +65,7 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
   // Face analysis variables
   bool _isAnalyzingFace = false;
   String? _faceAnalysisStatus;
-  String _bottomStatusMessage = 'Position your face in the circle';
+  String _bottomStatusMessage = 'Position your face in the frame';
   List<double>? _capturedFaceEmbedding;
   int _noMatchCount = 0; // consecutive no-match attempts before showing Retry
   bool _schoolLocationLoaded = false; // set true after first fetch completes
@@ -174,10 +176,37 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
     }
   }
 
+  Future<void> _setAutoCheckEnabled(bool value) async {
+    await _saveAutoCheckPreference(value);
+    safeSetState(() {
+      _autoCheckEnabled = value;
+    });
+
+    if (value && _isEverythingVerified && !_isProcessing) {
+      _autoCheckInOut();
+    }
+  }
+
   Future<void> _initializeCamera() async {
     try {
       _cameraController = await CameraWorkflow.initFrontCamera();
       if (_cameraController != null) {
+        // Apply a conservative default zoom so the face is more prominent.
+        // This also helps when we render a smaller “face window” preview.
+        try {
+          final minZoom = await _cameraController!.getMinZoomLevel();
+          final maxZoom = await _cameraController!.getMaxZoomLevel();
+
+          // Keep the zoom subtle to avoid over-zoom and blur.
+          final preferredZoom = (minZoom * 1.25)
+              .clamp(minZoom, math.min(maxZoom, minZoom + 0.6))
+              .toDouble();
+          await _cameraController!.setZoomLevel(preferredZoom);
+        } catch (e) {
+          // Zoom is device-dependent; ignore failures.
+          print('Zoom not supported: $e');
+        }
+
         safeSetState(() {
           _isInitialized = true;
         });
@@ -187,6 +216,64 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
     } catch (e) {
       print('Camera error: $e');
     }
+  }
+
+  Widget _buildCroppedCameraPreview() {
+    final ctrl = _cameraController;
+    if (ctrl == null || !ctrl.value.isInitialized) {
+      return const SizedBox.shrink();
+    }
+
+    // Use BoxFit.cover so the preview fills the window and gets center-cropped.
+    final previewSize = ctrl.value.previewSize;
+    if (previewSize == null) {
+      return CameraPreview(ctrl);
+    }
+
+    // NOTE: previewSize is in landscape on Android; swap for portrait.
+    final width = previewSize.height;
+    final height = previewSize.width;
+
+    return FittedBox(
+      fit: BoxFit.cover,
+      child: SizedBox(width: width, height: height, child: CameraPreview(ctrl)),
+    );
+  }
+
+  Widget _buildFaceWindowPreview() {
+    // Match the overlay frame size for perfect alignment.
+    const windowWidth = 280.0;
+    const windowHeight = 360.0;
+    const windowRadius = 30.0;
+
+    return Center(
+      child: RepaintBoundary(
+        child: Container(
+          width: windowWidth,
+          height: windowHeight,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(windowRadius),
+            border: Border.all(color: Colors.white.withOpacity(0.10), width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.55),
+                blurRadius: 24,
+                offset: const Offset(0, 14),
+              ),
+              BoxShadow(
+                color: AppTheme.primaryPurple.withOpacity(0.10),
+                blurRadius: 28,
+                offset: const Offset(0, 0),
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(windowRadius),
+            child: _buildCroppedCameraPreview(),
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _initializeLocation() async {
@@ -818,7 +905,7 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
       _capturedFaceEmbedding = null;
       _faceAnalysisStatus = null;
       _faceValidationData = null;
-      _bottomStatusMessage = 'Position your face in the circle';
+      _bottomStatusMessage = 'Position your face in the frame';
       _isAnalyzingFace = false;
       _noMatchCount = 0; // Reset retry counter for new attempt
       _isEverythingVerified = false; // Clear verification cache
@@ -1217,7 +1304,7 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
             _faceAnalysisStatus = '❌ STEP 2 FAILED: No face detected';
           });
           _showError(
-            'Face check failed!\n\nNo face detected in the image.\n\nPlease position your face clearly in the circle and try again.',
+            'Face check failed!\n\nNo face detected in the image.\n\nPlease position your face clearly in the frame and try again.',
           );
           return; // STOP HERE - Face check failed
         }
@@ -1516,7 +1603,7 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
   /// Get user-friendly error message
   String _getErrorMessage(String errorResult) {
     if (errorResult.contains('No face detected')) {
-      return 'No face detected in the image.\nPlease position your face clearly in the circle.';
+      return 'No face detected in the image.\nPlease position your face clearly in the frame.';
     } else if (errorResult.contains('Face not recognized')) {
       return 'Face not recognized in the system.\nPlease ensure you are enrolled.';
     } else if (errorResult.contains('GPS Location failed')) {
@@ -1671,79 +1758,112 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.black,
-        appBar: CustomAppBar(
-          title: 'Teacher Attendance',
-          backgroundColor: Colors.black,
-          primaryColor: Colors.black, // Color for curved top bar
-          foregroundColor: Colors.white,
-          automaticallyImplyLeading: true,
-          showRoundedCorners:
-              true, // Use curved/rounded corners from shared top bar
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.black, Colors.black.withOpacity(0.95)],
+        backgroundColor: AppTheme.darkPurple,
+
+        extendBodyBehindAppBar: true,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          centerTitle: true,
+          flexibleSpace: ClipRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Container(color: AppTheme.darkPurple.withOpacity(0.5)),
+            ),
+          ),
+          leading: IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.3),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+            onPressed: () => Navigator.pop(context),
+          ),
+          title: const Text(
+            'TEACHER ATTENDANCE',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+              letterSpacing: 2,
+            ),
           ),
           actions: [
-            // Auto check-in/out toggle button with label
-            Tooltip(
-              message: _autoCheckEnabled
-                  ? 'Auto check enabled - Turn off'
-                  : 'Auto check disabled - Turn on',
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Small text label when enabled
-                  if (_autoCheckEnabled)
-                    Padding(
-                      padding: EdgeInsets.only(right: 6),
-                      child: Text(
-                        'AUTO',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
+            Padding(
+              padding: const EdgeInsets.only(right: 16, top: 8, bottom: 8),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(22),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(22),
+                  onTap: () {
+                    _setAutoCheckEnabled(!_autoCheckEnabled);
+                  },
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(22),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.25),
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.12),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Text(
+                              'AUTO',
+                              style: TextStyle(
+                                color: _autoCheckEnabled
+                                    ? Colors.white
+                                    : Colors.white70,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.6,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            SizedBox(
+                              height: 28,
+                              width: 48,
+                              child: FittedBox(
+                                fit: BoxFit.contain,
+                                child: Switch(
+                                  value: _autoCheckEnabled,
+                                  onChanged: (value) {
+                                    _setAutoCheckEnabled(value);
+                                  },
+                                  activeColor: AppTheme.dashboardAccent,
+                                  activeTrackColor: AppTheme.dashboardAccent
+                                      .withOpacity(0.30),
+                                  inactiveThumbColor: Colors.white70,
+                                  inactiveTrackColor: Colors.white.withOpacity(
+                                    0.12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                  Switch(
-                    value: _autoCheckEnabled,
-                    onChanged: (value) async {
-                      // Save preference to phone storage
-                      await _saveAutoCheckPreference(value);
-
-                      safeSetState(() {
-                        _autoCheckEnabled = value;
-                      });
-
-                      // If enabling and everything is already verified, trigger auto-check
-                      if (value && _isEverythingVerified && !_isProcessing) {
-                        _autoCheckInOut();
-                      }
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            value
-                                ? 'Auto check enabled - Will automatically check in/out when ready'
-                                : 'Auto check disabled - Manual check in/out required',
-                          ),
-                          backgroundColor: value ? Colors.green : Colors.grey,
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    },
-                    activeColor: Colors.white,
-                    activeTrackColor: Colors.green[600]!, // Green when ON
-                    inactiveThumbColor: Colors.white70,
-                    inactiveTrackColor: Colors.white.withOpacity(0.3),
                   ),
-                ],
+                ),
               ),
             ),
-            SizedBox(width: 8),
           ],
         ),
         body: Column(
@@ -1754,9 +1874,29 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
               child: _isInitialized
                   ? Stack(
                       children: [
-                        // Ensure camera preview fills the entire area
+                        // Show only a framed, center-cropped “face window” preview
                         Positioned.fill(
-                          child: CameraPreview(_cameraController!),
+                          child: Stack(
+                            children: [
+                              DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      AppTheme.darkPurple.withOpacity(0.92),
+                                      Colors.black.withOpacity(0.98),
+                                    ],
+                                  ),
+                                ),
+                                child: const SizedBox.expand(),
+                              ),
+                              Align(
+                                alignment: Alignment.center,
+                                child: _buildFaceWindowPreview(),
+                              ),
+                            ],
+                          ),
                         ),
                         // Static Face Guide Frame - Simple centered frame (no tracking)
                         FaceTrackingOverlay(
@@ -1810,10 +1950,10 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
                             ),
                           ),
 
-                        // Verified User Name Overlay on Camera - Top Right
+                        // Verified User Name Overlay on Camera - Top Right (Moved down)
                         if (_isFaceValidatedForLoggedInUser)
                           Positioned(
-                            top: 10,
+                            top: 100,
                             right: 15,
                             child: VerifiedUserBadge(
                               name: _faceValidationData!['name']?.toString(),
@@ -1833,10 +1973,10 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
                                   : null,
                             ),
                           ),
-                        // Top-left overlay: Logged-in and Face IDs (debug aid)
+                        // Top-left overlay: Logged-in and Face IDs (Moved down)
                         if (_showInfoPanels)
                           Positioned(
-                            top: 10,
+                            top: 100,
                             left: 10,
                             child: DebugIdsPanel(
                               loggedInStaffId: widget.staffId,
@@ -1846,44 +1986,65 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
                             ),
                           ),
 
-                        // Toggle button to hide/show info overlays (top center)
+                        // Toggle button to hide/show info overlays (Moved further down)
                         Align(
                           alignment: Alignment.topCenter,
                           child: Padding(
-                            padding: EdgeInsets.only(top: 10),
+                            padding: EdgeInsets.only(top: 110),
                             child: Material(
-                              color: Colors.black.withValues(alpha: 0.4),
-                              borderRadius: BorderRadius.circular(20),
+                              color: Colors.transparent,
+                              borderRadius: BorderRadius.circular(22),
                               child: InkWell(
-                                borderRadius: BorderRadius.circular(20),
+                                borderRadius: BorderRadius.circular(22),
                                 onTap: () {
                                   safeSetState(() {
                                     _showInfoPanels = !_showInfoPanels;
                                   });
                                 },
-                                child: Padding(
-                                  padding: EdgeInsets.all(8),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        _showInfoPanels
-                                            ? Icons.visibility_off
-                                            : Icons.visibility,
-                                        color: Colors.white,
-                                        size: 18,
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(22),
+                                  child: BackdropFilter(
+                                    filter: ImageFilter.blur(
+                                      sigmaX: 10,
+                                      sigmaY: 10,
+                                    ),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 8,
                                       ),
-                                      SizedBox(width: 6),
-                                      Text(
-                                        _showInfoPanels
-                                            ? 'Hide info'
-                                            : 'Show info',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withOpacity(0.25),
+                                        borderRadius: BorderRadius.circular(22),
+                                        border: Border.all(
+                                          color: Colors.white.withOpacity(0.12),
                                         ),
                                       ),
-                                    ],
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            _showInfoPanels
+                                                ? Icons.visibility_off
+                                                : Icons.visibility,
+                                            color: Colors.white,
+                                            size: 16,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            _showInfoPanels
+                                                ? 'HIDE INFO'
+                                                : 'SHOW INFO',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w900,
+                                              letterSpacing: 0.8,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1911,39 +2072,48 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
             Expanded(
               flex: 1,
               child: Container(
-                padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
                 decoration: BoxDecoration(
-                  color: Colors.grey[900],
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(25),
-                    topRight: Radius.circular(25),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      const Color(0xFF1A1A1A).withOpacity(0.95),
+                      const Color(0xFF0D0D0D),
+                    ],
                   ),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(35),
+                    topRight: Radius.circular(35),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.5),
+                      blurRadius: 20,
+                      offset: const Offset(0, -10),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.max,
                   children: [
                     // Dynamic Check In/Out Button - ALWAYS VISIBLE AT TOP (not scrollable)
                     // Use SizedBox to prevent button from being squished
                     Padding(
-                      padding: EdgeInsets.only(top: 20),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: CheckInOutButton(
-                          schoolLocationLoaded: _schoolLocationLoaded,
-                          schoolLocation: _schoolLocation,
-                          isFetchingMobileLocation: _isFetchingLocation,
-                          isProcessing: _isProcessing,
-                          isAnalyzingFace: _isAnalyzingFace,
-                          isFaceValidatedForLoggedInUser:
-                              _isFaceValidatedForLoggedInUser,
-                          faceAnalysisStatus: _faceAnalysisStatus,
-                          noMatchCount: _noMatchCount,
-                          isCurrentlyCheckedIn: _isCurrentlyCheckedIn,
-                          onSchoolLocationNotSet: () => Navigator.pop(context),
-                          onRestartFaceAnalysis: _restartFaceAnalysis,
-                          onMarkAttendance: (type) => _markAttendance(type),
-                        ),
+                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                      child: CheckInOutButton(
+                        schoolLocationLoaded: _schoolLocationLoaded,
+                        schoolLocation: _schoolLocation,
+                        isFetchingMobileLocation: _isFetchingLocation,
+                        isProcessing: _isProcessing,
+                        isAnalyzingFace: _isAnalyzingFace,
+                        isFaceValidatedForLoggedInUser:
+                            _isFaceValidatedForLoggedInUser,
+                        faceAnalysisStatus: _faceAnalysisStatus,
+                        noMatchCount: _noMatchCount,
+                        isCurrentlyCheckedIn: _isCurrentlyCheckedIn,
+                        onSchoolLocationNotSet: () => Navigator.pop(context),
+                        onRestartFaceAnalysis: _restartFaceAnalysis,
+                        onMarkAttendance: (type) => _markAttendance(type),
                       ),
                     ),
 

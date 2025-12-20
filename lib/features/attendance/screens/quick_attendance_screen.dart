@@ -1,15 +1,13 @@
-// ignore_for_file: deprecated_member_use, duplicate_ignore
-
-// ignore_for_file: deprecated_member_use
-
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:skoolwala/features/attendance/services/attendance_service.dart';
 import 'package:skoolwala/features/attendance/services/attendance_status_service.dart';
 import 'package:skoolwala/features/attendance/services/face_attendance_service.dart';
 import 'package:skoolwala/features/attendance/services/google_ml_face_service.dart';
 import 'package:skoolwala/features/attendance/services/location_service.dart';
+import '../../../shared/widgets/app_loading_indicator.dart';
 
 class QuickAttendanceScreen extends StatefulWidget {
   final String? forceMode; // 'checkin' or 'checkout' to force a specific mode
@@ -34,6 +32,11 @@ class _QuickAttendanceScreenState extends State<QuickAttendanceScreen>
   AttendanceStatus? _currentStatus;
   AttendanceSummary? _todaySummary;
   bool _userFound = false; // Flag to track if user has been found
+
+  // Attendance type variables
+  int _attendanceType = 0;
+  String _attendanceTypeDisplay = 'Day-Wise Attendance';
+  bool _attendanceTypeLoading = true;
 
   // Camera capture state
   bool _isCapturingFrame = false;
@@ -77,6 +80,9 @@ class _QuickAttendanceScreenState extends State<QuickAttendanceScreen>
       // Get current attendance status
       await _loadAttendanceStatus();
 
+      // Load attendance type
+      await _loadAttendanceType();
+
       // Initialize camera
       await _initializeCamera();
 
@@ -101,6 +107,25 @@ class _QuickAttendanceScreenState extends State<QuickAttendanceScreen>
       });
     } catch (e) {
       print('❌ Failed to load attendance status: $e');
+    }
+  }
+
+  Future<void> _loadAttendanceType() async {
+    try {
+      final response = await AttendanceService.getAttendanceType();
+      if (response['status'] == 'success' && response['data'] != null) {
+        setState(() {
+          _attendanceType = response['data']['attendance_type'] ?? 0;
+          _attendanceTypeDisplay =
+              response['data']['type_display'] ?? 'Day-Wise Attendance';
+          _attendanceTypeLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading attendance type: $e');
+      setState(() {
+        _attendanceTypeLoading = false;
+      });
     }
   }
 
@@ -649,10 +674,7 @@ class _QuickAttendanceScreenState extends State<QuickAttendanceScreen>
                   width: 1,
                 ),
               ),
-              child: const CircularProgressIndicator(
-                color: Color(0xFF00E5FF),
-                strokeWidth: 3,
-              ),
+              child: const AppLoadingIndicator(color: Color(0xFF00E5FF)),
             ),
             const SizedBox(height: 24),
             const Text(
@@ -688,6 +710,54 @@ class _QuickAttendanceScreenState extends State<QuickAttendanceScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            // Attendance Type Badge
+            if (!_attendanceTypeLoading)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color:
+                      (_attendanceType == 0
+                              ? const Color(0xFF00E5FF)
+                              : const Color(0xFF9C27B0))
+                          .withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _attendanceType == 0
+                        ? const Color(0xFF00E5FF)
+                        : const Color(0xFF9C27B0),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _attendanceType == 0 ? Icons.calendar_today : Icons.book,
+                      color: _attendanceType == 0
+                          ? const Color(0xFF00E5FF)
+                          : const Color(0xFF9C27B0),
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _attendanceTypeDisplay,
+                      style: TextStyle(
+                        color: _attendanceType == 0
+                            ? const Color(0xFF00E5FF)
+                            : const Color(0xFF9C27B0),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 16),
+
             // Today's summary
             if (_todaySummary != null) ...[
               _buildTodaySummary(),
@@ -726,7 +796,7 @@ class _QuickAttendanceScreenState extends State<QuickAttendanceScreen>
                   ),
                   onPressed: _isProcessing ? null : _captureAndMarkAttendance,
                   child: _isProcessing
-                      ? const CircularProgressIndicator(color: Colors.white)
+                      ? const AppLoadingIndicator(color: Colors.white, size: 24)
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
