@@ -10,6 +10,8 @@ import 'package:skoolwala/features/profile/screens/profile_screen.dart';
 import 'package:skoolwala/features/statistics/screens/statistics_screen.dart';
 import 'package:skoolwala/features/attendance/screens/teacher_self_attendance_screen.dart';
 import 'package:skoolwala/features/teacher_attendance/teacher_statistics_screen.dart';
+import 'package:skoolwala/features/attendance/screens/weekend_attendance_inspection_screen.dart';
+import 'package:skoolwala/features/notifications/screens/notifications_screen.dart';
 import 'package:skoolwala/features/profile/models/teacher_profile.dart';
 import 'package:skoolwala/shared/models/teacher.dart';
 
@@ -26,9 +28,14 @@ class AppRoutes {
   static const String attendanceScan = '/attendance/scan';
   static const String faceVerification = '/attendance/face-verification';
   static const String attendanceHistory = '/attendance/history';
+  static const String weekendAttendanceInspection =
+      '/attendance/weekend-inspection';
 
   // Profile routes
   static const String profile = '/profile';
+
+  // Notifications routes
+  static const String notifications = '/notifications';
 
   // Statistics routes
   static const String statistics = '/statistics';
@@ -92,6 +99,12 @@ class AppRoutes {
           transitionType: PageTransitionType.slideFromLeft,
         );
 
+      case weekendAttendanceInspection:
+        return CustomPageRoute(
+          child: const WeekendAttendanceInspectionScreen(),
+          transitionType: PageTransitionType.slideAndFade,
+        );
+
       case profile:
         final args = settings.arguments as Map<String, dynamic>?;
         return CustomPageRoute(
@@ -100,6 +113,12 @@ class AppRoutes {
             schoolName: args?['schoolName'] as String?,
             teacherProfile: args?['teacherProfile'] as TeacherProfile?,
           ),
+          transitionType: PageTransitionType.slideFromRight,
+        );
+
+      case notifications:
+        return CustomPageRoute(
+          child: const NotificationsScreen(),
           transitionType: PageTransitionType.slideFromRight,
         );
 
@@ -217,6 +236,11 @@ class AppRoutes {
         'teacherProfile': teacherProfile,
       },
     );
+  }
+
+  /// Navigate to notifications
+  static Future<dynamic> toNotifications(BuildContext context) {
+    return Navigator.pushNamed(context, notifications);
   }
 
   /// Navigate to statistics

@@ -9,9 +9,9 @@ import 'package:image/image.dart' as img;
 ///   dart run tool/remove_white_bg.dart
 ///
 /// Default input:
-///   assets/Skoolwala Logo.png
+///   assets/skoolwala_logo.png
 void main(List<String> args) {
-  final inputPath = args.isNotEmpty ? args.first : 'assets/Skoolwala Logo.png';
+  final inputPath = args.isNotEmpty ? args.first : 'assets/skoolwala_logo.png';
   final inputFile = File(inputPath);
 
   if (!inputFile.existsSync()) {

@@ -4,8 +4,6 @@ import 'package:skoolwala/shared/services/session_manager.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../../shared/widgets/app_loading_indicator.dart';
-import '../services/teacher_class_service.dart';
-import '../../students/services/student_service.dart';
 import '../../students/models/class_model.dart';
 import 'class_sections_screen.dart';
 
@@ -84,10 +82,14 @@ class _MyClassesScreenState extends State<MyClassesScreen> {
 
       // If new API fails, show error
       setState(() {
-        _errorMessage = 'Failed to load classes. Please check your connection.';
+        _errorMessage =
+            'Failed to load classes (HTTP ${response.statusCode}). Please check your connection.';
         _isLoading = false;
       });
       print('❌ API Error: ${response.statusCode}');
+      if (response.body.isNotEmpty) {
+        print('❌ API Error Body: ${response.body}');
+      }
     } catch (e) {
       print('❌ Error loading classes: $e');
       setState(() {

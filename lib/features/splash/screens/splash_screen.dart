@@ -86,8 +86,8 @@ class _SplashScreenState extends State<SplashScreen>
               ),
             ),
             Positioned(
-              bottom: -50,
-              left: -50,
+              bottom: -80,
+              left: -60,
               child: Container(
                 width: 200,
                 height: 200,
@@ -119,7 +119,7 @@ class _SplashScreenState extends State<SplashScreen>
                           ],
                         ),
                         child: Image.asset(
-                          'assets/Skoolwala Logo.png',
+                          'assets/skoolwala_logo.png',
                           height: 100,
                           width: 100,
                         ),

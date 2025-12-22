@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../features/dashboard/screens/dashboard_screen.dart';
 import '../../features/attendance/screens/quick_attendance_screen.dart';
-import '../../features/teacher/screens/my_classes_screen.dart';
 import '../../features/teacher/screens/teacher_self_attendance_screen.dart';
+import '../../features/attendance/screens/weekend_attendance_inspection_screen.dart';
 import '../../features/teacher/screens/teacher_timetable_screen.dart';
 import '../../features/teacher/screens/homework_list_screen.dart';
 import '../../features/teacher/screens/create_homework_screen.dart';
@@ -201,7 +201,7 @@ class _AppSidebarState extends State<AppSidebar> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => const TeacherSelfAttendanceScreen(),
+            builder: (_) => const WeekendAttendanceInspectionScreen(),
           ),
         );
         break;

@@ -114,13 +114,13 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen>
                                     errorBuilder:
                                         (context, error, stackTrace) =>
                                             Image.asset(
-                                              'assets/Skoolwala Logo.png',
+                                              'assets/skoolwala_logo.png',
                                               height: 60,
                                               fit: BoxFit.contain,
                                             ),
                                   )
                                 : Image.asset(
-                                    'assets/Skoolwala Logo.png',
+                                    'assets/skoolwala_logo.png',
                                     key: const ValueKey('default_logo'),
                                     height: 60,
                                     fit: BoxFit.contain,

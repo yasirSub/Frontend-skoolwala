@@ -7,6 +7,7 @@
 /// 1. Change the environment in main.dart to switch between dev/prod
 /// 2. Update base URLs below as needed
 /// 3. Add new API endpoints to their respective sections
+library;
 
 class ApiConfig {
   // ============================================
@@ -20,7 +21,7 @@ class ApiConfig {
   ///   flutter run --dart-define=ENV=development
   static const String environment = String.fromEnvironment(
     'ENV',
-    defaultValue: 'production',
+    defaultValue: 'development',
   );
 
   /// Enable debug logging
@@ -55,6 +56,17 @@ class ApiConfig {
       default:
         return developmentBaseUrl;
     }
+  }
+
+  /// Get website base URL (non-API) for opening web pages like Mailbox.
+  ///
+  /// Example: https://skoolwala.com/api -> https://skoolwala.com
+  static String getWebBaseUrl() {
+    final apiBase = getBaseUrl();
+    if (apiBase.endsWith('/api')) {
+      return apiBase.substring(0, apiBase.length - 4);
+    }
+    return apiBase;
   }
 
   // ============================================
@@ -135,8 +147,12 @@ class ApiConfig {
   // ============================================
 
   static const String getMessages = 'getMessages';
+  static const String getMessageThread = 'getMessageThread';
   static const String markMessageAsRead = 'markMessageAsRead';
   static const String sendMessage = 'sendMessage';
+  static const String replyMessage = 'replyMessage';
+  static const String mailboxRecipients = 'mailboxRecipients';
+  static const String setMessageFavouriteStatus = 'setMessageFavouriteStatus';
 
   // ============================================
   // FACE RECOGNITION ENDPOINTS
@@ -267,23 +283,23 @@ class ApiEndpoints {
 
 // Tag classes for better organization
 class Auth extends ApiEndpoint {
-  const Auth(String path) : super(path);
+  const Auth(super.path);
 }
 
 class School extends ApiEndpoint {
-  const School(String path) : super(path);
+  const School(super.path);
 }
 
 class Attendance extends ApiEndpoint {
-  const Attendance(String path) : super(path);
+  const Attendance(super.path);
 }
 
 class Face extends ApiEndpoint {
-  const Face(String path) : super(path);
+  const Face(super.path);
 }
 
 class Dashboard extends ApiEndpoint {
-  const Dashboard(String path) : super(path);
+  const Dashboard(super.path);
 }
 
 /// Environment helper

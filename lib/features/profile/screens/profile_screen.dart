@@ -8,9 +8,12 @@ import 'package:skoolwala/shared/models/teacher.dart';
 import 'package:skoolwala/features/auth/services/profile_service.dart';
 import 'package:skoolwala/features/auth/screens/login_screen.dart';
 import 'package:skoolwala/features/profile/widgets/developer_attendance_fab.dart';
+import 'package:skoolwala/features/attendance/services/attendance_service.dart';
 import 'package:skoolwala/features/school/screens/school_selection_screen.dart';
 import 'package:skoolwala/shared/services/session_manager.dart';
 import 'package:skoolwala/shared/services/persistent_storage.dart';
+import 'package:skoolwala/features/profile/mailbox/screens/mailbox_screen.dart';
+import 'package:skoolwala/features/profile/mailbox/services/mailbox_unread_store.dart';
 import '../models/teacher_profile.dart';
 import '../services/teacher_profile_service.dart';
 import 'package:skoolwala/shared/theme/app_theme.dart';
@@ -45,6 +48,10 @@ class _ProfileScreenState extends State<ProfileScreen>
   // Refresh functionality
   bool _isRefreshing = false;
   TeacherProfile? _refreshedTeacherProfile;
+
+  bool _isSendingFaceChangeRequest = false;
+
+  int _inboxUnreadCount = 0;
 
   @override
   void initState() {
@@ -90,6 +97,16 @@ class _ProfileScreenState extends State<ProfileScreen>
     });
     Future.delayed(const Duration(milliseconds: 400), () {
       _staggerController.forward();
+    });
+
+    _loadInboxUnreadCount();
+  }
+
+  Future<void> _loadInboxUnreadCount() async {
+    final count = await MailboxUnreadStore.getInboxUnreadCount();
+    if (!mounted) return;
+    setState(() {
+      _inboxUnreadCount = count;
     });
   }
 
@@ -263,6 +280,58 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
+  Future<void> _requestFaceChangeFromProfile() async {
+    if (_isSendingFaceChangeRequest) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Face Change Request'),
+        content: const Text(
+          'This will send a face change request to your branch admin. After approval, your old face data will be deleted and you can register again (one time).',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Send Request'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _isSendingFaceChangeRequest = true;
+    });
+
+    try {
+      await AttendanceService.createFaceChangeRequest(
+        reason: 'Requested from profile',
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Face change request sent to admin.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSendingFaceChangeRequest = false;
+        });
+      }
+    }
+  }
+
   /// Show edit profile dialog
   void _showEditProfileDialog(BuildContext context, Teacher teacher) {
     showDialog(
@@ -351,10 +420,36 @@ class _ProfileScreenState extends State<ProfileScreen>
               const SizedBox(width: 8),
             ],
           ),
-          // Floating developer attendance button returns when running in debug mode
-          floatingActionButton: kDebugMode
-              ? DeveloperAttendanceFAB(teacher: displayData)
-              : null,
+          floatingActionButton: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (kDebugMode) ...[
+                DeveloperAttendanceFAB(teacher: displayData),
+                const SizedBox(height: 12),
+              ],
+              FloatingActionButton(
+                onPressed: _isSendingFaceChangeRequest
+                    ? null
+                    : _requestFaceChangeFromProfile,
+                backgroundColor: AppTheme.warningOrange,
+                child: _isSendingFaceChangeRequest
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                    : const Icon(
+                        Icons.face_retouching_natural_rounded,
+                        color: Colors.white,
+                      ),
+              ),
+            ],
+          ),
           body: SafeArea(
             child: RefreshIndicator(
               onRefresh: _refreshProfileData,
@@ -370,6 +465,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                       child: _EnhancedProfileHeader(
                         teacher: displayData,
                         schoolName: widget.schoolName,
+                        inboxUnreadCount: _inboxUnreadCount,
+                        onRefreshInboxUnreadCount: _loadInboxUnreadCount,
                         onLogout: _handleLogout,
                       ),
                     ),
@@ -572,11 +669,15 @@ class _SectionCardState extends State<_SectionCard>
 class _EnhancedProfileHeader extends StatelessWidget {
   final Teacher teacher;
   final String? schoolName;
+  final int inboxUnreadCount;
+  final VoidCallback onRefreshInboxUnreadCount;
   final Future<void> Function(BuildContext) onLogout;
 
   const _EnhancedProfileHeader({
     required this.teacher,
     this.schoolName,
+    required this.inboxUnreadCount,
+    required this.onRefreshInboxUnreadCount,
     required this.onLogout,
   });
 
@@ -794,15 +895,18 @@ class _EnhancedProfileHeader extends StatelessWidget {
               ),
               const SizedBox(width: 16),
               _buildQuickAction(
-                Icons.chat_bubble_rounded,
-                const Color(0xFF25D366), // WhatsApp color
-                () => _launchUrl('https://wa.me/${teacher.mobileNo}'),
-              ),
-              const SizedBox(width: 16),
-              _buildQuickAction(
-                Icons.email_rounded,
-                AppTheme.infoBlue,
-                () => _launchUrl('mailto:${teacher.email}'),
+                Icons.mail_rounded,
+                AppTheme.primaryPurple,
+                () {
+                  Navigator.of(context)
+                      .push(
+                        MaterialPageRoute(
+                          builder: (_) => const MailboxScreen(),
+                        ),
+                      )
+                      .then((_) => onRefreshInboxUnreadCount());
+                },
+                showBadge: inboxUnreadCount > 0,
               ),
             ],
           ),
@@ -816,6 +920,7 @@ class _EnhancedProfileHeader extends StatelessWidget {
     Color color,
     VoidCallback onTap, {
     String? label,
+    bool showBadge = false,
   }) {
     return Column(
       children: [
@@ -840,7 +945,26 @@ class _EnhancedProfileHeader extends StatelessWidget {
                 ),
               ],
             ),
-            child: Icon(icon, color: Colors.white, size: 22),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Icon(icon, color: Colors.white, size: 22),
+                if (showBadge)
+                  Positioned(
+                    top: -3,
+                    right: -3,
+                    child: Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: AppTheme.errorRed,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 1),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
         if (label != null) ...[
@@ -859,10 +983,13 @@ class _EnhancedProfileHeader extends StatelessWidget {
     );
   }
 
-  Future<void> _launchUrl(String url) async {
+  Future<void> _launchUrl(String url, {bool inApp = false}) async {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
+      await launchUrl(
+        uri,
+        mode: inApp ? LaunchMode.inAppBrowserView : LaunchMode.platformDefault,
+      );
     }
   }
 }
@@ -1145,6 +1272,23 @@ class _ProfileDetailItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
+      onTap: () async {
+        if (value.isEmpty) return;
+
+        final lowerLabel = label.toLowerCase();
+        String? url;
+
+        if (lowerLabel.contains('e-mail') || lowerLabel == 'email') {
+          url = 'mailto:$value';
+        }
+
+        if (url == null) return;
+
+        final uri = Uri.parse(url);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri);
+        }
+      },
       onLongPress: () {
         if (value.isNotEmpty) {
           Clipboard.setData(ClipboardData(text: value));

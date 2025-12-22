@@ -3,7 +3,6 @@ import 'package:skoolwala/shared/services/http_client.dart';
 import 'package:skoolwala/shared/services/session_manager.dart';
 import 'package:skoolwala/shared/config/api_config.dart';
 import 'package:skoolwala/features/teacher/screens/teacher_schedule_screen.dart';
-import 'package:skoolwala/features/teacher/screens/mark_student_attendance_screen.dart';
 import 'package:skoolwala/shared/theme/app_theme.dart';
 import 'dart:async';
 
@@ -690,36 +689,11 @@ class _AnimatedClassCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        // Extract IDs from classData
-        final classIdStr = classData['class_id']?.toString() ?? '';
-        final sectionIdStr = classData['section_id']?.toString() ?? '';
-        final subjectIdStr = classData['subject_id']?.toString() ?? '';
-
-        final classId = int.tryParse(classIdStr);
-        final sectionId = int.tryParse(sectionIdStr);
-        final subjectId = int.tryParse(subjectIdStr);
-
-        if (classId != null && sectionId != null) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => MarkStudentAttendanceScreen(
-                classId: classId,
-                sectionId: sectionId,
-                className: className,
-                subjectId: subjectId != null && subjectId != 0
-                    ? subjectId
-                    : null,
-                subjectName: subjectName.isNotEmpty ? subjectName : null,
-              ),
-            ),
-          );
-        } else {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const TeacherScheduleScreen()),
-          );
-        }
+        // Dashboard class card should always redirect to the Schedule / Classes screen.
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const TeacherScheduleScreen()),
+        );
       },
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

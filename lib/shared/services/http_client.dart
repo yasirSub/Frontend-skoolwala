@@ -10,7 +10,8 @@ class HttpClient {
 
   static String get baseUrl => ApiConfig.getBaseUrl();
   String? _sessionCookie;
-  static const bool _debugLogs = false; // disable debug logs (authentication issue fixed)
+  static const bool _debugLogs =
+      false; // disable debug logs (authentication issue fixed)
 
   // Set session cookie from login response
   void setSessionCookie(String cookie) {
@@ -42,9 +43,11 @@ class HttpClient {
         ...?headers,
       };
 
-      // Add session cookie if available
-      if (_sessionCookie != null) {
-        requestHeaders['Cookie'] = _sessionCookie!;
+      // Add session cookie if available (prefer in-memory, fallback to persisted session)
+      final cookie = _sessionCookie ?? SessionManager.instance.sessionCookie;
+      if (cookie != null) {
+        _sessionCookie ??= cookie;
+        requestHeaders['Cookie'] = cookie;
       }
 
       // Prepare request body
@@ -170,9 +173,11 @@ class HttpClient {
         ...?headers,
       };
 
-      // Add session cookie if available
-      if (_sessionCookie != null) {
-        requestHeaders['Cookie'] = _sessionCookie!;
+      // Add session cookie if available (prefer in-memory, fallback to persisted session)
+      final cookie = _sessionCookie ?? SessionManager.instance.sessionCookie;
+      if (cookie != null) {
+        _sessionCookie ??= cookie;
+        requestHeaders['Cookie'] = cookie;
       }
 
       // Add auth credentials if required

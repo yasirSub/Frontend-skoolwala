@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:skoolwala/shared/theme/app_theme.dart';
 import 'package:skoolwala/shared/services/session_manager.dart';
 import 'package:skoolwala/shared/config/api_config.dart';
@@ -7,6 +8,8 @@ import 'package:skoolwala/features/teacher/models/today_class.dart';
 import 'package:skoolwala/features/teacher/models/day_schedule.dart';
 import 'package:skoolwala/features/teacher/models/class_item.dart';
 import 'package:skoolwala/features/teacher/services/class_notification_service.dart';
+import 'package:skoolwala/features/teacher/services/teacher_class_service.dart';
+import 'package:skoolwala/features/attendance/services/attendance_service.dart';
 import 'package:skoolwala/shared/services/http_client.dart';
 import 'package:skoolwala/features/teacher/screens/mark_student_attendance_screen.dart';
 import 'package:intl/intl.dart';
@@ -26,11 +29,156 @@ class _TeacherScheduleScreenState extends State<TeacherScheduleScreen>
       ClassNotificationService();
   TabController? _tabController;
 
+  bool _attendanceTypeLoading = true;
+  bool _isSubjectWise = false;
+  bool _isDayWise = true;
+
+  bool _assignedClassesLoaded = false;
+  bool _isLoadingAssignedClasses = false;
+  String? _assignedClassesError;
+  List<TeacherClass> _assignedClasses = [];
+
   List<TodayClass> _todayClasses = [];
   List<DaySchedule> _weekSchedule = [];
   bool _isLoadingToday = true;
   bool _isLoadingWeek = false;
   final Set<String> _expandedDays = {}; // Track which days are expanded
+
+  String? _lastAssignedDebugSignature;
+
+  void _debugPrintAssignedMatching(String reason) {
+    if (!kDebugMode) return;
+
+    final assignedSig = _assignedClasses
+        .map((c) => '${c.classId}-${c.sectionId}')
+        .join(',');
+    final todaySig = _todayClasses
+        .map((c) => '${c.classId}-${c.sectionId}:${c.classSection}')
+        .join(',');
+    final signature =
+        'dw=$_isDayWise|loaded=$_assignedClassesLoaded|a=$assignedSig|t=$todaySig|err=${_assignedClassesError ?? ''}';
+
+    if (_lastAssignedDebugSignature == signature) return;
+    _lastAssignedDebugSignature = signature;
+
+    print('\n═══════════════════════════════════════════════════════════');
+    print('🧪 ASSIGNED-CLASS DEBUG ($reason)');
+    print(
+      'DayWise=$_isDayWise | assignedLoaded=$_assignedClassesLoaded | assignedLoading=$_isLoadingAssignedClasses',
+    );
+    if (_assignedClassesError != null && _assignedClassesError!.isNotEmpty) {
+      print('AssignedClassesError: $_assignedClassesError');
+    }
+
+    print('Assigned classes (${_assignedClasses.length}):');
+    for (final c in _assignedClasses) {
+      print(
+        '  - classId=${c.classId}, sectionId=${c.sectionId}, display="${c.displayName}", class="${c.className}", section="${c.sectionName}"',
+      );
+    }
+
+    print('Today classes (${_todayClasses.length}):');
+    for (final t in _todayClasses) {
+      final match = _isAllocatedClassTeacherForClass(
+        classId: t.classId,
+        sectionId: t.sectionId,
+        classSection: t.classSection,
+      );
+      print(
+        '  - classId=${t.classId}, sectionId=${t.sectionId}, section="${t.classSection}", matchAssigned=$match',
+      );
+    }
+    print('═══════════════════════════════════════════════════════════\n');
+  }
+
+  Widget _buildClassTeacherAllocationInfo() {
+    if (_attendanceTypeLoading || !_isDayWise) {
+      return const SizedBox.shrink();
+    }
+
+    // If assigned classes not loaded yet, don't show noisy UI.
+    if (!_assignedClassesLoaded) {
+      return const SizedBox.shrink();
+    }
+
+    final hasAnyAssigned = _assignedClasses.isNotEmpty;
+    final hasMatchInToday = _todayClasses.any(
+      (t) => _isAllocatedClassTeacherForClass(
+        classId: t.classId,
+        sectionId: t.sectionId,
+        classSection: t.classSection,
+      ),
+    );
+
+    final allocationText = hasAnyAssigned
+        ? _assignedClasses
+              .map(
+                (c) => c.displayName.isNotEmpty
+                    ? c.displayName
+                    : '${c.className} - ${c.sectionName}',
+              )
+              .join(', ')
+        : 'No class teacher allocation found.';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.10), width: 1),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.verified_user_rounded,
+            size: 18,
+            color: Colors.white.withOpacity(0.75),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Class Teacher Allocation',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  allocationText,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.75),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    height: 1.3,
+                  ),
+                ),
+                if (hasAnyAssigned && !hasMatchInToday) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Note: These classes may not appear in today\'s timetable list.',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.55),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -47,6 +195,7 @@ class _TeacherScheduleScreenState extends State<TeacherScheduleScreen>
     });
 
     _loadTodayClasses(); // Load today's classes on screen open
+    _loadAttendanceType(); // Load school attendance mode (Day-Wise/Subject-Wise)
 
     // Set callback for class reminders
     _notificationService.setOnClassReminderCallback(() {
@@ -54,6 +203,99 @@ class _TeacherScheduleScreenState extends State<TeacherScheduleScreen>
         _showClassReminderDialog();
       }
     });
+  }
+
+  Future<void> _loadAttendanceType() async {
+    try {
+      final response = await AttendanceService.getAttendanceType();
+
+      if (!mounted) return;
+
+      if (response['status'] == 'success') {
+        final data = response['data'];
+
+        final newAttendanceType =
+            int.tryParse(data['attendance_type']?.toString() ?? '0') ?? 0;
+        final newIsSubjectWise = newAttendanceType == 1;
+        final newIsDayWise = newAttendanceType == 0;
+
+        setState(() {
+          _isSubjectWise = newIsSubjectWise;
+          _isDayWise = newIsDayWise;
+          _attendanceTypeLoading = false;
+        });
+
+        if (newIsDayWise) {
+          _loadAssignedClasses();
+        } else {
+          setState(() {
+            _assignedClassesLoaded = false;
+            _isLoadingAssignedClasses = false;
+            _assignedClassesError = null;
+            _assignedClasses = [];
+          });
+        }
+        return;
+      }
+
+      setState(() {
+        _attendanceTypeLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _attendanceTypeLoading = false;
+      });
+    }
+  }
+
+  bool get _shouldShowAssignedClassesCard =>
+      !_attendanceTypeLoading && _isDayWise;
+
+  Future<void> _loadAssignedClasses({bool force = false}) async {
+    if (!_shouldShowAssignedClassesCard) return;
+    if (_isLoadingAssignedClasses) return;
+    if (_assignedClassesLoaded && !force) return;
+
+    if (!mounted) return;
+    setState(() {
+      _isLoadingAssignedClasses = true;
+      _assignedClassesError = null;
+    });
+
+    try {
+      final res = await TeacherClassService.getMyClasses();
+      if (!mounted) return;
+
+      if (res.isSuccess) {
+        setState(() {
+          _assignedClasses = res.classes;
+          _assignedClassesLoaded = true;
+          _isLoadingAssignedClasses = false;
+          _assignedClassesError = null;
+        });
+        _debugPrintAssignedMatching('after _loadAssignedClasses success');
+      } else {
+        setState(() {
+          _assignedClasses = [];
+          _assignedClassesLoaded = true;
+          _isLoadingAssignedClasses = false;
+          _assignedClassesError = res.message.isNotEmpty
+              ? res.message
+              : 'Failed to load assigned classes';
+        });
+        _debugPrintAssignedMatching('after _loadAssignedClasses failure');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _assignedClasses = [];
+        _assignedClassesLoaded = true;
+        _isLoadingAssignedClasses = false;
+        _assignedClassesError = e.toString();
+      });
+      _debugPrintAssignedMatching('after _loadAssignedClasses exception');
+    }
   }
 
   @override
@@ -144,6 +386,8 @@ class _TeacherScheduleScreenState extends State<TeacherScheduleScreen>
             _todayClasses = classes;
             _isLoadingToday = false;
           });
+
+          _debugPrintAssignedMatching('after _loadTodayClasses success');
 
           // Convert to ClassSchedule for notification service
           final classSchedules = classes
@@ -439,14 +683,36 @@ class _TeacherScheduleScreenState extends State<TeacherScheduleScreen>
                 child: Opacity(opacity: value, child: child),
               );
             },
-            child: const Text(
-              'Class Schedule',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-                letterSpacing: -0.5,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Class Schedule',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _attendanceTypeLoading
+                      ? 'Attendance: Loading...'
+                      : (_isSubjectWise
+                            ? 'Attendance: Subject-Wise'
+                            : (_isDayWise
+                                  ? 'Attendance: Day-Wise'
+                                  : 'Attendance: Unknown')),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white.withOpacity(0.75),
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
             ),
           ),
           actions: [
@@ -664,6 +930,12 @@ class _TeacherScheduleScreenState extends State<TeacherScheduleScreen>
             ),
           ),
           SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            sliver: SliverToBoxAdapter(
+              child: _buildClassTeacherAllocationInfo(),
+            ),
+          ),
+          SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             sliver: SliverList(
               delegate: SliverChildBuilderDelegate((context, index) {
@@ -707,11 +979,18 @@ class _TeacherScheduleScreenState extends State<TeacherScheduleScreen>
 
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-      itemCount: _weekSchedule.length,
+      itemCount: _weekSchedule.length + 1,
       itemBuilder: (context, index) {
-        final daySchedule = _weekSchedule[index];
+        if (index == 0) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _buildClassTeacherAllocationInfo(),
+          );
+        }
+
+        final daySchedule = _weekSchedule[index - 1];
         return PremiumEntranceAnimation(
-          index: index,
+          index: index - 1,
           child: _buildDayScheduleCard(daySchedule),
         );
       },
@@ -928,12 +1207,32 @@ class _TeacherScheduleScreenState extends State<TeacherScheduleScreen>
       }
     }
 
+    final showAssignedClassBadge =
+        _isDayWise &&
+        _isAllocatedClassTeacherForClass(
+          classId: classItem.classId,
+          sectionId: classItem.sectionId,
+          classSection: classItem.classSection,
+        );
+
+    final canMarkAttendance = !_isDayWise || showAssignedClassBadge;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
+            if (!canMarkAttendance) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Only the assigned class teacher can mark day-wise attendance for this class.',
+                  ),
+                ),
+              );
+              return;
+            }
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -1050,37 +1349,73 @@ class _TeacherScheduleScreenState extends State<TeacherScheduleScreen>
                                 ),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
+                                    horizontal: 10,
+                                    vertical: 6,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: statusColor.withOpacity(0.15),
-                                    borderRadius: BorderRadius.circular(8),
+                                    color: showAssignedClassBadge
+                                        ? Colors.black.withOpacity(0.18)
+                                        : statusColor.withOpacity(0.26),
+                                    borderRadius: BorderRadius.circular(10),
                                     border: Border.all(
-                                      color: statusColor.withOpacity(0.3),
+                                      color: showAssignedClassBadge
+                                          ? Colors.white.withOpacity(0.18)
+                                          : statusColor.withOpacity(0.55),
                                     ),
                                   ),
-                                  child: Text(
-                                    statusText,
-                                    style: TextStyle(
-                                      color: statusColor,
-                                      fontSize: 8,
-                                      fontWeight: FontWeight.w900,
-                                      letterSpacing: 1,
-                                    ),
-                                  ),
+                                  child: showAssignedClassBadge
+                                      ? Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.end,
+                                          children: [
+                                            Text(
+                                              statusText,
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w900,
+                                                letterSpacing: 1,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'ASSIGNED',
+                                              style: TextStyle(
+                                                color: Colors.white.withOpacity(
+                                                  0.9,
+                                                ),
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.w900,
+                                                letterSpacing: 1.2,
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : Text(
+                                          statusText,
+                                          style: TextStyle(
+                                            color: Colors.white.withOpacity(
+                                              0.92,
+                                            ),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 1,
+                                          ),
+                                        ),
                                 ),
                               ],
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              classItem.subjectName ?? 'No Subject',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.6),
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
+                            if (!_isDayWise)
+                              Text(
+                                classItem.subjectName ?? 'No Subject',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.6),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
                             const SizedBox(height: 12),
                             Row(
                               children: [
@@ -1099,7 +1434,7 @@ class _TeacherScheduleScreenState extends State<TeacherScheduleScreen>
                                   ),
                                 ),
                                 const Spacer(),
-                                if (!isCompleted)
+                                if (!isCompleted && canMarkAttendance)
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 12,
@@ -1335,102 +1670,314 @@ class _TeacherScheduleScreenState extends State<TeacherScheduleScreen>
 
   /// Build class item for week view expanded card
   Widget _buildWeekClassItemFromClassItem(ClassItem classItem) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.08), width: 1),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    final canMarkAttendance =
+        !_isDayWise ||
+        _isAllocatedClassTeacherForClass(
+          classId: classItem.classId,
+          sectionId: classItem.sectionId,
+          classSection: classItem.classSection,
+        );
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            if (!canMarkAttendance) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Only the assigned class teacher can mark day-wise attendance for this class.',
+                  ),
+                ),
+              );
+              return;
+            }
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => MarkStudentAttendanceScreen(
+                  classId: classItem.classId,
+                  sectionId: classItem.sectionId,
+                  className: classItem.classSection,
+                  subjectId: classItem.subjectId,
+                  subjectName: classItem.subjectName,
+                ),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.08),
+                width: 1,
+              ),
             ),
-            child: Column(
+            child: Row(
               children: [
-                Text(
-                  classItem.timeDisplay.split(' - ')[0].substring(0, 5),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w900,
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
                   ),
-                ),
-                Text(
-                  classItem.timeDisplay.split(' - ').length > 1
-                      ? classItem.timeDisplay.split(' - ')[1].substring(0, 5)
-                      : '',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.4),
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  classItem.classSection,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    if (classItem.subjectName != null &&
-                        classItem.subjectName!.isNotEmpty) ...[
-                      Icon(
-                        Icons.book_outlined,
-                        size: 12,
-                        color: AppTheme.dashboardAccent.withOpacity(0.8),
-                      ),
-                      const SizedBox(width: 4),
+                  child: Column(
+                    children: [
                       Text(
-                        classItem.subjectName!,
+                        classItem.timeDisplay.split(' - ')[0].substring(0, 5),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      Text(
+                        classItem.timeDisplay.split(' - ').length > 1
+                            ? classItem.timeDisplay
+                                  .split(' - ')[1]
+                                  .substring(0, 5)
+                            : '',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.6),
-                          fontSize: 12,
+                          color: Colors.white.withOpacity(0.4),
+                          fontSize: 10,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(width: 12),
                     ],
-                    Icon(
-                      Icons.room_outlined,
-                      size: 12,
-                      color: Colors.white.withOpacity(0.5),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      classItem.roomNumber,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.5),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        classItem.classSection,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.2,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          if (!_isDayWise &&
+                              classItem.subjectName != null &&
+                              classItem.subjectName!.isNotEmpty) ...[
+                            Icon(
+                              Icons.book_outlined,
+                              size: 12,
+                              color: AppTheme.dashboardAccent.withOpacity(0.8),
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                classItem.subjectName!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.6),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                          ],
+                          Icon(
+                            Icons.room_outlined,
+                            size: 12,
+                            color: Colors.white.withOpacity(0.5),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            classItem.roomNumber,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.5),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAssignedClassesCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.10), width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.class_rounded,
+                size: 18,
+                color: Colors.white.withOpacity(0.85),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Assigned Classes',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+              if (_isLoadingAssignedClasses)
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+                  ),
+                )
+              else
+                IconButton(
+                  onPressed: () => _loadAssignedClasses(force: true),
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  color: Colors.white.withOpacity(0.75),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  tooltip: 'Refresh',
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (_assignedClassesError != null &&
+              _assignedClassesError!.isNotEmpty)
+            Text(
+              _assignedClassesError!,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                height: 1.3,
+              ),
+            )
+          else if (_assignedClassesLoaded && _assignedClasses.isEmpty)
+            Text(
+              'No assigned classes found.',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            )
+          else if (_assignedClasses.isNotEmpty)
+            Column(
+              children: _assignedClasses
+                  .map(
+                    (c) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.check_circle_rounded,
+                            size: 14,
+                            color: Colors.white.withOpacity(0.55),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              c.displayName.isNotEmpty
+                                  ? c.displayName
+                                  : '${c.className} ${c.sectionName}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.85),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
+            )
+          else
+            Text(
+              'Loading assigned classes...',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
         ],
       ),
     );
+  }
+
+  String _normalizeClassSection(String value) {
+    return value.replaceAll(RegExp(r'\s+'), '').toLowerCase();
+  }
+
+  bool _isAllocatedClassTeacherForClass({
+    required int classId,
+    required int sectionId,
+    required String classSection,
+  }) {
+    if (_assignedClasses.isEmpty) return false;
+
+    for (final c in _assignedClasses) {
+      if (c.classId == classId && c.sectionId == sectionId) {
+        return true;
+      }
+    }
+
+    // Fallback for legacy/odd API cases where ids don't line up.
+    return _isAllocatedClassTeacherForSection(classSection);
+  }
+
+  bool _isAllocatedClassTeacherForSection(String classSection) {
+    if (_assignedClasses.isEmpty) return false;
+    final target = _normalizeClassSection(classSection);
+
+    for (final c in _assignedClasses) {
+      final candidates = <String?>[
+        c.displayName,
+        '${c.className} - ${c.sectionName}',
+        '${c.className}-${c.sectionName}',
+      ];
+
+      for (final candidate in candidates) {
+        if (candidate == null || candidate.trim().isEmpty) continue;
+        if (_normalizeClassSection(candidate) == target) return true;
+      }
+    }
+    return false;
   }
 
   /// Show options when class card is tapped

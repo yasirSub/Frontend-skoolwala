@@ -365,6 +365,37 @@ class AttendanceService {
     }
   }
 
+  // Face Change Request (when face not working)
+  static Future<Map<String, dynamic>> createFaceChangeRequest({
+    String? reason,
+  }) async {
+    try {
+      final response = await HttpClient().postJson(
+        'createFaceChangeRequest',
+        body: {
+          if (reason != null && reason.trim().isNotEmpty)
+            'reason': reason.trim(),
+        },
+        requireAuth: true,
+      );
+      return response;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  static Future<Map<String, dynamic>> getMyFaceChangeRequestStatus() async {
+    try {
+      final response = await HttpClient().get(
+        'getMyFaceChangeRequestStatus',
+        requireAuth: true,
+      );
+      return response;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   static Future<Map<String, dynamic>> registerTeacherFaceTemplate({
     required String faceData,
     required String teacherId,

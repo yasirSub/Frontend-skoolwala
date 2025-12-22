@@ -2310,39 +2310,37 @@ class _TeacherAttendanceCard extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: isCheckedIn
-                  ? [
-                      const Color(
-                        0xFFFEE2E2,
-                      ).withOpacity(0.7), // Semi-transparent faded red
-                      const Color(0xFFFECACA).withOpacity(0.5),
-                    ]
-                  : [
-                      const Color(
-                        0xFFD1FAE5,
-                      ).withOpacity(0.7), // Semi-transparent faded green
-                      const Color(0xFFA7F3D0).withOpacity(0.5),
-                    ],
+              colors: [
+                Colors.white.withOpacity(0.14),
+                Colors.white.withOpacity(0.06),
+              ],
             ),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: Colors.white.withOpacity(0.3),
-              width: 1.5,
+              color: Colors.white.withOpacity(0.15),
+              width: 1.2,
             ),
             boxShadow: [
               BoxShadow(
-                color:
-                    (isCheckedIn
-                            ? const Color(0xFFEF4444)
-                            : const Color(0xFF10C69C))
-                        .withOpacity(0.1),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+                color: Colors.black.withOpacity(0.18),
+                blurRadius: 30,
+                offset: const Offset(0, 12),
               ),
             ],
           ),
           child: Row(
             children: [
+              Container(
+                width: 4,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: isCheckedIn
+                      ? AppTheme.accentRed
+                      : AppTheme.accentGreen,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2350,9 +2348,7 @@ class _TeacherAttendanceCard extends StatelessWidget {
                     Text(
                       isCheckedIn ? 'Check Out' : 'Check In',
                       style: TextStyle(
-                        color: isCheckedIn
-                            ? const Color(0xFF991B1B)
-                            : const Color(0xFF065F46),
+                        color: Colors.white,
                         fontWeight: FontWeight.w800,
                         fontSize: 20,
                       ),
@@ -2365,9 +2361,7 @@ class _TeacherAttendanceCard extends StatelessWidget {
                                 : 'Quick Check In with Face Recognition')
                           : 'Face enrollment required',
                       style: TextStyle(
-                        color: isCheckedIn
-                            ? const Color(0xFF991B1B).withOpacity(0.7)
-                            : const Color(0xFF065F46).withOpacity(0.7),
+                        color: Colors.white.withOpacity(0.8),
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
                       ),
@@ -2382,10 +2376,15 @@ class _TeacherAttendanceCard extends StatelessWidget {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  gradient: isEnrolled
+                      ? (isCheckedIn
+                            ? AppTheme.errorGradient
+                            : AppTheme.successGradient)
+                      : null,
+                  color: isEnrolled ? null : Colors.white.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.3),
+                    color: Colors.white.withOpacity(0.18),
                     width: 1,
                   ),
                 ),
@@ -2396,9 +2395,7 @@ class _TeacherAttendanceCard extends StatelessWidget {
                       isEnrolled
                           ? (isCheckedIn ? Icons.logout : Icons.login)
                           : Icons.lock,
-                      color: isCheckedIn
-                          ? const Color(0xFF991B1B)
-                          : const Color(0xFF065F46),
+                      color: Colors.white,
                       size: 16,
                     ),
                     const SizedBox(width: 6),
@@ -2407,9 +2404,7 @@ class _TeacherAttendanceCard extends StatelessWidget {
                           ? (isCheckedIn ? 'CHECK OUT' : 'CHECK IN')
                           : 'LOCKED',
                       style: TextStyle(
-                        color: isCheckedIn
-                            ? const Color(0xFF991B1B)
-                            : const Color(0xFF065F46),
+                        color: Colors.white,
                         fontWeight: FontWeight.w700,
                         fontSize: 12,
                       ),

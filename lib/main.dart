@@ -6,17 +6,14 @@ import 'shared/config/api_config.dart'; // Using centralized config for producti
 import 'shared/theme/theme_provider.dart';
 import 'shared/theme/app_theme.dart';
 import 'routes/app_routes.dart';
+import 'features/notifications/services/local_notifications_service.dart';
 
 void main() {
-
-
-
+  WidgetsFlutterBinding.ensureInitialized();
 
   //===================================================================================//
   ///////////////////////////////-API CONFIGURATION-////////////////////////////////////
   //==================================================================================//
-
-
 
   // You can use the centralized config file:
   // 1. Uncomment the import above: import 'shared/config/api_config.dart';
@@ -56,6 +53,9 @@ void main() {
   // Debug which base URL is active
   // ignore: avoid_print
   print('🔧 Using API base: ${ApiService.currentApiUrl}');
+
+  // Initialize OS-level local notifications (sound + history triggers)
+  LocalNotificationsService.instance.init();
 
   runApp(const MainApp());
 }

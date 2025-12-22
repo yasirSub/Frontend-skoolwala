@@ -1,5 +1,6 @@
 import '../../../shared/services/http_client.dart';
 import '../../../shared/config/api_config.dart';
+import 'package:flutter/foundation.dart';
 
 /// Model for Teacher Class Assignment
 class TeacherClass {
@@ -24,15 +25,28 @@ class TeacherClass {
   });
 
   factory TeacherClass.fromJson(Map<String, dynamic> json) {
+    final className = json['class_name']?.toString() ?? '';
+    final sectionName = json['section_name']?.toString() ?? '';
+    final classSection = json['class_section']?.toString();
+    final displayName =
+        json['display_name']?.toString() ??
+        classSection ??
+        (className.isNotEmpty && sectionName.isNotEmpty
+            ? '$className - $sectionName'
+            : (className.isNotEmpty ? className : sectionName));
+
     return TeacherClass(
-      allocationId: int.parse(json['allocation_id'].toString()),
-      classId: int.parse(json['class_id'].toString()),
-      sectionId: int.parse(json['section_id'].toString()),
-      className: json['class_name']?.toString() ?? '',
+      // Backend may return allocation_id (newer) OR id (older getTeacherClasses)
+      allocationId:
+          int.tryParse((json['allocation_id'] ?? json['id'] ?? 0).toString()) ??
+          0,
+      classId: int.tryParse((json['class_id'] ?? 0).toString()) ?? 0,
+      sectionId: int.tryParse((json['section_id'] ?? 0).toString()) ?? 0,
+      className: className,
       classNumber: json['class_number']?.toString(),
-      sectionName: json['section_name']?.toString() ?? '',
-      displayName: json['display_name']?.toString() ?? '',
-      studentCount: int.parse(json['student_count']?.toString() ?? '0'),
+      sectionName: sectionName,
+      displayName: displayName,
+      studentCount: int.tryParse((json['student_count'] ?? 0).toString()) ?? 0,
     );
   }
 
@@ -140,16 +154,44 @@ class TeacherClassesResponse {
   });
 
   factory TeacherClassesResponse.fromJson(Map<String, dynamic> json) {
-    final data = json['data'] as Map<String, dynamic>? ?? {};
-    final classesList = data['classes'] as List<dynamic>? ?? [];
+    final dynamic data = json['data'];
+
+    // Backward-compatible parsing:
+    // - Some endpoints return: { data: [ ...classes ] }
+    // - Others return: { data: { classes: [ ...classes ], teacher_id, total_classes } }
+    final List<dynamic> classesList;
+    final int teacherId;
+    final int totalClasses;
+
+    if (data is List) {
+      classesList = data;
+      teacherId = int.tryParse((json['teacher_id'] ?? 0).toString()) ?? 0;
+      totalClasses =
+          int.tryParse(
+            (json['total_classes'] ?? classesList.length).toString(),
+          ) ??
+          classesList.length;
+    } else if (data is Map<String, dynamic>) {
+      classesList = (data['classes'] as List<dynamic>?) ?? const [];
+      teacherId = int.tryParse((data['teacher_id'] ?? 0).toString()) ?? 0;
+      totalClasses =
+          int.tryParse(
+            (data['total_classes'] ?? classesList.length).toString(),
+          ) ??
+          classesList.length;
+    } else {
+      classesList = const [];
+      teacherId = 0;
+      totalClasses = 0;
+    }
 
     return TeacherClassesResponse(
       status: json['status']?.toString() ?? '',
       classes: classesList
           .map((item) => TeacherClass.fromJson(item as Map<String, dynamic>))
           .toList(),
-      totalClasses: int.parse(data['total_classes']?.toString() ?? '0'),
-      teacherId: int.parse(data['teacher_id']?.toString() ?? '0'),
+      totalClasses: totalClasses,
+      teacherId: teacherId,
       message: json['message']?.toString() ?? '',
     );
   }
@@ -199,24 +241,90 @@ class TeacherClassService {
   /// Get all classes assigned to the logged-in teacher
   static Future<TeacherClassesResponse> getMyClasses() async {
     try {
-      // Try POST first (as other endpoints use POST)
-      // If that fails, we can fall back to GET
+      // Backend currently exposes this as getTeacherClasses.
+      // Keep parsing backward-compatible in case older/newer servers differ.
       final response = await HttpClient().post(
-        ApiConfig.getMyClasses,
+        ApiConfig.getTeacherClasses,
         requireAuth: true,
       );
 
+      if (kDebugMode) {
+        final status = response['status'];
+        final message = response['message'];
+        final data = response['data'];
+        final count = data is List
+            ? data.length
+            : (data is Map ? (data['classes'] as List?)?.length : null);
+        print(
+          '🧪 getTeacherClasses: status=$status, message=$message, count=${count ?? 'n/a'}',
+        );
+      }
       return TeacherClassesResponse.fromJson(response);
     } catch (e) {
-      // If POST fails, try GET as fallback
       try {
         final response = await HttpClient().get(
-          ApiConfig.getMyClasses,
+          ApiConfig.getTeacherClasses,
           requireAuth: true,
         );
+
+        if (kDebugMode) {
+          final status = response['status'];
+          final message = response['message'];
+          final data = response['data'];
+          final count = data is List
+              ? data.length
+              : (data is Map ? (data['classes'] as List?)?.length : null);
+          print(
+            '🧪 getTeacherClasses(GET): status=$status, message=$message, count=${count ?? 'n/a'}',
+          );
+        }
         return TeacherClassesResponse.fromJson(response);
       } catch (getError) {
-        throw Exception('Failed to get teacher classes: $e (GET fallback also failed: $getError)');
+        // Compatibility fallback for any servers that *do* implement getMyClasses.
+        try {
+          final response = await HttpClient().post(
+            ApiConfig.getMyClasses,
+            requireAuth: true,
+          );
+
+          if (kDebugMode) {
+            final status = response['status'];
+            final message = response['message'];
+            final data = response['data'];
+            final count = data is List
+                ? data.length
+                : (data is Map ? (data['classes'] as List?)?.length : null);
+            print(
+              '🧪 getMyClasses: status=$status, message=$message, count=${count ?? 'n/a'}',
+            );
+          }
+          return TeacherClassesResponse.fromJson(response);
+        } catch (legacyPostError) {
+          try {
+            final response = await HttpClient().get(
+              ApiConfig.getMyClasses,
+              requireAuth: true,
+            );
+
+            if (kDebugMode) {
+              final status = response['status'];
+              final message = response['message'];
+              final data = response['data'];
+              final count = data is List
+                  ? data.length
+                  : (data is Map ? (data['classes'] as List?)?.length : null);
+              print(
+                '🧪 getMyClasses(GET): status=$status, message=$message, count=${count ?? 'n/a'}',
+              );
+            }
+            return TeacherClassesResponse.fromJson(response);
+          } catch (legacyGetError) {
+            throw Exception(
+              'Failed to get teacher classes: $e (GET fallback also failed: $getError) '
+              '(legacy getMyClasses POST failed: $legacyPostError, GET failed: $legacyGetError)',
+            );
+          }
+        }
       }
     }
   }
@@ -254,7 +362,9 @@ class TeacherClassService {
         );
         return TeacherStudentsResponse.fromJson(response);
       } catch (getError) {
-        throw Exception('Failed to get teacher students: $e (GET fallback also failed: $getError)');
+        throw Exception(
+          'Failed to get teacher students: $e (GET fallback also failed: $getError)',
+        );
       }
     }
   }
@@ -271,14 +381,21 @@ class TeacherClassService {
   static Future<Map<String, dynamic>> getSubjectsForClassSection({
     required int classId,
     required int sectionId,
+    String? date,
   }) async {
     try {
+      final queryParams = <String, String>{
+        'class_id': classId.toString(),
+        'section_id': sectionId.toString(),
+      };
+
+      if (date != null && date.isNotEmpty) {
+        queryParams['date'] = date;
+      }
+
       final response = await HttpClient().get(
         ApiConfig.getSubjectsForClassSection,
-        queryParams: {
-          'class_id': classId.toString(),
-          'section_id': sectionId.toString(),
-        },
+        queryParams: queryParams,
         requireAuth: true,
       );
 

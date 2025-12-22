@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-
-import '../theme/theme_provider.dart';
 import 'package:skoolwala/shared/theme/app_theme.dart';
+import 'package:skoolwala/routes/app_routes.dart';
 
 /// Custom App Bar Widget
 /// Reusable top app bar with modern design
@@ -77,17 +75,14 @@ class _CustomAppBarState extends State<CustomAppBar> {
     List<Widget> appBarActions = List.from(widget.actions);
     if (widget.showThemeToggle) {
       appBarActions.add(
-        Consumer<ThemeProvider>(
-          builder: (context, themeProvider, child) {
-            return IconButton(
-              onPressed: () => themeProvider.toggleTheme(),
-              icon: Icon(
-                themeProvider.isDarkMode ? Icons.light_mode : Icons.dark_mode,
-                color: defaultForegroundColor,
-              ),
-              tooltip: themeProvider.isDarkMode ? 'Light Mode' : 'Dark Mode',
-            );
-          },
+        IconButton(
+          onPressed: () =>
+              Navigator.pushNamed(context, AppRoutes.notifications),
+          icon: Icon(
+            Icons.notifications_outlined,
+            color: defaultForegroundColor,
+          ),
+          tooltip: 'Notifications',
         ),
       );
     }
