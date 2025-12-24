@@ -5,10 +5,10 @@ class DebugIdsPanel extends StatelessWidget {
   final String? faceStaffId;
 
   const DebugIdsPanel({
-    Key? key,
+    super.key,
     required this.loggedInStaffId,
     required this.faceStaffId,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

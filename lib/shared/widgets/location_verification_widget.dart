@@ -379,8 +379,9 @@ class _LocationVerificationWidgetState extends State<LocationVerificationWidget>
   String _getSubtitle() {
     if (_isVerifying) return 'Please wait while we verify your location';
     if (_isVerified) return 'You are within an allowed location';
-    if (_errorMessage != null)
+    if (_errorMessage != null) {
       return 'You must be at an allowed location to mark attendance';
+    }
     return 'Your location will be verified before marking attendance';
   }
 }

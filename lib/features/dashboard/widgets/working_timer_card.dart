@@ -10,6 +10,7 @@ import 'package:skoolwala/shared/models/teacher.dart';
 /// Displays elapsed time since check-in with optional checkout
 class WorkingTimerCard extends StatefulWidget {
   final Teacher? teacher;
+  @override
   final GlobalKey<WorkingTimerCardState>? key;
 
   const WorkingTimerCard({this.key, required this.teacher}) : super(key: key);
@@ -338,14 +339,12 @@ class WorkingTimerCardState extends State<WorkingTimerCard>
       Position? position;
       try {
         position = await Geolocator.getLastKnownPosition();
-        if (position == null) {
-          position = await Geolocator.getCurrentPosition(
+        position ??= await Geolocator.getCurrentPosition(
             locationSettings: const LocationSettings(
               accuracy: LocationAccuracy.lowest,
               timeLimit: Duration(seconds: 3),
             ),
           );
-        }
       } catch (e) {
         print('Location error during checkout: $e');
       }

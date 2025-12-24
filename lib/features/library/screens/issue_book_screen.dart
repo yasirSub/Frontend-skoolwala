@@ -22,9 +22,9 @@ class _IssueBookScreenState extends State<IssueBookScreen> {
   DateTime? _dueDate;
   bool _isLoading = false;
   bool _isLoadingStudents = false;
-  List<Student> _students = [];
+  final List<Student> _students = [];
   final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
+  final String _searchQuery = '';
 
   @override
   void initState() {

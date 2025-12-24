@@ -4,6 +4,7 @@ import 'package:skoolwala/shared/services/session_manager.dart';
 import 'package:skoolwala/shared/config/api_config.dart';
 import 'package:skoolwala/features/teacher/screens/teacher_schedule_screen.dart';
 import 'package:skoolwala/shared/theme/app_theme.dart';
+import 'package:skoolwala/shared/animations/loading_animations.dart';
 import 'dart:async';
 
 /// Single widget showing either current ongoing class or next upcoming class
@@ -404,7 +405,21 @@ class _SingleClassWidgetState extends State<SingleClassWidget> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(top: 8),
+        child: LoadingAnimations.shimmer(
+          baseColor: Colors.white.withOpacity(0.08),
+          highlightColor: Colors.white.withOpacity(0.18),
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            height: 180,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(28),
+            ),
+          ),
+        ),
+      );
     }
 
     // Only show if there's a class to display

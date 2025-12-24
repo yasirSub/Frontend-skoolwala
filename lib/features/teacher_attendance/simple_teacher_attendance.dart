@@ -7,6 +7,8 @@ import 'dart:math' as math;
 import 'package:geolocator/geolocator.dart';
 import 'dart:async';
 import 'dart:ui';
+import 'package:flutter/services.dart';
+import 'package:flutter_tts/flutter_tts.dart';
 // Face workflow encapsulates ML and API calls
 import 'package:skoolwala/features/teacher_attendance/simple/face_workflow.dart';
 import 'package:skoolwala/features/teacher_attendance/simple/location_workflow.dart';
@@ -20,17 +22,14 @@ import 'package:skoolwala/features/teacher_attendance/simple/widgets/camera_over
 import 'package:skoolwala/features/teacher_attendance/simple/widgets/camera_overlays/verified_user_badge.dart';
 import 'package:skoolwala/features/teacher_attendance/simple/widgets/camera_overlays/debug_ids_panel.dart';
 import 'package:skoolwala/features/teacher_attendance/simple/widgets/panels/gps_banner.dart';
-import 'package:skoolwala/features/teacher_attendance/simple/widgets/panels/location_status_panel.dart';
-// import 'package:skoolwala/features/teacher_attendance/simple/widgets/camera_overlays/face_detection_overlay.dart'; // DISABLED - overlay removed
 import 'package:skoolwala/features/teacher_attendance/simple/widgets/face_tracking/face_tracking_overlay.dart';
-// import 'package:skoolwala/features/teacher_attendance/simple/widgets/processing_overlay.dart'; // REMOVED - status shown in button instead
 import 'package:skoolwala/features/teacher_attendance/simple/widgets/check_in_out_button.dart';
-import 'package:skoolwala/features/teacher_attendance/simple/widgets/bottom_status_bar.dart';
-import 'package:skoolwala/features/teacher_attendance/simple/widgets/face_mismatch_dialog.dart';
 import 'package:skoolwala/features/teacher_attendance/simple/widgets/attendance_instructions.dart';
+import 'package:skoolwala/features/teacher_attendance/simple/widgets/face_mismatch_dialog.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skoolwala/shared/theme/app_theme.dart';
+import 'package:skoolwala/shared/animations/loading_animations.dart';
 
 class SimpleTeacherAttendance extends StatefulWidget {
   final String? staffId; // optional: provide from dashboard/session
@@ -51,43 +50,33 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
 
   // Location variables
   Position? _currentPosition;
-  bool _locationPermissionGranted = false;
-  String _locationStatus = 'Initializing location detection...';
   bool _isFetchingLocation = false;
-  bool _permissionDeniedForever = false;
-  bool _showGpsBanner = false; // controls visibility of GPS banner
+  bool _showGpsBanner = false;
 
   // School location variables
   Map<String, dynamic>? _schoolLocation;
   double? _distanceFromSchool;
   bool _isWithinSchoolRadius = false;
 
-  // Face analysis variables
+  // Face analysis and analysis variables
   bool _isAnalyzingFace = false;
   String? _faceAnalysisStatus;
-  String _bottomStatusMessage = 'Position your face in the frame';
   List<double>? _capturedFaceEmbedding;
-  int _noMatchCount = 0; // consecutive no-match attempts before showing Retry
-  bool _schoolLocationLoaded = false; // set true after first fetch completes
-  bool _showInfoPanels =
-      false; // toggle to show/hide info overlays (default hidden)
-
-  // Face validation data (saved temporarily)
+  int _noMatchCount = 0;
+  bool _schoolLocationLoaded = false;
+  bool _showInfoPanels = false;
+  bool _autoCheckEnabled = true;
   Map<String, dynamic>? _faceValidationData;
+  double? _lastDistanceMeters;
+  bool _isCurrentlyCheckedIn = false;
+  String? _lastDetectedStaffId;
 
-  // Cached verification data - stores when everything is verified
-  bool _isEverythingVerified = false; // Flag to indicate all checks passed
-  bool _stopAutomaticAnalysis = false; // Flag to stop automatic analysis
-
-  // Auto check-in/out toggle
-  bool _autoCheckEnabled = false; // Toggle for automatic check in/out
+  bool _isEverythingVerified = false;
+  bool _stopAutomaticAnalysis = false;
   static const String _autoCheckPrefsKey =
       'teacher_attendance_auto_check_enabled';
 
-  // User's current attendance status
-  bool _isCurrentlyCheckedIn = false;
-  double? _lastDistanceMeters;
-  String? _lastDetectedStaffId; // for UI debug: last detected face staff id
+  late FlutterTts _flutterTts;
 
   // Animation variables - DISABLED (overlay removed)
   late AnimationController _faceDetectionAnimationController;
@@ -145,6 +134,30 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
     print(
       'Teacher Attendance initialized - starting mobile location detection',
     );
+    _initTts();
+  }
+
+  Future<void> _initTts() async {
+    _flutterTts = FlutterTts();
+    await _flutterTts.setLanguage("en-US");
+    await _flutterTts.setPitch(1.0);
+    await _flutterTts.setSpeechRate(0.5);
+  }
+
+  Future<void> _speak(String text) async {
+    await _flutterTts.speak(text);
+  }
+
+  void _triggerSuccessVibration() {
+    HapticFeedback.heavyImpact();
+    Future.delayed(
+      const Duration(milliseconds: 100),
+      () => HapticFeedback.heavyImpact(),
+    );
+  }
+
+  void _triggerFailureVibration() {
+    HapticFeedback.vibrate();
   }
 
   /// Load saved auto-check preference from phone storage
@@ -277,22 +290,14 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
   }
 
   Future<void> _initializeLocation() async {
-    print('=== STARTING LOCATION INITIALIZATION ===');
     try {
-      safeSetState(() {
-        _locationStatus = 'Checking location permission...';
-      });
-      print('Location status set: Checking location permission...');
+      print('Location initialization starting...');
 
       // Check if location services are enabled
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       print('Location services enabled: $serviceEnabled');
 
       if (!serviceEnabled) {
-        safeSetState(() {
-          _locationStatus =
-              '❌ Location services are disabled. Please enable location services in device settings.';
-        });
         print('Location services disabled - stopping');
         return;
       }
@@ -302,37 +307,21 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
       print('Initial permission: $permission');
 
       if (permission == LocationPermission.denied) {
-        safeSetState(() {
-          _locationStatus = 'Requesting location permission...';
-        });
         print('Requesting location permission...');
         permission = await Geolocator.requestPermission();
         print('Permission after request: $permission');
       }
 
       if (permission == LocationPermission.deniedForever) {
-        safeSetState(() {
-          _locationStatus =
-              '❌ Location permission permanently denied. Please enable in device settings > Apps > Skoolwala > Permissions > Location.';
-        });
         print('Location permission permanently denied');
-        _permissionDeniedForever = true;
         return;
       }
 
       if (permission == LocationPermission.denied) {
-        safeSetState(() {
-          _locationStatus =
-              '❌ Location permission denied. Please allow location access.';
-        });
         print('Location permission denied');
         return;
       }
 
-      safeSetState(() {
-        _locationPermissionGranted = true;
-        _locationStatus = 'Getting GPS location...';
-      });
       print('Location permission granted - getting GPS location');
 
       // Check if GPS is available
@@ -340,18 +329,12 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
       print('GPS available: $isGPSAvailable');
 
       if (!isGPSAvailable) {
-        safeSetState(() {
-          _locationStatus = 'GPS not available. Using network location...';
-        });
         print('GPS not available - using network location');
       }
 
       print('Getting current position...');
       // Try fastest GPS with very short timeout
       try {
-        safeSetState(() {
-          _locationStatus = 'Getting GPS location...';
-        });
         print('Trying fast GPS...');
         // First attempt: balanced accuracy with moderate timeout
         _currentPosition = await Geolocator.getCurrentPosition(
@@ -360,9 +343,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
             timeLimit: Duration(seconds: 5),
           ),
         );
-        safeSetState(() {
-          _locationStatus = '✅ GPS Location obtained';
-        });
         print('Fast GPS location obtained');
       } catch (e) {
         print('Fast GPS failed: $e, trying last known position...');
@@ -370,9 +350,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
         try {
           _currentPosition = await Geolocator.getLastKnownPosition();
           if (_currentPosition != null) {
-            safeSetState(() {
-              _locationStatus = '✅ GPS Location (last known) obtained';
-            });
             print('Last known GPS Location obtained');
           } else {
             // Second attempt: high accuracy with longer timeout
@@ -385,20 +362,10 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
                 ),
               );
               if (_currentPosition != null) {
-                safeSetState(() {
-                  _locationStatus = '✅ GPS Location (high accuracy) obtained';
-                });
                 print('High-accuracy GPS Location obtained');
-              } else {
-                safeSetState(() {
-                  _locationStatus = '❌ No GPS location available';
-                });
-              }
+              } else {}
             } catch (e2) {
               print('High-accuracy GPS failed: $e2');
-              safeSetState(() {
-                _locationStatus = '❌ GPS Location failed: $e2';
-              });
               // Coarse fallback: try network/coarse location quickly
               try {
                 _currentPosition = await Geolocator.getCurrentPosition(
@@ -408,9 +375,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
                   ),
                 );
                 if (_currentPosition != null) {
-                  safeSetState(() {
-                    _locationStatus = '✅ Coarse location obtained';
-                  });
                   print('Coarse GPS (network) obtained');
                 }
               } catch (_) {}
@@ -426,9 +390,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
                   ),
                 ).first.timeout(Duration(seconds: 10));
                 _currentPosition = pos;
-                safeSetState(() {
-                  _locationStatus = '✅ GPS Location (stream) obtained';
-                });
               } catch (e3) {
                 print('Stream-based GPS fallback failed: $e3');
               } finally {
@@ -440,9 +401,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
           }
         } catch (fallbackError) {
           print('Last known position also failed: $fallbackError');
-          safeSetState(() {
-            _locationStatus = '❌ GPS Location failed: $fallbackError';
-          });
         }
       }
 
@@ -452,10 +410,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
         );
 
         // Simple debug: phone GPS summary
-        safeSetState(() {
-          _locationStatus =
-              '📍 Your location: ${_currentPosition!.latitude.toStringAsFixed(4)}, ${_currentPosition!.longitude.toStringAsFixed(4)}';
-        });
         print(
           'Phone GPS: lat=${_currentPosition!.latitude}, lng=${_currentPosition!.longitude}',
         );
@@ -464,18 +418,12 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
         _checkAndCacheVerifiedData();
       } else {
         print('⚠️ No mobile GPS location available after attempts');
-        safeSetState(() {
-          _locationStatus = '❌ No GPS location available';
-        });
       }
 
       // Now fetch school location and compare
       _fetchSchoolLocation();
     } catch (e) {
       print('Location error: $e');
-      safeSetState(() {
-        _locationStatus = 'Location error: $e';
-      });
       print('Location error status set');
     }
     print('=== LOCATION INITIALIZATION COMPLETE ===');
@@ -486,7 +434,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
     try {
       safeSetState(() {
         _isFetchingLocation = true;
-        _locationStatus = 'Getting GPS location...';
       });
 
       // Try last known first
@@ -535,18 +482,11 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
         print(
           'Phone GPS: lat=${_currentPosition!.latitude}, lng=${_currentPosition!.longitude}',
         );
-        safeSetState(() {
-          _locationStatus =
-              '📍 Your location: ${_currentPosition!.latitude.toStringAsFixed(4)}, ${_currentPosition!.longitude.toStringAsFixed(4)}';
-        });
         if (_schoolLocation != null) {
           _checkLocationProximity();
         }
       } else {
         print('⚠️ No mobile GPS location available after force fetch');
-        safeSetState(() {
-          _locationStatus = '❌ No GPS location available';
-        });
       }
     } catch (e) {
       print('Force fetch location error: $e');
@@ -626,17 +566,12 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
   /// Retry location detection with better error handling
   Future<void> _retryLocation() async {
     safeSetState(() {
-      _locationStatus = '🔄 Retrying mobile location detection...';
       _currentPosition = null;
-      _locationPermissionGranted = false;
     });
 
     try {
       await _initializeLocation();
     } catch (e) {
-      safeSetState(() {
-        _locationStatus = '❌ Location retry failed: $e';
-      });
       print('Location retry failed: $e');
     }
   }
@@ -644,9 +579,7 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
   /// Quick location test for debugging
   Future<void> _testLocation() async {
     try {
-      safeSetState(() {
-        _locationStatus = '🧪 Testing location...';
-      });
+      print('🧪 Testing location...');
 
       // Test with very low accuracy and short timeout
       Position? testPosition;
@@ -667,8 +600,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
       if (testPosition != null) {
         final position = testPosition; // Non-null assertion
         safeSetState(() {
-          _locationStatus =
-              '✅ Location test successful: ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
           _currentPosition = position;
         });
 
@@ -679,9 +610,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
         throw Exception('No location available');
       }
     } catch (e) {
-      safeSetState(() {
-        _locationStatus = '❌ Location test failed: $e';
-      });
       print('Location test failed: $e');
     }
   }
@@ -701,9 +629,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
   Future<void> _fetchSchoolLocation() async {
     try {
       print('Fetching school location from database...');
-      safeSetState(() {
-        _locationStatus = 'Fetching school location...';
-      });
 
       final data = await AttendanceFlow.fetchSchoolLocation();
 
@@ -713,12 +638,7 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
         // Compare with mobile location if available
         if (_currentPosition != null) {
           _checkLocationProximity();
-        } else {
-          safeSetState(() {
-            _locationStatus =
-                'School location loaded. Getting your location...';
-          });
-        }
+        } else {}
 
         // Mark as loaded on success so UI can enable when other conditions are met
         safeSetState(() {
@@ -732,13 +652,11 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
         _startAutomaticAnalysis();
       } else {
         safeSetState(() {
-          _locationStatus = 'School location not configured';
           _schoolLocationLoaded = true;
         });
       }
     } catch (e) {
       safeSetState(() {
-        _locationStatus = 'Error loading school location: $e';
         _schoolLocationLoaded = true;
       });
     }
@@ -793,13 +711,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
 
       safeSetState(() {
         _lastDistanceMeters = _distanceFromSchool;
-        if (_isWithinSchoolRadius) {
-          _locationStatus =
-              '📍 Your location: ${_currentPosition!.latitude.toStringAsFixed(4)}, ${_currentPosition!.longitude.toStringAsFixed(4)}\n✅ At school (${_distanceFromSchool!.toStringAsFixed(1)}m from center)';
-        } else {
-          _locationStatus =
-              '📍 Your location: ${_currentPosition!.latitude.toStringAsFixed(4)}, ${_currentPosition!.longitude.toStringAsFixed(4)}\n⚠️ Outside school (${_distanceFromSchool!.toStringAsFixed(1)}m from center)';
-        }
       });
     }
   }
@@ -859,8 +770,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
       safeSetState(() {
         _faceAnalysisStatus =
             'Auto-checking ${checkType == 'check_in' ? 'in' : 'out'}...';
-        _bottomStatusMessage =
-            'Automatically checking ${checkType == 'check_in' ? 'in' : 'out'}...';
       });
 
       // Call the attendance marking function
@@ -874,7 +783,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
       if (mounted) {
         safeSetState(() {
           _faceAnalysisStatus = 'Auto-check failed: ${e.toString()}';
-          _bottomStatusMessage = 'Auto-check failed. Please try manually.';
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
@@ -905,7 +813,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
       _capturedFaceEmbedding = null;
       _faceAnalysisStatus = null;
       _faceValidationData = null;
-      _bottomStatusMessage = 'Position your face in the frame';
       _isAnalyzingFace = false;
       _noMatchCount = 0; // Reset retry counter for new attempt
       _isEverythingVerified = false; // Clear verification cache
@@ -978,7 +885,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
       setState(() {
         _isAnalyzingFace = true;
         _faceAnalysisStatus = 'Analyzing face...';
-        _bottomStatusMessage = 'Analyzing face features...';
       });
 
       final embedding = await FaceWorkflow.analyzeFace(imageFile);
@@ -989,9 +895,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
         safeSetState(() {
           _faceAnalysisStatus =
               'No face detected. Please position your face in the frame.';
-          _bottomStatusMessage = _noMatchCount < 3
-              ? 'Analyzing face... (${_noMatchCount}/3)'
-              : 'Face detection failed after 3 attempts. Please try again.';
           _isAnalyzingFace = false;
         });
 
@@ -1029,9 +932,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
         _noMatchCount += 1; // Count as failed attempt
         safeSetState(() {
           _faceAnalysisStatus = errorMessage;
-          _bottomStatusMessage = _noMatchCount < 3
-              ? 'Analyzing face... (${_noMatchCount}/3)'
-              : 'Please move closer to the camera for better face detection.';
           _isAnalyzingFace = false;
         });
 
@@ -1091,7 +991,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
     try {
       setState(() {
         _faceAnalysisStatus = 'Validating face...';
-        _bottomStatusMessage = 'Verifying face identity...';
       });
 
       // Call face analyzer to check if user is valid using FaceWorkflow
@@ -1122,7 +1021,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
             // Face belongs to another account: block and notify
             safeSetState(() {
               _faceAnalysisStatus = 'Face mismatch';
-              _bottomStatusMessage = 'Face mismatch';
               _isAnalyzingFace = false;
               _noMatchCount = 3; // definitive mismatch; require user action
             });
@@ -1152,9 +1050,11 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
           safeSetState(() {
             _faceAnalysisStatus =
                 'Face validated: $name (${confidence.toStringAsFixed(1)}%) - Ready for attendance';
-            _bottomStatusMessage = 'Face verified successfully!';
             _noMatchCount = 0; // reset on success
           });
+
+          _speak("Face matched. Hello ${name}");
+          _triggerSuccessVibration();
 
           // Check if everything is verified and cache the data
           _checkAndCacheVerifiedData();
@@ -1167,11 +1067,13 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
           _noMatchCount += 1;
           safeSetState(() {
             _faceAnalysisStatus = apiMessage;
-            _bottomStatusMessage = _noMatchCount < 3
-                ? 'Verifying face... (${_noMatchCount}/3)'
-                : apiMessage; // Only show error after 3 tries
             _isAnalyzingFace = false; // stop current analyze tick
           });
+
+          if (_noMatchCount >= 3) {
+            _speak("Face not recognized. Please try again.");
+            _triggerFailureVibration();
+          }
 
           // Auto retry up to 3 attempts ONLY
           if (_noMatchCount < 3) {
@@ -1196,7 +1098,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
         final apiMessage = analysisResult['message'] ?? 'Unknown error';
         setState(() {
           _faceAnalysisStatus = 'Face validation failed: $apiMessage';
-          _bottomStatusMessage = apiMessage; // Update bottom message
           _isAnalyzingFace = false; // Reset to allow "Try Again"
           _noMatchCount = 3; // force retry state on API failure
         });
@@ -1205,7 +1106,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
       setState(() {
         _faceAnalysisStatus = 'Error: $e'; // Format that triggers "Try Again"
         _isAnalyzingFace = false;
-        _bottomStatusMessage = 'Error occurred. Tap Try Again.';
         _noMatchCount = 3; // force retry state on exception
       });
     }
@@ -1226,21 +1126,14 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
 
       // Get current location from phone
       if (_currentPosition == null) {
-        safeSetState(() {
-          _locationStatus = '🔍 Getting your phone GPS location...';
-        });
         try {
           _currentPosition = await LocationWorkflow.tryResolvePosition();
           if (_currentPosition == null) {
             throw Exception('No GPS fix');
           }
-          safeSetState(() {
-            _locationStatus = '✅ GPS Location obtained from phone';
-          });
         } catch (e) {
           safeSetState(() {
             _lastResult = '❌ GPS Location failed: $e';
-            _locationStatus = 'GPS Location error: $e';
           });
           _showError(
             'Failed to get GPS location from phone: $e\n\nPlease check location permissions and try again.',
@@ -1250,10 +1143,6 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
       }
 
       // Show GPS location obtained
-      safeSetState(() {
-        _locationStatus =
-            '✅ GPS Location: ${_currentPosition!.latitude.toStringAsFixed(6)}, ${_currentPosition!.longitude.toStringAsFixed(6)}';
-      });
 
       // ========================================
       // STEP 2: FACE CHECK SECOND (ONLY IF LOCATION PASSED)
@@ -1759,118 +1648,11 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
       },
       child: Scaffold(
         backgroundColor: AppTheme.darkPurple,
-
-        extendBodyBehindAppBar: true,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          centerTitle: true,
-          flexibleSpace: ClipRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Container(color: AppTheme.darkPurple.withOpacity(0.5)),
-            ),
-          ),
-          leading: IconButton(
-            icon: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.3),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.arrow_back_ios_new_rounded,
-                color: Colors.white,
-                size: 18,
-              ),
-            ),
-            onPressed: () => Navigator.pop(context),
-          ),
-          title: const Text(
-            'TEACHER ATTENDANCE',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-              fontSize: 16,
-              letterSpacing: 2,
-            ),
-          ),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.only(right: 16, top: 8, bottom: 8),
-              child: Material(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(22),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(22),
-                  onTap: () {
-                    _setAutoCheckEnabled(!_autoCheckEnabled);
-                  },
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(22),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.25),
-                          borderRadius: BorderRadius.circular(22),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.12),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Text(
-                              'AUTO',
-                              style: TextStyle(
-                                color: _autoCheckEnabled
-                                    ? Colors.white
-                                    : Colors.white70,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.6,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            SizedBox(
-                              height: 28,
-                              width: 48,
-                              child: FittedBox(
-                                fit: BoxFit.contain,
-                                child: Switch(
-                                  value: _autoCheckEnabled,
-                                  onChanged: (value) {
-                                    _setAutoCheckEnabled(value);
-                                  },
-                                  activeColor: AppTheme.dashboardAccent,
-                                  activeTrackColor: AppTheme.dashboardAccent
-                                      .withOpacity(0.30),
-                                  inactiveThumbColor: Colors.white70,
-                                  inactiveTrackColor: Colors.white.withOpacity(
-                                    0.12,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
         body: Column(
           children: [
             // Camera Preview
             Expanded(
-              flex: 4,
+              flex: 3,
               child: _isInitialized
                   ? Stack(
                       children: [
@@ -1898,41 +1680,159 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
                             ],
                           ),
                         ),
+                        // Premium Back Button
+                        Positioned(
+                          top: 50,
+                          left: 20,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  blurRadius: 15,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: IconButton(
+                              icon: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.4),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.15),
+                                    width: 1,
+                                  ),
+                                ),
+                                child: const Icon(
+                                  Icons.arrow_back_ios_new_rounded,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                              ),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                          ),
+                        ),
+                        // Auto Switch Overlay - Moved to top center for better balance
+                        Positioned(
+                          top: 55,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(22),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(
+                                  sigmaX: 10,
+                                  sigmaY: 10,
+                                ),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.3),
+                                    borderRadius: BorderRadius.circular(22),
+                                    border: Border.all(
+                                      color: _autoCheckEnabled
+                                          ? Colors.greenAccent.withOpacity(0.3)
+                                          : Colors.white.withOpacity(0.15),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        _autoCheckEnabled
+                                            ? Icons.auto_awesome
+                                            : Icons.touch_app_rounded,
+                                        color: _autoCheckEnabled
+                                            ? Colors.greenAccent
+                                            : Colors.white70,
+                                        size: 14,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        _autoCheckEnabled
+                                            ? 'AUTO-MARK ON'
+                                            : 'MANUAL MODE',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 1.2,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      SizedBox(
+                                        height: 20,
+                                        width: 32,
+                                        child: FittedBox(
+                                          fit: BoxFit.contain,
+                                          child: Switch(
+                                            value: _autoCheckEnabled,
+                                            onChanged: (value) {
+                                              _setAutoCheckEnabled(value);
+                                            },
+                                            activeColor: Colors.greenAccent,
+                                            activeTrackColor: Colors.greenAccent
+                                                .withOpacity(0.3),
+                                            inactiveThumbColor: Colors.white70,
+                                            inactiveTrackColor: Colors.white
+                                                .withOpacity(0.12),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                         // Static Face Guide Frame - Simple centered frame (no tracking)
                         FaceTrackingOverlay(
                           isProcessing: _isProcessing,
                           isAnalyzingFace: _isAnalyzingFace,
                         ),
-                        // Processing overlay - REMOVED (status shown in button instead)
-                        // ProcessingOverlay(
-                        //   isProcessing: _isProcessing,
-                        //   isAnalyzingFace: _isAnalyzingFace,
-                        //   faceAnalysisStatus: _faceAnalysisStatus,
-                        // ),
 
-                        // Floating debug panel: School & Mobile locations (toggleable)
+                        // Consolidated Debug & Stats Column (Top Right)
                         if (_showInfoPanels)
                           Positioned(
+                            top: 110,
                             right: 12,
-                            bottom: 12,
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.55),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: Colors.white.withValues(alpha: 0.15),
-                                  width: 1,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                // IDs Panel
+                                DebugIdsPanel(
+                                  loggedInStaffId: widget.staffId,
+                                  faceStaffId: _faceValidationData != null
+                                      ? _faceValidationData!['staff_id']
+                                            ?.toString()
+                                      : (_lastDetectedStaffId ?? '-'),
                                 ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  SchoolMobileLocationPanel(
+                                const SizedBox(height: 10),
+                                // Location Stats Panel
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.55),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.15),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: SchoolMobileLocationPanel(
                                     schoolLocation: _schoolLocation,
                                     userLatitude: _currentPosition?.latitude,
                                     userLongitude: _currentPosition?.longitude,
@@ -1945,107 +1845,69 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
                                       await _diagnoseLocationIssues();
                                     },
                                   ),
-                                ],
+                                ),
+                              ],
+                            ),
+                          ),
+
+                        // Verified User Name Overlay on Camera - Bottom Center
+                        if (_isFaceValidatedForLoggedInUser)
+                          Positioned(
+                            bottom: 60,
+                            left: 24,
+                            right: 24,
+                            child: Center(
+                              child: VerifiedUserBadge(
+                                name: _faceValidationData!['name']?.toString(),
+                                lastDistanceMeters:
+                                    _lastDistanceMeters ??
+                                    ((_faceValidationData!['distance_from_school']
+                                            is num)
+                                        ? ((_faceValidationData!['distance_from_school']
+                                                      as num)
+                                                  .toDouble() *
+                                              1000)
+                                        : null),
+                                isWithinSchoolRadius: _isWithinSchoolRadius,
+                                confidencePercent:
+                                    (_faceValidationData!['confidence']
+                                        is double)
+                                    ? _faceValidationData!['confidence']
+                                          as double
+                                    : null,
                               ),
                             ),
                           ),
 
-                        // Verified User Name Overlay on Camera - Top Right (Moved down)
-                        if (_isFaceValidatedForLoggedInUser)
-                          Positioned(
-                            top: 100,
-                            right: 15,
-                            child: VerifiedUserBadge(
-                              name: _faceValidationData!['name']?.toString(),
-                              lastDistanceMeters:
-                                  _lastDistanceMeters ??
-                                  ((_faceValidationData!['distance_from_school']
-                                          is num)
-                                      ? ((_faceValidationData!['distance_from_school']
-                                                    as num)
-                                                .toDouble() *
-                                            1000)
-                                      : null),
-                              isWithinSchoolRadius: _isWithinSchoolRadius,
-                              confidencePercent:
-                                  (_faceValidationData!['confidence'] is double)
-                                  ? _faceValidationData!['confidence'] as double
-                                  : null,
-                            ),
-                          ),
-                        // Top-left overlay: Logged-in and Face IDs (Moved down)
-                        if (_showInfoPanels)
-                          Positioned(
-                            top: 100,
-                            left: 10,
-                            child: DebugIdsPanel(
-                              loggedInStaffId: widget.staffId,
-                              faceStaffId: _faceValidationData != null
-                                  ? _faceValidationData!['staff_id']?.toString()
-                                  : (_lastDetectedStaffId ?? '-'),
-                            ),
-                          ),
-
-                        // Toggle button to hide/show info overlays (Moved further down)
-                        Align(
-                          alignment: Alignment.topCenter,
-                          child: Padding(
-                            padding: EdgeInsets.only(top: 110),
-                            child: Material(
-                              color: Colors.transparent,
-                              borderRadius: BorderRadius.circular(22),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(22),
-                                onTap: () {
-                                  safeSetState(() {
-                                    _showInfoPanels = !_showInfoPanels;
-                                  });
-                                },
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(22),
-                                  child: BackdropFilter(
-                                    filter: ImageFilter.blur(
-                                      sigmaX: 10,
-                                      sigmaY: 10,
-                                    ),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                        vertical: 8,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withOpacity(0.25),
-                                        borderRadius: BorderRadius.circular(22),
-                                        border: Border.all(
-                                          color: Colors.white.withOpacity(0.12),
-                                        ),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            _showInfoPanels
-                                                ? Icons.visibility_off
-                                                : Icons.visibility,
-                                            color: Colors.white,
-                                            size: 16,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            _showInfoPanels
-                                                ? 'HIDE INFO'
-                                                : 'SHOW INFO',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.w900,
-                                              letterSpacing: 0.8,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
+                        // Consolidated Toggle button position (Top Right - Symmetrical with back button)
+                        Positioned(
+                          top: 50,
+                          right: 20,
+                          child: Material(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(16),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: () {
+                                safeSetState(() {
+                                  _showInfoPanels = !_showInfoPanels;
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.25),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.12),
                                   ),
+                                ),
+                                child: Icon(
+                                  _showInfoPanels
+                                      ? Icons.visibility_off_rounded
+                                      : Icons.visibility_rounded,
+                                  color: Colors.white,
+                                  size: 18,
                                 ),
                               ),
                             ),
@@ -2054,16 +1916,17 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
                       ],
                     )
                   : Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          CircularProgressIndicator(),
-                          SizedBox(height: 20),
-                          Text(
-                            'Loading Camera...',
-                            style: TextStyle(color: Colors.white),
+                      child: LoadingAnimations.shimmer(
+                        baseColor: Colors.white.withOpacity(0.08),
+                        highlightColor: Colors.white.withOpacity(0.18),
+                        child: Container(
+                          width: 280,
+                          height: 360,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(30),
                           ),
-                        ],
+                        ),
                       ),
                     ),
             ),
@@ -2085,10 +1948,23 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
                     topLeft: Radius.circular(35),
                     topRight: Radius.circular(35),
                   ),
+                  border: Border(
+                    top: BorderSide(
+                      color: Colors.white.withOpacity(0.12),
+                      width: 1,
+                    ),
+                  ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withOpacity(0.5),
-                      blurRadius: 20,
+                      blurRadius: 25,
+                      spreadRadius: 5,
+                      offset: const Offset(0, -5),
+                    ),
+                    BoxShadow(
+                      color: Colors.purple.withOpacity(0.1),
+                      blurRadius: 30,
+                      spreadRadius: -10,
                       offset: const Offset(0, -10),
                     ),
                   ],
@@ -2097,9 +1973,8 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Dynamic Check In/Out Button - ALWAYS VISIBLE AT TOP (not scrollable)
-                    // Use SizedBox to prevent button from being squished
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
                       child: CheckInOutButton(
                         schoolLocationLoaded: _schoolLocationLoaded,
                         schoolLocation: _schoolLocation,
@@ -2117,7 +1992,7 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
                       ),
                     ),
 
-                    SizedBox(height: 15),
+                    const SizedBox(height: 10),
 
                     // Scrollable area for other content (instructions)
                     Expanded(
@@ -2125,150 +2000,11 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Face Analysis Status - HIDDEN
-                            if (false)
-                              Container(
-                                width: double.infinity,
-                                padding: EdgeInsets.all(10),
-                                margin: EdgeInsets.only(bottom: 10),
-                                decoration: BoxDecoration(
-                                  color: _capturedFaceEmbedding != null
-                                      ? Colors.green[900]
-                                      : Colors.blue[900],
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.face_retouching_natural,
-                                      color: Colors.white,
-                                      size: 16,
-                                    ),
-                                    SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        _faceAnalysisStatus ??
-                                            'Initializing camera and analyzing face automatically...',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-
                             // GPS Location Display (controlled by _showGpsBanner)
                             if (_showGpsBanner && _currentPosition != null)
                               GpsBanner(
                                 latitude: _currentPosition!.latitude,
                                 longitude: _currentPosition!.longitude,
-                              ),
-
-                            // Location Status - HIDDEN
-                            if (false)
-                              LocationStatusPanel(
-                                statusText: _locationStatus,
-                                hasPosition: _currentPosition != null,
-                                permissionGranted: _locationPermissionGranted,
-                                onRetry: _isProcessing ? null : _retryLocation,
-                                onTest: _isProcessing ? null : _testLocation,
-                                onReAnalyzeFace: _isProcessing
-                                    ? null
-                                    : _clearFaceValidationData,
-                                showReAnalyze: _faceValidationData != null,
-                              ),
-
-                            // Last Result - HIDDEN
-                            if (false && _lastResult != null)
-                              Container(
-                                width: double.infinity,
-                                padding: EdgeInsets.all(15),
-                                margin: EdgeInsets.only(bottom: 20),
-                                decoration: BoxDecoration(
-                                  color: _lastResult!.startsWith('✅')
-                                      ? Colors.green[900]
-                                      : Colors.red[900],
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  _lastResult!,
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-
-                            // Error Display (hidden per UX request)
-                            if (false &&
-                                _lastResult != null &&
-                                _lastResult!.startsWith('❌'))
-                              Container(
-                                width: double.infinity,
-                                padding: EdgeInsets.all(15),
-                                margin: EdgeInsets.only(bottom: 15),
-                                decoration: BoxDecoration(
-                                  color: Colors.red[800],
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: Colors.red[400]!,
-                                    width: 2,
-                                  ),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Icon(
-                                          Icons.error,
-                                          color: Colors.white,
-                                          size: 24,
-                                        ),
-                                        SizedBox(width: 10),
-                                        Text(
-                                          'Error',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    SizedBox(height: 8),
-                                    Text(
-                                      _getErrorMessage(_lastResult!),
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 14,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ],
-                                ),
-                              ),
-
-                            // Instructions - HIDDEN
-                            if (false)
-                              // ignore: dead_code
-                              Text(
-                                _isProcessing || _isAnalyzingFace
-                                    ? 'Getting GPS location and processing face...'
-                                    : _isFaceValidatedForLoggedInUser
-                                    ? 'Face validated! Click Check In/Out to get GPS location and mark attendance'
-                                    : _capturedFaceEmbedding != null
-                                    ? 'Face analysis complete! Click Check In/Out to get GPS location and mark attendance'
-                                    : 'Face analysis in progress... Please wait for automatic detection',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 14,
-                                ),
-                                textAlign: TextAlign.center,
                               ),
 
                             // Dynamic Instructions
@@ -2292,13 +2028,18 @@ class _SimpleTeacherAttendanceState extends State<SimpleTeacherAttendance>
               ),
             ),
 
-            // Progress Bar at Bottom - Always Visible
-            BottomStatusBar(
-              isProcessing: _isProcessing,
-              isAnalyzingFace: _isAnalyzingFace,
-              isFaceValidatedForLoggedInUser: _isFaceValidatedForLoggedInUser,
-              bottomStatusMessage: _bottomStatusMessage,
-            ),
+            // Activity State Row (Replacing redundant BottomStatusBar)
+            if (_isProcessing || _isAnalyzingFace || _isFetchingLocation)
+              Container(
+                width: double.infinity,
+                height: 3,
+                child: LinearProgressIndicator(
+                  backgroundColor: Colors.transparent,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    _isProcessing ? Colors.orangeAccent : Colors.greenAccent,
+                  ),
+                ),
+              ),
           ],
         ),
       ),

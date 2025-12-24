@@ -4,8 +4,7 @@ class GpsBanner extends StatelessWidget {
   final double latitude;
   final double longitude;
 
-  const GpsBanner({Key? key, required this.latitude, required this.longitude})
-    : super(key: key);
+  const GpsBanner({super.key, required this.latitude, required this.longitude});
 
   @override
   Widget build(BuildContext context) {

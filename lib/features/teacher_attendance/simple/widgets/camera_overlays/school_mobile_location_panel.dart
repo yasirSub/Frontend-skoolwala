@@ -11,7 +11,7 @@ class SchoolMobileLocationPanel extends StatelessWidget {
   final Future<void> Function()? onDiagnose;
 
   const SchoolMobileLocationPanel({
-    Key? key,
+    super.key,
     required this.schoolLocation,
     required this.userLatitude,
     required this.userLongitude,
@@ -19,7 +19,7 @@ class SchoolMobileLocationPanel extends StatelessWidget {
     required this.isFetchingLocation,
     this.onRefresh,
     this.onDiagnose,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -10,7 +10,7 @@ class LocationStatusPanel extends StatelessWidget {
   final bool showReAnalyze;
 
   const LocationStatusPanel({
-    Key? key,
+    super.key,
     required this.statusText,
     required this.hasPosition,
     required this.permissionGranted,
@@ -18,7 +18,7 @@ class LocationStatusPanel extends StatelessWidget {
     this.onTest,
     this.onReAnalyzeFace,
     this.showReAnalyze = false,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -7,7 +7,7 @@ import '../services/teacher_class_service.dart';
 import '../../attendance/services/attendance_service.dart';
 import 'package:intl/intl.dart';
 import '../../../shared/widgets/app_loading_indicator.dart';
-import 'package:skoolwala/shared/theme/app_theme.dart';
+import '../../../shared/theme/app_theme.dart';
 
 class MarkStudentAttendanceScreen extends StatefulWidget {
   final TeacherClass? teacherClass;
@@ -46,22 +46,37 @@ class _MarkStudentAttendanceScreenState
   late TextEditingController _searchController;
 
   // Attendance type variables
-  int _attendanceType = 0; // 0 = Day-Wise, 1 = Subject-Wise
-  String _attendanceTypeDisplay = 'Day-Wise Attendance';
-  String _attendanceTypeDescription = '';
   bool _isSubjectWise = false;
   bool _isDayWise = true;
-
   bool _attendanceTypeLoading = true;
 
   // Select all students
   bool _selectAllStudents = false;
-  Set<int> _selectedStudentIds = {};
+  final Set<int> _selectedStudentIds = {};
 
   // Subject selection for subject-wise attendance
   int? _selectedSubjectId;
   List<Map<String, dynamic>> _availableSubjects = [];
   bool _isLoadingSubjects = false;
+
+  Future<void> _reloadForCurrentState() async {
+    // If we don't know the attendance mode yet, fetch it first.
+    if (_attendanceTypeLoading) {
+      await _loadAttendanceType();
+      return;
+    }
+
+    if (_isSubjectWise) {
+      // If subject-wise but we don't have a subject selected, load subjects
+      // instead of calling the attendance API with null subject.
+      if (_selectedSubjectId == null || _selectedSubjectId == 0) {
+        await _loadSubjects();
+        return;
+      }
+    }
+
+    await _loadStudents();
+  }
 
   @override
   void initState() {
@@ -116,8 +131,6 @@ class _MarkStudentAttendanceScreenState
         print('   - is_subject_wise: ${data['is_subject_wise']}');
 
         // Convert to proper types
-        final newAttendanceType =
-            int.tryParse(data['attendance_type']?.toString() ?? '0') ?? 0;
         final newIsSubjectWise =
             data['is_subject_wise'] == true ||
             data['is_subject_wise'] == 'true' ||
@@ -134,22 +147,14 @@ class _MarkStudentAttendanceScreenState
         );
 
         setState(() {
-          _attendanceType = newAttendanceType;
-          _attendanceTypeDisplay =
-              data['type_display']?.toString() ?? 'Day-Wise Attendance';
-          _attendanceTypeDescription = data['description']?.toString() ?? '';
           _isDayWise = newIsDayWise;
           _isSubjectWise = newIsSubjectWise;
           _attendanceTypeLoading = false;
         });
 
-        // Load subjects if this is subject-wise attendance
-        if (newIsSubjectWise) {
-          _loadSubjects();
-        } else {
-          // If day-wise, immediately load students
-          _loadStudents();
-        }
+        // Centralize any follow-up loading through the same safe gate.
+        // This prevents accidental day-wise calls when subject-wise is enabled.
+        await _reloadForCurrentState();
 
         // Force rebuild to ensure UI updates
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -191,6 +196,7 @@ class _MarkStudentAttendanceScreenState
       final response = await TeacherClassService.getSubjectsForClassSection(
         classId: classId,
         sectionId: sectionId,
+        date: _selectedDateStr,
       );
 
       if (response['status'] == 'success') {
@@ -215,25 +221,54 @@ class _MarkStudentAttendanceScreenState
           _isLoadingSubjects = false;
         });
 
-        // If no subject is selected yet, use the first one
-        if (_selectedSubjectId == null && subjects.isNotEmpty) {
+        if (subjects.isEmpty && widget.subjectId == null) {
+          // In subject-wise mode, subjects are derived from timetable for the selected date.
+          // If empty, the teacher likely has no scheduled class for that date.
+          print(
+            '🚫 [GUARD] Subject-wise mode but 0 timetable subjects for date $_selectedDateStr. Blocking attendance API call.',
+          );
           setState(() {
-            _selectedSubjectId = subjects.first['id'] as int;
+            _selectedSubjectId = null;
+            _students = [];
+            _filteredStudents = [];
+            _isLoading = false;
+            _errorMessage =
+                'No subject classes are scheduled for the selected date. Please choose another date.';
           });
+          return;
         }
 
-        // Load students after subjects are loaded
-        _loadStudents();
+        // If current selected subject is not available for this date, switch to first.
+        final availableIds = subjects.map((s) => s['id'] as int).toSet();
+        if (_selectedSubjectId == null ||
+            !availableIds.contains(_selectedSubjectId)) {
+          if (subjects.isNotEmpty) {
+            setState(() {
+              _selectedSubjectId = subjects.first['id'] as int;
+            });
+          }
+        }
+
+        // Load students after subjects are loaded and a subject is selected
+        // (if subjectId was passed in, _selectedSubjectId is already set).
+        if (_selectedSubjectId != null && _selectedSubjectId != 0) {
+          await _loadStudents();
+        }
       } else {
         print('❌ [DEBUG] Failed to load subjects: ${response['message']}');
         setState(() {
           _isLoadingSubjects = false;
+          _isLoading = false;
+          _errorMessage =
+              response['message']?.toString() ?? 'Failed to load subjects';
         });
       }
     } catch (e) {
       print('❌ [DEBUG] Error loading subjects: $e');
       setState(() {
         _isLoadingSubjects = false;
+        _isLoading = false;
+        _errorMessage = 'Failed to load subjects: $e';
       });
     }
   }
@@ -256,6 +291,32 @@ class _MarkStudentAttendanceScreenState
 
       if (classId == 0 || sectionId == 0) {
         throw Exception('Class ID and Section ID are required');
+      }
+
+      // HARD GUARD:
+      // If API says subject-wise but there are no subjects (and none were passed in),
+      // we must never hit the attendance API with a null subjectId (backend treats that as day-wise).
+      if (_isSubjectWise &&
+          widget.subjectId == null &&
+          _availableSubjects.isEmpty) {
+        print(
+          '🚫 [GUARD] Prevented day-wise fallback: subject-wise enabled but subject list is empty and no subjectId was passed.',
+        );
+        setState(() {
+          _isLoading = false;
+          _errorMessage =
+              'No subjects are assigned for this class/section. Please ask admin to assign subjects for this class.';
+        });
+        return;
+      }
+
+      if (_isSubjectWise && (subjectId == null || subjectId == 0)) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage =
+              'Subject-wise attendance is enabled. Please select a subject to continue.';
+        });
+        return;
       }
 
       print('═══════════════════════════════════════════════════════════');
@@ -338,39 +399,6 @@ class _MarkStudentAttendanceScreenState
       initialDate: _selectedDate,
       firstDate: DateTime.now().subtract(const Duration(days: 365)),
       lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.dark(
-              primary: AppTheme.primaryPurple,
-              onPrimary: Colors.white,
-              surface: AppTheme.dashboardPrimary.withOpacity(0.95),
-              onSurface: Colors.white,
-              secondary: AppTheme.accentCyan,
-            ),
-            dialogBackgroundColor: AppTheme.dashboardPrimary,
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: Colors.white,
-                textStyle: const TextStyle(fontWeight: FontWeight.w900),
-              ),
-            ),
-            datePickerTheme: DatePickerThemeData(
-              headerBackgroundColor: AppTheme.primaryPurple,
-              headerForegroundColor: Colors.white,
-              backgroundColor: AppTheme.dashboardPrimary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(28),
-                side: BorderSide(
-                  color: Colors.white.withOpacity(0.15),
-                  width: 1,
-                ),
-              ),
-            ),
-          ),
-          child: child!,
-        );
-      },
     );
 
     if (picked != null && picked != _selectedDate) {
@@ -380,7 +408,21 @@ class _MarkStudentAttendanceScreenState
         _attendanceStatus.clear();
         _attendanceRemarks.clear();
       });
-      _loadStudents();
+
+      // If subject-wise and subject isn't fixed by navigation, reload subjects for the new date
+      // so the dropdown matches the timetable-based authorization.
+      if (_isSubjectWise &&
+          !_attendanceTypeLoading &&
+          widget.subjectId == null) {
+        setState(() {
+          _availableSubjects = [];
+          _selectedSubjectId = null;
+        });
+        await _loadSubjects();
+        return;
+      }
+
+      _reloadForCurrentState();
     }
   }
 
@@ -407,13 +449,14 @@ class _MarkStudentAttendanceScreenState
     setState(() {
       _selectAllStudents = !_selectAllStudents;
       if (_selectAllStudents) {
-        // Select all currently visible (filtered) students
+        // Select all filtered students
+        _selectedStudentIds.clear();
         for (var student in _filteredStudents) {
           _selectedStudentIds.add(student.enrollId);
         }
         print('✅ [DEBUG] Selected all ${_filteredStudents.length} students');
       } else {
-        // Deselect all (even those not filtered, for safety)
+        // Deselect all
         _selectedStudentIds.clear();
         print('❌ [DEBUG] Deselected all students');
       }
@@ -688,512 +731,352 @@ class _MarkStudentAttendanceScreenState
       case 'HD':
         return AppTheme.infoBlue;
       default:
-        return AppTheme.textGray;
+        return Colors.white70;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppTheme.dashboardPrimary,
-            AppTheme.dashboardPrimary.withBlue(100).withRed(40),
+    final selectedSubjectName =
+        widget.subjectName ??
+        _availableSubjects
+            .where((s) => (s['id'] as int?) == _selectedSubjectId)
+            .map((s) => s['name'] as String?)
+            .cast<String?>()
+            .firstWhere(
+              (name) => name != null && name.trim().isNotEmpty,
+              orElse: () => null,
+            );
+
+    final markedCount = _students
+        .where(
+          (s) =>
+              (_attendanceStatus[s.enrollId] ?? s.attendanceStatus).isNotEmpty,
+        )
+        .length;
+
+    return Scaffold(
+      extendBodyBehindAppBar: true,
+      backgroundColor: AppTheme.darkPurple,
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.white,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.teacherClass?.displayName ??
+                  widget.className ??
+                  'Mark Attendance',
+              style: const TextStyle(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              selectedSubjectName != null
+                  ? '$selectedSubjectName • ${DateFormat('MMMM d, yyyy').format(_selectedDate)}'
+                  : DateFormat('MMMM d, yyyy').format(_selectedDate),
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.white.withOpacity(0.85),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ],
         ),
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              color: Colors.white,
-              size: 20,
-            ),
-            onPressed: () => Navigator.pop(context),
-          ),
-          centerTitle: false,
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.teacherClass?.displayName ??
-                    widget.className ??
-                    'Attendance',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w900,
-                  fontSize: 18,
-                  color: Colors.white,
-                  letterSpacing: -0.5,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: InkWell(
+              onTap: _selectDate,
+              borderRadius: BorderRadius.circular(14),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
                 ),
-              ),
-              GestureDetector(
-                onTap: _selectDate,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white.withOpacity(0.18)),
+                ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    const Icon(
+                      Icons.calendar_today_outlined,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 8),
                     Text(
-                      DateFormat('MMMM d, y').format(_selectedDate),
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.white.withOpacity(0.7),
-                        fontWeight: FontWeight.w700,
+                      DateFormat('dd MMM').format(_selectedDate),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
                       ),
                     ),
-                    const Icon(
-                      Icons.arrow_drop_down_rounded,
-                      size: 16,
-                      color: Colors.white70,
-                    ),
                   ],
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            Center(
-              child: Container(
-                margin: const EdgeInsets.only(right: 16),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.white.withOpacity(0.15),
-                      Colors.white.withOpacity(0.05),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.1),
-                    width: 1,
-                  ),
-                ),
-                child: Text(
-                  _isSubjectWise ? 'SUB' : 'DAY',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                  ),
                 ),
               ),
             ),
-          ],
+          ),
+        ],
+      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [AppTheme.dashboardPrimaryLight, AppTheme.darkPurple],
+          ),
         ),
-        body:
-            _attendanceTypeLoading ||
-                (_isSubjectWise &&
-                    _isLoadingSubjects &&
-                    _availableSubjects.isEmpty)
-            ? const Center(
-                child: AppLoadingIndicator(text: 'Loading configuration...'),
-              )
-            : TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0.0, end: 1.0),
-                duration: const Duration(milliseconds: 800),
-                curve: Curves.easeOutCubic,
-                builder: (context, value, child) => Opacity(
-                  opacity: value,
-                  child: Transform.translate(
-                    offset: Offset(0, 30 * (1 - value)),
-                    child: child,
+        child: SafeArea(
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              const SizedBox(height: 14),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(color: Colors.white.withOpacity(0.14)),
                   ),
-                ),
-                child: Column(
-                  children: [
-                    // Premium Stats Bar
-                    Container(
-                      margin: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Colors.white.withOpacity(0.12),
-                            Colors.white.withOpacity(0.04),
-                          ],
+                  child: Column(
+                    children: [
+                      Container(
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.16),
+                          borderRadius: BorderRadius.circular(999),
                         ),
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.15),
-                          width: 1.2,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: FractionallySizedBox(
+                            widthFactor: _students.isEmpty
+                                ? 0
+                                : (markedCount / _students.length).clamp(
+                                    0.0,
+                                    1.0,
+                                  ),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.55),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                      child: Column(
+                      const SizedBox(height: 12),
+                      Row(
                         children: [
-                          if (_students.isNotEmpty) ...[
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: LinearProgressIndicator(
-                                      value: _students.isEmpty
-                                          ? 0
-                                          : _attendanceStatus.length /
-                                                _students.length,
-                                      backgroundColor: Colors.white.withOpacity(
-                                        0.1,
-                                      ),
-                                      valueColor: const AlwaysStoppedAnimation(
-                                        Colors.white,
-                                      ),
-                                      minHeight: 4,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Text(
-                                  '${((_attendanceStatus.length / (_students.isEmpty ? 1 : _students.length)) * 100).toInt()}%',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                              ],
+                          Expanded(
+                            child: _buildStatPill(
+                              'TOTAL',
+                              _students.length.toString(),
+                              Colors.white70,
                             ),
-                            const SizedBox(height: 16),
-                          ],
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              _buildHeaderStat(
-                                'TOTAL',
-                                _students.length.toString(),
-                                Colors.white,
-                              ),
-                              _buildHeaderStat(
-                                'PRESENT',
-                                _students
-                                    .where(
-                                      (s) =>
-                                          (_attendanceStatus[s.enrollId] ??
-                                              s.attendanceStatus) ==
-                                          'P',
-                                    )
-                                    .length
-                                    .toString(),
-                                AppTheme.successGreen,
-                              ),
-                              _buildHeaderStat(
-                                'ABSENT',
-                                _students
-                                    .where(
-                                      (s) =>
-                                          (_attendanceStatus[s.enrollId] ??
-                                              s.attendanceStatus) ==
-                                          'A',
-                                    )
-                                    .length
-                                    .toString(),
-                                AppTheme.errorRed,
-                              ),
-                              _buildHeaderStat(
-                                'MARKED',
-                                _attendanceStatus.length.toString(),
-                                AppTheme.infoBlue,
-                              ),
-                            ],
+                          ),
+                          Expanded(
+                            child: _buildStatPill(
+                              'PRESENT',
+                              _students
+                                  .where(
+                                    (s) =>
+                                        (_attendanceStatus[s.enrollId] ??
+                                            s.attendanceStatus) ==
+                                        'P',
+                                  )
+                                  .length
+                                  .toString(),
+                              AppTheme.successGreen,
+                            ),
+                          ),
+                          Expanded(
+                            child: _buildStatPill(
+                              'ABSENT',
+                              _students
+                                  .where(
+                                    (s) =>
+                                        (_attendanceStatus[s.enrollId] ??
+                                            s.attendanceStatus) ==
+                                        'A',
+                                  )
+                                  .length
+                                  .toString(),
+                              AppTheme.errorRed,
+                            ),
+                          ),
+                          Expanded(
+                            child: _buildStatPill(
+                              'MARKED',
+                              markedCount.toString(),
+                              AppTheme.accentCyan,
+                            ),
                           ),
                         ],
                       ),
-                    ),
-
-                    // Search & Selection Row (Modern Dark Glass)
-                    TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0.0, end: 1.0),
-                    duration: const Duration(milliseconds: 800),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, child) {
-                      return Transform.translate(
-                        offset: Offset(0, 20 * (1 - value)),
-                        child: Opacity(
-                          opacity: value,
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Container(
-                                    height: 48,
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          Colors.white.withOpacity(0.12),
-                                          Colors.white.withOpacity(0.04),
-                                        ],
-                                      ),
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: Colors.white.withOpacity(0.1),
-                                        width: 1,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.1),
-                                          blurRadius: 10,
-                                          offset: const Offset(0, 5),
-                                        ),
-                                      ],
-                                    ),
-                                    child: TextField(
-                                      controller: _searchController,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 14,
-                                      ),
-                                      decoration: InputDecoration(
-                                        hintText: 'Search students...',
-                                        hintStyle: TextStyle(
-                                          color: Colors.white.withOpacity(0.4),
-                                          fontSize: 14,
-                                        ),
-                                        prefixIcon: Icon(
-                                          Icons.search_rounded,
-                                          size: 20,
-                                          color: Colors.white.withOpacity(0.7),
-                                        ),
-                                        border: InputBorder.none,
-                                        contentPadding: const EdgeInsets.symmetric(
-                                          vertical: 12,
-                                        ),
-                                      ),
-                                      onChanged: (_) => _filterStudents(),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                GestureDetector(
-                                  onTap: _toggleSelectAll,
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 300),
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: _selectAllStudents
-                                            ? [
-                                                AppTheme.primaryPurple,
-                                                AppTheme.dashboardPrimaryLight,
-                                              ]
-                                            : [
-                                                Colors.white.withOpacity(0.12),
-                                                Colors.white.withOpacity(0.04),
-                                              ],
-                                      ),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: _selectAllStudents
-                                            ? Colors.white24
-                                            : Colors.white10,
-                                        width: 1.5,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: _selectAllStudents
-                                              ? AppTheme.primaryPurple.withOpacity(
-                                                  0.3,
-                                                )
-                                              : Colors.black.withOpacity(0.1),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 4),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Icon(
-                                      _selectAllStudents
-                                          ? Icons.done_all_rounded
-                                          : Icons.checklist_rounded,
-                                      color: Colors.white,
-                                      size: 22,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
+                    ],
                   ),
-                    // Bulk Status Chips (Only visible when selection exists)
-                    if (_selectedStudentIds.isNotEmpty)
-                      Container(
-                        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.white.withOpacity(0.12),
-                              Colors.white.withOpacity(0.06),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(18),
+                          color: AppTheme.textDark.withOpacity(0.35),
+                          borderRadius: BorderRadius.circular(24),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.1),
-                            width: 1.2,
+                            color: Colors.white.withOpacity(0.10),
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            Text(
-                              'MARK SELECTED:',
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white.withOpacity(0.5),
-                                letterSpacing: 1.0,
-                              ),
+                        child: TextField(
+                          controller: _searchController,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          decoration: const InputDecoration(
+                            hintText: 'Search students...',
+                            hintStyle: TextStyle(color: Colors.white60),
+                            prefixIcon: Icon(
+                              Icons.search,
+                              color: Colors.white60,
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: Row(
-                                  children: [
-                                    _buildQuickActionChip(
-                                      'P',
-                                      'P',
-                                      AppTheme.successGreen,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    _buildQuickActionChip(
-                                      'A',
-                                      'A',
-                                      AppTheme.errorRed,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    _buildQuickActionChip(
-                                      'L',
-                                      'L',
-                                      AppTheme.warningOrange,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    _buildQuickActionChip(
-                                      'H',
-                                      'H',
-                                      AppTheme.infoBlue,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                    // Students List
-                    Expanded(child: _buildBody()),
-
-                    // Action Bar (Floating Save Button)
-                    if (_students.isNotEmpty)
-                      Align(
-                        alignment: Alignment.bottomCenter,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(25, 0, 25, 25),
-                          child: Hero(
-                            tag: 'save_attendance_hero',
-                            child: Container(
-                              height: 60,
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    AppTheme.primaryPurple,
-                                    AppTheme.primaryPurple
-                                        .withBlue(255)
-                                        .withRed(100),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(30),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppTheme.primaryPurple.withOpacity(
-                                      0.4,
-                                    ),
-                                    blurRadius: 20,
-                                    offset: const Offset(0, 10),
-                                  ),
-                                ],
-                              ),
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  onTap: _isSaving ? null : _saveAttendance,
-                                  borderRadius: BorderRadius.circular(30),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      if (_isSaving)
-                                        const SizedBox(
-                                          height: 24,
-                                          width: 24,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 3,
-                                            valueColor: AlwaysStoppedAnimation(
-                                              Colors.white,
-                                            ),
-                                          ),
-                                        )
-                                      else ...[
-                                        Container(
-                                          padding: const EdgeInsets.all(8),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white.withOpacity(
-                                              0.2,
-                                            ),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(
-                                            Icons.check_rounded,
-                                            color: Colors.white,
-                                            size: 20,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 16),
-                                        const Text(
-                                          'FINALIZE ATTENDANCE',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w900,
-                                            color: Colors.white,
-                                            letterSpacing: 2.5,
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              ),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 14,
                             ),
                           ),
+                          onChanged: (_) => _filterStudents(),
                         ),
                       ),
+                    ),
+                    const SizedBox(width: 12),
+                    InkWell(
+                      onTap: _toggleSelectAll,
+                      borderRadius: BorderRadius.circular(28),
+                      child: Container(
+                        width: 52,
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(28),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.14),
+                          ),
+                        ),
+                        child: Icon(
+                          _selectAllStudents
+                              ? Icons.checklist_rtl
+                              : Icons.playlist_add_check,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
+              const SizedBox(height: 10),
+              if (_selectedStudentIds.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildQuickActionChip(
+                          'Present',
+                          'P',
+                          AppTheme.successGreen,
+                        ),
+                        const SizedBox(width: 8),
+                        _buildQuickActionChip('Absent', 'A', AppTheme.errorRed),
+                        const SizedBox(width: 8),
+                        _buildQuickActionChip(
+                          'Late',
+                          'L',
+                          AppTheme.warningOrange,
+                        ),
+                        const SizedBox(width: 8),
+                        _buildQuickActionChip(
+                          'Half Day',
+                          'H',
+                          AppTheme.infoBlue,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 8),
+              Expanded(child: _buildBody()),
+              if (_students.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
+                  child: SafeArea(
+                    top: false,
+                    child: InkWell(
+                      onTap: _isSaving ? null : _saveAttendance,
+                      borderRadius: BorderRadius.circular(30),
+                      child: Opacity(
+                        opacity: _isSaving ? 0.7 : 1,
+                        child: Container(
+                          height: 56,
+                          decoration: BoxDecoration(
+                            gradient: AppTheme.primaryGradient,
+                            borderRadius: BorderRadius.circular(30),
+                            boxShadow: AppTheme.buttonShadow,
+                          ),
+                          child: Center(
+                            child: _isSaving
+                                ? const AppLoadingIndicator(
+                                    size: 22,
+                                    color: Colors.white,
+                                  )
+                                : Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: const [
+                                      Icon(
+                                        Icons.check_circle_outline,
+                                        color: Colors.white,
+                                      ),
+                                      SizedBox(width: 10),
+                                      Text(
+                                        'FINALIZE ATTENDANCE',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 1.2,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const AppLoadingIndicator();
+      return const Center(child: AppLoadingIndicator(color: Colors.white));
     }
 
     if (_errorMessage != null) {
@@ -1201,16 +1084,20 @@ class _MarkStudentAttendanceScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.red),
+            const Icon(Icons.error_outline, size: 48, color: Colors.white),
             const SizedBox(height: 16),
             Text(
               _errorMessage!,
-              style: const TextStyle(color: Colors.red),
+              style: const TextStyle(color: Colors.white),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: _loadStudents,
+              onPressed: _reloadForCurrentState,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white.withOpacity(0.16),
+                foregroundColor: Colors.white,
+              ),
               child: const Text('Retry'),
             ),
           ],
@@ -1223,13 +1110,13 @@ class _MarkStudentAttendanceScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.people_outline, size: 64, color: Colors.grey[300]),
+            Icon(Icons.people_outline, size: 64, color: Colors.white24),
             const SizedBox(height: 16),
             Text(
               _searchController.text.isEmpty
                   ? 'No students found'
                   : 'No students match your search',
-              style: TextStyle(color: Colors.grey[600], fontSize: 16),
+              style: const TextStyle(color: Colors.white70, fontSize: 16),
             ),
           ],
         ),
@@ -1237,7 +1124,7 @@ class _MarkStudentAttendanceScreenState
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.only(bottom: 80),
+      padding: const EdgeInsets.only(bottom: 90),
       itemCount: _filteredStudents.length,
       itemBuilder: (context, index) {
         final student = _filteredStudents[index];
@@ -1247,79 +1134,58 @@ class _MarkStudentAttendanceScreenState
             _attendanceRemarks[student.enrollId] ?? student.attendanceRemark;
         final isSelected = _selectedStudentIds.contains(student.enrollId);
 
-        return TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0.0, end: 1.0),
-          duration: Duration(milliseconds: 300 + (index * 50)),
-          curve: Curves.easeOutQuint,
-          builder: (context, value, child) => Opacity(
-            opacity: value,
-            child: Transform.translate(
-              offset: Offset(0, 30 * (1 - value)),
-              child: _StudentAttendanceCard(
-                key: ValueKey(student.enrollId),
-                student: student,
-                currentStatus: status,
-                currentRemark: remark,
-                isSelected: isSelected,
-                onStatusChanged: (newStatus) =>
-                    _setAttendanceStatus(student.enrollId, newStatus),
-                onRemarkChanged: (newRemark) =>
-                    _setAttendanceRemark(student.enrollId, newRemark),
-                onSelectionChanged: (val) =>
-                    _toggleStudentSelection(student.enrollId),
-                getStatusColor: _getStatusColor,
-                getStatusLabel: _getStatusLabel,
-              ),
-            ),
-          ),
+        return _StudentAttendanceCard(
+          key: ValueKey(student.enrollId),
+          student: student,
+          currentStatus: status,
+          currentRemark: remark,
+          isSelected: isSelected,
+          onStatusChanged: (newStatus) =>
+              _setAttendanceStatus(student.enrollId, newStatus),
+          onRemarkChanged: (newRemark) =>
+              _setAttendanceRemark(student.enrollId, newRemark),
+          onSelectionChanged: (val) =>
+              _toggleStudentSelection(student.enrollId),
+          getStatusColor: _getStatusColor,
+          getStatusLabel: _getStatusLabel,
         );
       },
     );
   }
 
-  Widget _buildHeaderStat(String label, String value, Color color) {
+  Widget _buildStatPill(String label, String value, Color valueColor) {
     return Column(
       children: [
         Text(
           value,
           style: TextStyle(
-            color: color == Colors.white.withOpacity(0.6)
-                ? Colors.white
-                : color,
-            fontSize: 15,
+            color: valueColor,
             fontWeight: FontWeight.w900,
+            fontSize: 18,
           ),
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 6),
         Text(
           label,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.5),
-            fontSize: 8,
+            color: Colors.white.withOpacity(0.75),
+            fontSize: 11,
             fontWeight: FontWeight.w800,
-            letterSpacing: 0.5,
+            letterSpacing: 0.8,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildStatItem(String label, String value, Color color) {
-    return _buildHeaderStat(label, value, color);
-  }
-
   Widget _buildQuickActionChip(String label, String status, Color color) {
     return ActionChip(
       label: Text(label),
-      backgroundColor: color.withOpacity(0.1),
-      labelStyle: TextStyle(
-        color: color,
-        fontWeight: FontWeight.w900,
-        fontSize: 11,
-      ),
-      side: BorderSide(color: color.withOpacity(0.2)),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      padding: EdgeInsets.zero,
+      avatar: Icon(Icons.check, size: 16, color: color),
+      backgroundColor: Colors.white.withOpacity(0.12),
+      labelStyle: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
+      side: BorderSide(color: Colors.white.withOpacity(0.16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       onPressed: () => _markSelectedAttendance(status),
     );
   }
@@ -1414,308 +1280,289 @@ class _StudentAttendanceCardState extends State<_StudentAttendanceCard>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedScale(
-      scale: widget.isSelected ? 1.02 : 1.0,
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeOutBack,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => widget.onSelectionChanged(!widget.isSelected),
-            borderRadius: BorderRadius.circular(24),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: widget.isSelected
-                      ? [
-                          AppTheme.primaryPurple.withOpacity(0.15),
-                          AppTheme.primaryPurple.withOpacity(0.05),
-                        ]
-                      : [
-                          Colors.white.withOpacity(0.08),
-                          Colors.white.withOpacity(0.02),
-                        ],
+    final statusColor = widget.getStatusColor(widget.currentStatus);
+    final statusLabel = widget.getStatusLabel(widget.currentStatus);
+
+    final isMarked = widget.currentStatus.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: _toggleExpanded,
+          borderRadius: BorderRadius.circular(28),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(widget.isSelected ? 0.14 : 0.10),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: Colors.white.withOpacity(
+                  widget.isSelected ? 0.22 : 0.14,
                 ),
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: widget.isSelected
-                      ? AppTheme.primaryPurple.withOpacity(0.5)
-                      : Colors.white.withOpacity(0.1),
-                  width: 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: widget.isSelected
-                        ? AppTheme.primaryPurple.withOpacity(0.2)
-                        : Colors.black.withOpacity(0.1),
-                    blurRadius: 15,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+                width: widget.isSelected ? 1.6 : 1.0,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Stack(
+            ),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 14,
+                  ),
+                  child: Row(
                     children: [
-                      // Status Indicator Edge Glow
-                      Positioned(
-                        left: 0,
-                        top: 24,
-                        bottom: 24,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 300),
-                          width: 4,
+                      InkWell(
+                        onTap: () =>
+                            widget.onSelectionChanged(!widget.isSelected),
+                        borderRadius: BorderRadius.circular(999),
+                        child: Container(
+                          width: 28,
+                          height: 28,
                           decoration: BoxDecoration(
-                            color: widget.getStatusColor(widget.currentStatus),
-                            borderRadius: const BorderRadius.horizontal(
-                              right: Radius.circular(4),
+                            shape: BoxShape.circle,
+                            color: widget.isSelected
+                                ? Colors.white.withOpacity(0.22)
+                                : Colors.white.withOpacity(0.10),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.22),
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: widget
-                                    .getStatusColor(widget.currentStatus)
-                                    .withOpacity(0.5),
-                                blurRadius: 10,
-                                spreadRadius: 1,
-                              ),
-                            ],
                           ),
+                          child: widget.isSelected
+                              ? const Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 18,
+                                )
+                              : null,
                         ),
                       ),
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Row(
+                      const SizedBox(width: 12),
+                      // Avatar
+                      CircleAvatar(
+                        radius: 24,
+                        backgroundColor: Colors.white.withOpacity(0.14),
+                        backgroundImage: widget.student.photo.isNotEmpty
+                            ? NetworkImage(widget.student.photo)
+                            : null,
+                        child: widget.student.photo.isEmpty
+                            ? Text(
+                                widget.student.name.isNotEmpty
+                                    ? widget.student.name[0].toUpperCase()
+                                    : '?',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.9),
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(width: 12),
+                      // Student info section
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Circular Checkbox
-                            GestureDetector(
-                              onTap: () =>
-                                  widget.onSelectionChanged(!widget.isSelected),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                width: 24,
-                                height: 24,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: widget.isSelected
-                                      ? Colors.white
-                                      : Colors.transparent,
-                                  border: Border.all(
-                                    color: widget.isSelected
-                                        ? Colors.white
-                                        : Colors.white.withOpacity(0.3),
-                                    width: 2,
-                                  ),
-                                ),
-                                child: widget.isSelected
-                                    ? const Icon(
-                                        Icons.check,
-                                        size: 14,
-                                        color: AppTheme.dashboardPrimary,
-                                      )
-                                    : null,
+                            // Student name - prominent
+                            Text(
+                              widget.student.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 16,
+                                color: Colors.white,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(width: 14),
-
-                            // Student Avatar with Glow
+                            const SizedBox(height: 3),
                             Container(
-                              height: 48,
-                              width: 48,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
                               decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.white.withOpacity(0.1),
+                                color: Colors.white.withOpacity(0.10),
+                                borderRadius: BorderRadius.circular(999),
                                 border: Border.all(
-                                  color: Colors.white.withOpacity(0.2),
-                                  width: 1.5,
+                                  color: Colors.white.withOpacity(0.14),
                                 ),
                               ),
-                              child: const Center(
-                                child: Icon(
-                                  Icons.person_rounded,
-                                  color: Colors.white,
-                                  size: 24,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 14),
-
-                            // Student Info
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    widget.student.name,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 15,
-                                      color: Colors.white,
-                                      letterSpacing: -0.2,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      'ROLL: ${widget.student.roll}',
-                                      style: TextStyle(
-                                        fontSize: 9,
-                                        color: Colors.white.withOpacity(0.7),
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Status Selection with Gradient Effects
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                _buildPremiumStatusBtn(
-                                  'P',
-                                  AppTheme.successGreen,
-                                  Icons.check_rounded,
-                                ),
-                                const SizedBox(width: 10),
-                                _buildPremiumStatusBtn(
-                                  'A',
-                                  AppTheme.errorRed,
-                                  Icons.close_rounded,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(width: 12),
-
-                            // Expand for more
-                            InkWell(
-                              onTap: _toggleExpanded,
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.05),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Icon(
-                                  _isExpanded
-                                      ? Icons.keyboard_arrow_up_rounded
-                                      : Icons.more_vert_rounded,
-                                  color: Colors.white.withOpacity(0.7),
-                                  size: 18,
+                              child: Text(
+                                'ROLL: ${widget.student.roll}',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.75),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.8,
                                 ),
                               ),
                             ),
                           ],
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      _InlineStatusButton(
+                        icon: Icons.check,
+                        borderColor: AppTheme.successGreen,
+                        isActive: widget.currentStatus == 'P',
+                        onTap: () => widget.onStatusChanged('P'),
+                      ),
+                      const SizedBox(width: 10),
+                      _InlineStatusButton(
+                        icon: Icons.close,
+                        borderColor: AppTheme.errorRed,
+                        isActive: widget.currentStatus == 'A',
+                        onTap: () => widget.onStatusChanged('A'),
+                      ),
+                      const SizedBox(width: 6),
+                      InkWell(
+                        onTap: _toggleExpanded,
+                        borderRadius: BorderRadius.circular(18),
+                        child: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.10),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.14),
+                            ),
+                          ),
+                          child: RotationTransition(
+                            turns: Tween(
+                              begin: 0.0,
+                              end: 0.5,
+                            ).animate(_animationController),
+                            child: Icon(
+                              Icons.more_horiz,
+                              color: Colors.white.withOpacity(0.85),
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
-                  // Expanded Details Section
-                  AnimatedSize(
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeInOut,
-                    child: _isExpanded
-                        ? Container(
-                            decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.15),
-                              borderRadius: const BorderRadius.vertical(
-                                bottom: Radius.circular(24),
-                              ),
-                              border: Border(
-                                top: BorderSide(
-                                  color: Colors.white.withOpacity(0.05),
-                                ),
+                ),
+                // Expanded Content
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                  child: _isExpanded
+                      ? Container(
+                          decoration: BoxDecoration(
+                            color: AppTheme.textDark.withOpacity(0.22),
+                            border: Border(
+                              top: BorderSide(
+                                color: Colors.white.withOpacity(0.10),
+                                width: 1,
                               ),
                             ),
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
+                          ),
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Status Buttons
+                              const Text(
+                                'Status',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white70,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: [
+                                  _buildCompactStatusButton(
+                                    'P',
+                                    'Present',
+                                    AppTheme.successGreen,
+                                  ),
+                                  _buildCompactStatusButton(
+                                    'A',
+                                    'Absent',
+                                    AppTheme.errorRed,
+                                  ),
+                                  _buildCompactStatusButton(
+                                    'L',
+                                    'Late',
+                                    AppTheme.warningOrange,
+                                  ),
+                                  _buildCompactStatusButton(
+                                    'H',
+                                    'Half Day',
+                                    AppTheme.infoBlue,
+                                  ),
+                                ],
+                              ),
+                              // Remark TextField
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _remarkController,
+                                decoration: InputDecoration(
+                                  labelText: 'Remark (Optional)',
+                                  hintText: 'Add a note...',
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.white.withOpacity(0.10),
+                                  labelStyle: const TextStyle(
+                                    color: Colors.white70,
+                                  ),
+                                  hintStyle: const TextStyle(
+                                    color: Colors.white60,
+                                  ),
+                                ),
+                                maxLines: 2,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.white,
+                                ),
+                                onChanged: widget.onRemarkChanged,
+                              ),
+                              const SizedBox(height: 10),
+                              if (isMarked)
                                 Row(
                                   children: [
-                                    Expanded(
-                                      child: _buildSecondaryStatusAction(
-                                        'L',
-                                        'LATE',
-                                        AppTheme.warningOrange,
-                                        Icons.access_time_filled_rounded,
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 6,
                                       ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: _buildSecondaryStatusAction(
-                                        'H',
-                                        'HALF DAY',
-                                        AppTheme.infoBlue,
-                                        Icons.brightness_4_rounded,
+                                      decoration: BoxDecoration(
+                                        color: statusColor.withOpacity(0.16),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                        border: Border.all(
+                                          color: statusColor.withOpacity(0.35),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        statusLabel,
+                                        style: TextStyle(
+                                          color: statusColor,
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 12,
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 16),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.05),
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.1),
-                                    ),
-                                  ),
-                                  child: TextField(
-                                    controller: _remarkController,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.white,
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText: 'Add a remark...',
-                                      hintStyle: TextStyle(
-                                        color: Colors.white.withOpacity(0.3),
-                                        fontSize: 13,
-                                      ),
-                                      prefixIcon: Icon(
-                                        Icons.edit_note_rounded,
-                                        color: Colors.white.withOpacity(0.5),
-                                      ),
-                                      border: InputBorder.none,
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                            vertical: 12,
-                                            horizontal: 16,
-                                          ),
-                                    ),
-                                    onSubmitted: (val) {
-                                      widget.onRemarkChanged(val);
-                                      _toggleExpanded();
-                                    },
-                                    onChanged: widget.onRemarkChanged,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        : const SizedBox.shrink(),
-                  ),
-                ],
-              ),
+                            ],
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ],
             ),
           ),
         ),
@@ -1723,92 +1570,74 @@ class _StudentAttendanceCardState extends State<_StudentAttendanceCard>
     );
   }
 
-  Widget _buildSecondaryStatusAction(
-    String status,
-    String label,
-    Color color,
-    IconData icon,
-  ) {
-    final bool isCurrent = widget.currentStatus == status;
-    return InkWell(
-      onTap: () => widget.onStatusChanged(status),
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          gradient: isCurrent
-              ? LinearGradient(
-                  colors: [color.withOpacity(0.4), color.withOpacity(0.2)],
-                )
-              : null,
-          color: isCurrent ? null : Colors.white.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isCurrent
-                ? color.withOpacity(0.5)
-                : Colors.white.withOpacity(0.1),
-            width: 1,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              size: 14,
-              color: isCurrent ? Colors.white : Colors.white.withOpacity(0.5),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w900,
-                color: isCurrent ? Colors.white : Colors.white.withOpacity(0.5),
-                letterSpacing: 0.5,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPremiumStatusBtn(String status, Color color, IconData icon) {
+  Widget _buildCompactStatusButton(String status, String label, Color color) {
     final isSelected = widget.currentStatus == status;
-    return InkWell(
-      onTap: () => widget.onStatusChanged(status),
-      borderRadius: BorderRadius.circular(14),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          gradient: isSelected
-              ? LinearGradient(colors: [color, color.withOpacity(0.8)])
-              : null,
-          color: isSelected ? null : color.withOpacity(0.12),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isSelected
-                ? Colors.white.withOpacity(0.3)
-                : color.withOpacity(0.2),
-            width: 1,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => widget.onStatusChanged(status),
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? color : color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: color.withOpacity(0.5),
+              width: isSelected ? 2 : 1,
+            ),
           ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: color.withOpacity(0.4),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : null,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? Colors.white : color,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
         ),
-        child: Icon(
-          icon,
-          size: 18,
-          color: isSelected ? Colors.white : color.withOpacity(0.9),
+      ),
+    );
+  }
+}
+
+class _InlineStatusButton extends StatelessWidget {
+  final IconData icon;
+  final Color borderColor;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _InlineStatusButton({
+    required this.icon,
+    required this.borderColor,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final backgroundColor = isActive
+        ? borderColor.withOpacity(0.35)
+        : Colors.white.withOpacity(0.10);
+    final iconColor = isActive ? Colors.white : borderColor.withOpacity(0.95);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: isActive
+                ? borderColor.withOpacity(0.95)
+                : borderColor.withOpacity(0.35),
+            width: isActive ? 2.0 : 1.2,
+          ),
         ),
+        child: Icon(icon, color: iconColor),
       ),
     );
   }

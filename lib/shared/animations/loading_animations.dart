@@ -12,10 +12,10 @@ class LoadingAnimations {
     Duration duration = const Duration(milliseconds: 1500),
   }) {
     return _ShimmerWidget(
-      child: child,
       baseColor: baseColor ?? Colors.grey[300]!,
       highlightColor: highlightColor ?? Colors.grey[100]!,
       duration: duration,
+      child: child,
     );
   }
 
@@ -27,10 +27,10 @@ class LoadingAnimations {
     double maxOpacity = 1.0,
   }) {
     return _PulseWidget(
-      child: child,
       duration: duration,
       minOpacity: minOpacity,
       maxOpacity: maxOpacity,
+      child: child,
     );
   }
 
@@ -42,10 +42,10 @@ class LoadingAnimations {
     double maxScale = 1.2,
   }) {
     return _BounceWidget(
-      child: child,
       duration: duration,
       minScale: minScale,
       maxScale: maxScale,
+      child: child,
     );
   }
 
@@ -54,7 +54,7 @@ class LoadingAnimations {
     required Widget child,
     Duration duration = const Duration(milliseconds: 1000),
   }) {
-    return _RotateWidget(child: child, duration: duration);
+    return _RotateWidget(duration: duration, child: child);
   }
 
   /// Wave loading animation
@@ -63,7 +63,7 @@ class LoadingAnimations {
     Duration duration = const Duration(milliseconds: 1200),
     int waveCount = 3,
   }) {
-    return _WaveWidget(child: child, duration: duration, waveCount: waveCount);
+    return _WaveWidget(duration: duration, waveCount: waveCount, child: child);
   }
 }
 

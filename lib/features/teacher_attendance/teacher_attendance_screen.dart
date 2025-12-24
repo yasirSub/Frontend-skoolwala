@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import '../../shared/config/api_config.dart';
 
 class TeacherAttendanceScreen extends StatefulWidget {
+  const TeacherAttendanceScreen({super.key});
+
   @override
   _TeacherAttendanceScreenState createState() =>
       _TeacherAttendanceScreenState();

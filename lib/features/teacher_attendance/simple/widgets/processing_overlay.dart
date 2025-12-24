@@ -6,11 +6,11 @@ class ProcessingOverlay extends StatelessWidget {
   final String? faceAnalysisStatus;
 
   const ProcessingOverlay({
-    Key? key,
+    super.key,
     required this.isProcessing,
     required this.isAnalyzingFace,
     required this.faceAnalysisStatus,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

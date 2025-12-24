@@ -1,6 +1,8 @@
 // Shared widgets exports
 export 'custom_app_bar.dart';
-export 'custom_bottom_nav_bar.dart';
+export 'custom_bottom_nav_bar.dart' hide BottomNavConfigs, BottomNavItem;
+export 'animated_bottom_nav_bar.dart';
+export 'main_navigation_shell.dart';
 export 'animated_face_scan.dart';
 export 'error_handler.dart';
 export 'face_wireframe.dart';

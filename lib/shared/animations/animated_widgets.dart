@@ -367,7 +367,7 @@ class _AnimatedCircularProgressState extends State<AnimatedCircularProgress>
                   strokeWidth: widget.strokeWidth,
                   color: widget.progressColor ?? Theme.of(context).primaryColor,
                 ),
-                child: Container(width: widget.size, height: widget.size),
+                child: SizedBox(width: widget.size, height: widget.size),
               ),
             ],
           ),

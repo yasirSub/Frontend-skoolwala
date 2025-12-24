@@ -6,6 +6,7 @@ import 'package:skoolwala/features/dashboard/screens/dashboard_screen.dart';
 import 'package:skoolwala/features/attendance/screens/attendance_scan_screen.dart';
 import 'package:skoolwala/features/attendance/screens/face_verification_screen.dart';
 import 'package:skoolwala/features/attendance/screens/attendance_history_screen.dart';
+import 'package:skoolwala/features/attendance/screens/class_attendance_screen.dart';
 import 'package:skoolwala/features/profile/screens/profile_screen.dart';
 import 'package:skoolwala/features/statistics/screens/statistics_screen.dart';
 import 'package:skoolwala/features/attendance/screens/teacher_self_attendance_screen.dart';
@@ -30,6 +31,7 @@ class AppRoutes {
   static const String attendanceHistory = '/attendance/history';
   static const String weekendAttendanceInspection =
       '/attendance/weekend-inspection';
+  static const String classAttendance = '/attendance/class';
 
   // Profile routes
   static const String profile = '/profile';
@@ -103,6 +105,19 @@ class AppRoutes {
         return CustomPageRoute(
           child: const WeekendAttendanceInspectionScreen(),
           transitionType: PageTransitionType.slideAndFade,
+        );
+
+      case classAttendance:
+        final args = settings.arguments as Map<String, dynamic>?;
+        return CustomPageRoute(
+          child: ClassAttendanceScreen(
+            classTitle: args?['classTitle'] ?? 'Class',
+            initialDate: args?['date'] as DateTime? ?? DateTime.now(),
+            students:
+                (args?['students'] as List<ClassAttendanceStudent>?) ??
+                const <ClassAttendanceStudent>[],
+          ),
+          transitionType: PageTransitionType.slideFromRight,
         );
 
       case profile:

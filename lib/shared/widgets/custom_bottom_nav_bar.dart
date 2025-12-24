@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../services/bottom_nav_handler.dart';
-import 'package:skoolwala/shared/theme/app_theme.dart';
 
 /// Custom Bottom Navigation Bar Widget
 /// Reusable bottom navigation bar with modern design
@@ -33,105 +32,105 @@ class CustomBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Adapt colors based on theme
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final defaultPrimaryColor =
-        primaryColor ?? (isDark ? AppTheme.darkPurple : AppTheme.primaryPurple);
-    final defaultAccentColor =
-        accentColor ?? (isDark ? AppTheme.accentCyan : AppTheme.accentCyan);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
 
-    return Container(
-      height: height,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [defaultPrimaryColor, defaultPrimaryColor.withOpacity(0.95)],
-        ),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(25),
-          topRight: Radius.circular(25),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: (isDark ? Colors.black : defaultPrimaryColor).withOpacity(
-              isDark ? 0.6 : 0.3,
-            ),
-            blurRadius: 15,
-            offset: const Offset(0, -3),
-          ),
-          BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.4 : 0.1),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(25),
-          topRight: Radius.circular(25),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: currentIndex,
-          onTap: (index) {
-            if (autoNavigation && onTap == null) {
-              // Use centralized navigation handler with context from build method
-              BottomNavHandler.handleNavigation(context, index, currentIndex);
-            } else {
-              // Use custom callback if provided
-              onTap?.call(index);
-            }
-          },
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          selectedItemColor: defaultAccentColor,
-          unselectedItemColor: (isDark ? Colors.white70 : Colors.white)
-              .withOpacity(0.5),
-          selectedLabelStyle: TextStyle(
-            fontWeight: FontWeight.w700,
-            fontSize: 11,
-            letterSpacing: 0.5,
-            color: defaultAccentColor,
-          ),
-          unselectedLabelStyle: TextStyle(
-            fontWeight: FontWeight.w500,
-            fontSize: 10,
-            letterSpacing: 0.3,
-            color: (isDark ? Colors.white70 : Colors.white).withOpacity(0.5),
-          ),
-          selectedFontSize: 11,
-          unselectedFontSize: 10,
-          showSelectedLabels: showLabels,
-          showUnselectedLabels: showLabels,
-          items: items.map((item) {
-            final index = items.indexOf(item);
-            final isSelected = currentIndex == index;
+    // Use app theme colors by default; allow screens to override with `primaryColor`/`accentColor`.
+    final defaultPrimaryColor = primaryColor ?? scheme.primaryContainer;
+    final defaultAccentColor = accentColor ?? scheme.secondary;
 
-            return BottomNavigationBarItem(
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: isSelected
-                      ? defaultAccentColor.withOpacity(isDark ? 0.25 : 0.2)
-                      : Colors.transparent,
+    // Compute a readable foreground for icons/labels when the background is overridden.
+    final bgBrightness = ThemeData.estimateBrightnessForColor(
+      defaultPrimaryColor,
+    );
+    final onBackground = bgBrightness == Brightness.dark
+        ? Colors.white
+        : Colors.black;
+
+    final selectedLabelStyle =
+        (theme.textTheme.labelSmall ?? const TextStyle(fontSize: 11)).copyWith(
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.4,
+          color: defaultAccentColor,
+        );
+    final unselectedLabelStyle =
+        (theme.textTheme.labelSmall ?? const TextStyle(fontSize: 10)).copyWith(
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0.2,
+          color: onBackground.withOpacity(0.60),
+        );
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        height: height,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              defaultPrimaryColor,
+              Color.lerp(defaultPrimaryColor, scheme.primary, 0.12) ??
+                  defaultPrimaryColor,
+            ],
+          ),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(25),
+            topRight: Radius.circular(25),
+          ),
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(25),
+            topRight: Radius.circular(25),
+          ),
+          child: BottomNavigationBar(
+            currentIndex: currentIndex,
+            onTap: (index) {
+              if (autoNavigation && onTap == null) {
+                BottomNavHandler.handleNavigation(context, index, currentIndex);
+              } else {
+                onTap?.call(index);
+              }
+            },
+            type: BottomNavigationBarType.fixed,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            selectedItemColor: defaultAccentColor,
+            unselectedItemColor: onBackground.withOpacity(0.55),
+            selectedLabelStyle: selectedLabelStyle,
+            unselectedLabelStyle: unselectedLabelStyle,
+            selectedFontSize: selectedLabelStyle.fontSize ?? 11,
+            unselectedFontSize: unselectedLabelStyle.fontSize ?? 10,
+            showSelectedLabels: showLabels,
+            showUnselectedLabels: showLabels,
+            items: items.map((item) {
+              final index = items.indexOf(item);
+              final isSelected = currentIndex == index;
+
+              return BottomNavigationBarItem(
+                icon: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: isSelected
+                        ? defaultAccentColor.withOpacity(isDark ? 0.22 : 0.18)
+                        : Colors.transparent,
+                  ),
+                  child: Icon(
+                    isSelected ? item.selectedIcon : item.icon,
+                    size: isSelected ? 26 : 24,
+                    color: isSelected
+                        ? defaultAccentColor
+                        : onBackground.withOpacity(0.70),
+                  ),
                 ),
-                child: Icon(
-                  isSelected ? item.selectedIcon : item.icon,
-                  size: isSelected ? 26 : 24,
-                  color: isSelected
-                      ? defaultAccentColor
-                      : (isDark ? Colors.white70 : Colors.white).withOpacity(
-                          0.6,
-                        ),
-                ),
-              ),
-              label: item.label,
-              tooltip: item.tooltip ?? item.label,
-            );
-          }).toList(),
+                label: item.label,
+                tooltip: item.tooltip ?? item.label,
+              );
+            }).toList(),
+          ),
         ),
       ),
     );

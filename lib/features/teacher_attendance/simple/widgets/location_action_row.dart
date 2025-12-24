@@ -7,12 +7,12 @@ class LocationActionRow extends StatelessWidget {
   final VoidCallback? onDiagnose;
 
   const LocationActionRow({
-    Key? key,
+    super.key,
     required this.isProcessing,
     required this.isFetchingLocation,
     this.onRefresh,
     this.onDiagnose,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

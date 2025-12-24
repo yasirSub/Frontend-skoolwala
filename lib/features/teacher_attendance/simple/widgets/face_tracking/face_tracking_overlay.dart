@@ -6,10 +6,10 @@ class FaceTrackingOverlay extends StatefulWidget {
   final bool isAnalyzingFace;
 
   const FaceTrackingOverlay({
-    Key? key,
+    super.key,
     this.isProcessing = false,
     this.isAnalyzingFace = false,
-  }) : super(key: key);
+  });
 
   @override
   State<FaceTrackingOverlay> createState() => _FaceTrackingOverlayState();

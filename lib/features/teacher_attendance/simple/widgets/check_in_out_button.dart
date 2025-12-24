@@ -16,7 +16,7 @@ class CheckInOutButton extends StatelessWidget {
   final void Function(String type) onMarkAttendance;
 
   const CheckInOutButton({
-    Key? key,
+    super.key,
     required this.schoolLocationLoaded,
     required this.schoolLocation,
     required this.isFetchingMobileLocation,
@@ -29,7 +29,7 @@ class CheckInOutButton extends StatelessWidget {
     required this.onSchoolLocationNotSet,
     required this.onRestartFaceAnalysis,
     required this.onMarkAttendance,
-  }) : super(key: key);
+  });
 
   bool get _canShowTryAgainButton {
     final s = faceAnalysisStatus?.toLowerCase();
@@ -72,8 +72,9 @@ class CheckInOutButton extends StatelessWidget {
     if (status.contains('failed') || status.contains('fail')) {
       if (status.contains('face')) return 'Face analysis failed';
       if (status.contains('validation')) return 'Validation failed';
-      if (status.contains('location') || status.contains('gps'))
+      if (status.contains('location') || status.contains('gps')) {
         return 'Location failed';
+      }
       return 'Failed';
     }
     if (status.contains('error')) {

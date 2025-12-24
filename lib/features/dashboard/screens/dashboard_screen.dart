@@ -20,7 +20,7 @@ import 'package:skoolwala/features/profile/models/teacher_profile.dart';
 import 'package:skoolwala/shared/services/session_manager.dart';
 import 'package:skoolwala/routes/app_routes.dart';
 import 'package:skoolwala/shared/widgets/custom_app_bar.dart';
-import 'package:skoolwala/shared/widgets/custom_bottom_nav_bar.dart';
+import 'package:skoolwala/shared/widgets/animated_bottom_nav_bar.dart';
 import 'package:skoolwala/shared/widgets/app_sidebar.dart';
 import 'package:skoolwala/features/dashboard/widgets/index.dart';
 import 'package:skoolwala/features/dashboard/widgets/single_class_widget.dart';
@@ -532,10 +532,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     print('🏷️ Is Teacher: $isTeacher');
     print('📋 Nav Items Count: ${navItems.length}');
 
-    return CustomBottomNavBar(
-      currentIndex: _selectedIndex,
-      primaryColor: AppTheme.dashboardPrimary,
-      accentColor: AppTheme.dashboardAccentLight,
+    return AnimatedBottomNavBar(
+      currentIndex: 0, // Dashboard is always Home (index 0)
       items: navItems,
       // Custom onTap for dashboard-specific actions
       onTap: (index) {
@@ -548,9 +546,8 @@ class _DashboardScreenState extends State<DashboardScreen>
           return;
         }
 
-        setState(() {
-          _selectedIndex = index;
-        });
+        // Don't change _selectedIndex - we use push navigation, not tab switching
+        // The target screen will have its own bottom bar with its own index
 
         // Get the label of the tapped item to determine navigation
         final itemLabel = navItems[index].label.toLowerCase().trim();
@@ -582,6 +579,9 @@ class _DashboardScreenState extends State<DashboardScreen>
         }
       },
       autoNavigation: false, // Dashboard has custom navigation logic
+      collapsible:
+          false, // Disable collapse on dashboard - always show full bar
+      notificationCount: 0, // Pass notification count if needed
     );
   }
 
@@ -692,6 +692,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       },
       child: Scaffold(
         extendBodyBehindAppBar: true,
+        extendBody: true,
         backgroundColor: Colors.transparent,
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(60),

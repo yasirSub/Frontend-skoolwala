@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
+import 'package:skoolwala/shared/theme/app_theme.dart';
 
-/// Dynamic instructions widget that shows different messages based on attendance state
 class AttendanceInstructions extends StatelessWidget {
   final bool isAnalyzingFace;
   final bool isProcessing;
@@ -24,13 +25,6 @@ class AttendanceInstructions extends StatelessWidget {
   }) : super(key: key);
 
   String _getInstructionMessage() {
-    // Show attempt counter during automatic retries (1/3, 2/3, 3/3)
-    // Show counter when analyzing face OR when faceAnalysisStatus indicates analyzing
-    // - First attempt: noMatchCount = 0, showing (1/3)
-    // - After 1st failure: noMatchCount = 1, showing (2/3)
-    // - After 2nd failure: noMatchCount = 2, showing (3/3)
-
-    // Check if we're in analyzing state (either from flag or status)
     bool isCurrentlyAnalyzing = isAnalyzingFace;
     if (!isCurrentlyAnalyzing && faceAnalysisStatus != null) {
       final status = faceAnalysisStatus!.toLowerCase();
@@ -43,127 +37,116 @@ class AttendanceInstructions extends StatelessWidget {
     }
 
     if (isCurrentlyAnalyzing && noMatchCount < 3) {
-      String baseMessage = 'Analyzing face features...';
-      if (faceAnalysisStatus != null) {
-        final status = faceAnalysisStatus!.toLowerCase();
-        if (status.contains('analyzing face') ||
-            status.contains('analyzing...') ||
-            status.contains('analyzing')) {
-          baseMessage = 'Analyzing face features...';
-        } else if (status.contains('validating') ||
-            status.contains('validating face')) {
-          baseMessage = 'Validating face...';
-        } else if (status.contains('verifying') ||
-            status.contains('verifying face') ||
-            status.contains('verifying face identity')) {
-          baseMessage = 'Matching data...';
-        } else if (status.contains('matching') ||
-            status.contains('matching data')) {
-          baseMessage = 'Matching data...';
-        } else if (status.contains('capturing') ||
-            status.contains('capturing image')) {
-          baseMessage = 'Capturing image...';
-        }
-      }
-      // Show current attempt (noMatchCount + 1) out of 3 total attempts
-      // noMatchCount starts at 0, so first attempt shows (1/3)
-      return '$baseMessage (${noMatchCount + 1}/3)';
+      return 'SCANNING BIOMETRICS...';
     }
 
-    // Priority 1: Show active processing/background activities
-    if (isAnalyzingFace) {
-      if (faceAnalysisStatus != null) {
-        final status = faceAnalysisStatus!.toLowerCase();
-        if (status.contains('analyzing face') ||
-            status.contains('analyzing...') ||
-            status.contains('analyzing')) {
-          return 'Analyzing face features...';
-        }
-        if (status.contains('capturing') ||
-            status.contains('capturing image')) {
-          return 'Capturing image...';
-        }
-        if (status.contains('validating') ||
-            status.contains('validating face')) {
-          return 'Validating face...';
-        }
-        if (status.contains('verifying') ||
-            status.contains('verifying face') ||
-            status.contains('verifying face identity')) {
-          return 'Matching data...';
-        }
-        if (status.contains('matching') || status.contains('matching data')) {
-          return 'Matching data...';
-        }
-        if (status.contains('starting') ||
-            status.contains('initializing') ||
-            status.contains('starting automatic')) {
-          return 'Initializing face recognition...';
-        }
-      }
-      return 'Analyzing face features...';
-    }
+    if (isFetchingMobileLocation) return 'FETCHING LOCATION...';
+    if (isProcessing) return 'PROCESSING DATA...';
+    if (!schoolLocationLoaded) return 'SYNCING SCHOOL DATA...';
 
-    if (isFetchingMobileLocation) {
-      return 'Fetching mobile location...';
-    }
-
-    if (isProcessing) {
-      return 'Processing attendance...';
-    }
-
-    if (!schoolLocationLoaded) {
-      return 'Fetching school location...';
-    }
-
-    // Priority 2: Check for face not found errors
     if (faceAnalysisStatus != null) {
       final status = faceAnalysisStatus!.toLowerCase();
-
-      if (status.contains('no matching') ||
-          status.contains('no match') ||
-          status.contains('face not found')) {
-        if (noMatchCount >= 3) {
-          return 'Please place your face to camera';
-        }
-        return 'Face not found. Please place your face to camera';
+      if (status.contains('no matching') || status.contains('face not found')) {
+        return 'FACE NOT DETECTED';
       }
-
-      if (status.contains('mismatch') || status.contains('not match')) {
-        return 'Face not match. Please try again';
-      }
+      if (status.contains('mismatch')) return 'IDENTITY MISMATCH';
     }
 
-    // Priority 3: If no face detected at all (no embedding captured)
-    if (!hasFaceEmbedding && !isFaceValidatedForLoggedInUser) {
-      if (faceAnalysisStatus != null) {
-        final status = faceAnalysisStatus!.toLowerCase();
-        if (status.contains('no face detected') ||
-            status.contains('no face found')) {
-          return 'Please place your face to camera';
-        }
-      }
-      // Default when nothing is happening and no face found
-      return 'Please place your face to camera';
-    }
+    if (isFaceValidatedForLoggedInUser) return 'READY FOR ATTENDANCE';
 
-    // Priority 4: Face validated - show ready message
-    if (isFaceValidatedForLoggedInUser) {
-      return 'Face verified! Ready for attendance';
-    }
+    return 'POSITION FACE IN FRAME';
+  }
 
-    // Default fallback
-    return 'Position your face in the circle and tap Check In or Check Out';
+  IconData _getIcon() {
+    if (isAnalyzingFace || isProcessing || isFetchingMobileLocation) {
+      return Icons.waves_rounded;
+    }
+    if (isFaceValidatedForLoggedInUser) return Icons.verified_rounded;
+    return Icons.face_retouching_natural;
   }
 
   @override
   Widget build(BuildContext context) {
     final message = _getInstructionMessage();
+    final bool isActivity =
+        isAnalyzingFace || isProcessing || isFetchingMobileLocation;
 
-    return Text(
-      message,
-      style: TextStyle(color: Colors.white70, fontSize: 14),
-      textAlign: TextAlign.center,
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color:
+                  (isFaceValidatedForLoggedInUser
+                          ? Colors.greenAccent
+                          : AppTheme.primaryPurple)
+                      .withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              _getIcon(),
+              color: isFaceValidatedForLoggedInUser
+                  ? Colors.greenAccent
+                  : Colors.white70,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  message,
+                  style: TextStyle(
+                    color: isFaceValidatedForLoggedInUser
+                        ? Colors.greenAccent
+                        : Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                if (isActivity)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Please hold still for a moment',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.4),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      isFaceValidatedForLoggedInUser
+                          ? 'Verification complete'
+                          : 'Automatic scanning active',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.4),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

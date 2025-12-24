@@ -35,7 +35,9 @@ class FaceEmbeddingService {
     final emb = List<double>.from(output.first);
     final norm = math.sqrt(emb.fold<double>(0, (s, v) => s + v * v));
     if (norm > 0) {
-      for (int i = 0; i < emb.length; i++) emb[i] /= norm;
+      for (int i = 0; i < emb.length; i++) {
+        emb[i] /= norm;
+      }
     }
     return emb;
   }
@@ -49,7 +51,9 @@ class FaceEmbeddingService {
     // L2 normalize
     final norm = math.sqrt(out.fold<double>(0, (s, v) => s + v * v));
     if (norm > 0) {
-      for (int i = 0; i < out.length; i++) out[i] /= norm;
+      for (int i = 0; i < out.length; i++) {
+        out[i] /= norm;
+      }
     }
     return out;
   }

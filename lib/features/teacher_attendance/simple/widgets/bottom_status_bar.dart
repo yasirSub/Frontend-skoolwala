@@ -8,12 +8,12 @@ class BottomStatusBar extends StatelessWidget {
   final String bottomStatusMessage;
 
   const BottomStatusBar({
-    Key? key,
+    super.key,
     required this.isProcessing,
     required this.isAnalyzingFace,
     required this.isFaceValidatedForLoggedInUser,
     required this.bottomStatusMessage,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

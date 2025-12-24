@@ -12,7 +12,7 @@ class AnimationDemoScreen extends StatefulWidget {
 class _AnimationDemoScreenState extends State<AnimationDemoScreen> {
   int _counter = 0;
   double _progress = 0.0;
-  DateTime _currentMonth = DateTime.now();
+  final DateTime _currentMonth = DateTime.now();
 
   @override
   Widget build(BuildContext context) {

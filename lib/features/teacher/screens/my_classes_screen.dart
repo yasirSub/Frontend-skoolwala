@@ -3,8 +3,8 @@ import 'package:skoolwala/shared/config/api_config.dart';
 import 'package:skoolwala/shared/services/session_manager.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import '../../../shared/widgets/app_loading_indicator.dart';
 import '../../students/models/class_model.dart';
+import 'package:skoolwala/shared/animations/loading_animations.dart';
 import 'class_sections_screen.dart';
 
 class MyClassesScreen extends StatefulWidget {
@@ -136,7 +136,23 @@ class _MyClassesScreenState extends State<MyClassesScreen> {
 
   Widget _buildBody() {
     if (_isLoading) {
-      return const Center(child: AppLoadingIndicator());
+      return LoadingAnimations.shimmer(
+        baseColor: Colors.grey.withOpacity(0.08),
+        highlightColor: Colors.grey.withOpacity(0.15),
+        child: ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: 8,
+          physics: const NeverScrollableScrollPhysics(),
+          itemBuilder: (context, index) => Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            height: 72,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      );
     }
 
     if (_errorMessage != null) {

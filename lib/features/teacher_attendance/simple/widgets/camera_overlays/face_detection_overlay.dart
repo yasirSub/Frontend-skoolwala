@@ -6,11 +6,11 @@ class FaceDetectionOverlay extends StatelessWidget {
   final bool isAnalyzingFace;
 
   const FaceDetectionOverlay({
-    Key? key,
+    super.key,
     required this.animation,
     required this.isProcessing,
     required this.isAnalyzingFace,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -287,6 +287,7 @@ class StudentAttendanceService {
     String? startDate,
     String? endDate,
     int? studentId,
+    int? subjectId,
   }) async {
     try {
       final Map<String, String> queryParams = {
@@ -297,6 +298,7 @@ class StudentAttendanceService {
       if (startDate != null) queryParams['start_date'] = startDate;
       if (endDate != null) queryParams['end_date'] = endDate;
       if (studentId != null) queryParams['student_id'] = studentId.toString();
+      if (subjectId != null) queryParams['subject_id'] = subjectId.toString();
 
       final response = await HttpClient().get(
         ApiConfig.getStudentAttendanceReport,

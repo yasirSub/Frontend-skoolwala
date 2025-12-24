@@ -5,7 +5,7 @@ import 'package:skoolwala/features/teacher/screens/my_classes_screen.dart';
 import 'package:skoolwala/features/teacher/screens/teacher_schedule_screen.dart';
 import 'package:skoolwala/features/profile/screens/profile_screen.dart';
 import 'package:skoolwala/shared/services/session_manager.dart';
-import 'package:skoolwala/shared/widgets/custom_bottom_nav_bar.dart';
+import 'package:skoolwala/shared/widgets/animated_bottom_nav_bar.dart';
 
 /// Centralized Bottom Navigation Handler
 /// Handles all navigation logic for bottom navigation bar

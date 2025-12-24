@@ -32,7 +32,7 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen>
   bool _isFaceDetected = false;
   String? _errorMessage;
   String _statusMessage = 'Position your face in the circle';
-  bool _useMLKit =
+  final bool _useMLKit =
       true; // Toggle between mock and real ML Kit - enabled for camera
   // Multi-angle enrollment state
   final List<String> _enrollAngles = const ['center', 'left', 'right'];
@@ -58,7 +58,7 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen>
   bool _captureInFlight = false; // prevent overlapping takePicture calls
 
   // Location verification state
-  bool _locationVerified = false;
+  final bool _locationVerified = false;
   bool _locationVerificationRequired = false;
 
   @override

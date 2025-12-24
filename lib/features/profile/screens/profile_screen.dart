@@ -14,6 +14,7 @@ import 'package:skoolwala/shared/services/session_manager.dart';
 import 'package:skoolwala/shared/services/persistent_storage.dart';
 import 'package:skoolwala/features/profile/mailbox/screens/mailbox_screen.dart';
 import 'package:skoolwala/features/profile/mailbox/services/mailbox_unread_store.dart';
+import 'package:skoolwala/shared/widgets/animated_bottom_nav_bar.dart';
 import '../models/teacher_profile.dart';
 import '../services/teacher_profile_service.dart';
 import 'package:skoolwala/shared/theme/app_theme.dart';
@@ -351,6 +352,33 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
+  Widget _buildBottomNavBar(BuildContext context) {
+    final userRole = SessionManager.instance.currentTeacher?.role;
+    final navItems = BottomNavConfigs.getItemsForRole(userRole);
+
+    // Find profile index
+    int profileIndex = navItems.indexWhere(
+      (item) => item.label.toLowerCase().contains('profile'),
+    );
+    if (profileIndex == -1) profileIndex = navItems.length - 1;
+
+    return AnimatedBottomNavBar(
+      currentIndex: profileIndex,
+      items: navItems,
+      onTap: (index) {
+        final itemLabel = navItems[index].label.toLowerCase().trim();
+        if (itemLabel.contains('home')) {
+          Navigator.pop(context); // Go back to dashboard
+        } else if (itemLabel.contains('schedule')) {
+          Navigator.pop(context); // Go back, dashboard will handle navigation
+        }
+        // If profile is tapped, we're already here
+      },
+      autoNavigation: false,
+      collapsible: true,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Use refreshed data if available, otherwise use original data
@@ -384,6 +412,8 @@ class _ProfileScreenState extends State<ProfileScreen>
         ),
         child: Scaffold(
           backgroundColor: Colors.transparent,
+          extendBody: true,
+          bottomNavigationBar: _buildBottomNavBar(context),
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,

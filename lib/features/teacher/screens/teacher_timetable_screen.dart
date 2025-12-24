@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../../shared/widgets/app_loading_indicator.dart';
 import '../services/teacher_timetable_service.dart';
 
