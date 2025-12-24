@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
@@ -7,7 +10,68 @@ import '../services/teacher_class_service.dart';
 import '../../attendance/services/attendance_service.dart';
 import 'package:intl/intl.dart';
 import '../../../shared/widgets/app_loading_indicator.dart';
+import '../../../shared/config/api_config.dart';
 import '../../../shared/theme/app_theme.dart';
+
+ImageProvider? _resolveStudentAvatarImageProvider(String rawPhoto) {
+  final photo = rawPhoto.trim();
+  if (photo.isEmpty) return null;
+
+  final webBase = ApiConfig.getWebBaseUrl();
+
+  // Absolute web URL
+  if (photo.startsWith('http://') || photo.startsWith('https://')) {
+    return NetworkImage(photo);
+  }
+
+  final uri = Uri.tryParse(photo);
+  if (uri != null && uri.hasScheme) {
+    if (uri.scheme == 'http' || uri.scheme == 'https') {
+      return NetworkImage(uri.toString());
+    }
+
+    // Some API responses incorrectly send "file:///filename.jpg" for server files.
+    // If the file URI only contains a filename (no folders), treat it as a backend filename.
+    if (uri.scheme == 'file') {
+      final path = uri.path; // e.g. "/abc.jpg" or "/storage/.../abc.jpg"
+      final isJustFilename =
+          path.startsWith('/') &&
+          path.split('/').where((p) => p.isNotEmpty).length == 1;
+
+      if (isJustFilename) {
+        final filename = path.replaceFirst('/', '');
+        return NetworkImage('$webBase/uploads/images/student/$filename');
+      }
+
+      // Real local file path
+      if (kIsWeb) return null;
+      try {
+        return FileImage(File.fromUri(uri));
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+  // Local absolute path (Android/iOS/Windows) without scheme
+  if (!kIsWeb) {
+    final isWindowsAbs = RegExp(r'^[a-zA-Z]:[\\/]').hasMatch(photo);
+    final isUnixAbs = photo.startsWith('/');
+    if (isWindowsAbs || isUnixAbs) {
+      return FileImage(File(photo));
+    }
+  }
+
+  // Backend-relative path or plain filename
+  if (photo.startsWith('/')) {
+    return NetworkImage('$webBase$photo');
+  }
+  if (photo.contains('/')) {
+    return NetworkImage('$webBase/$photo');
+  }
+
+  return NetworkImage('$webBase/uploads/images/student/$photo');
+}
 
 class MarkStudentAttendanceScreen extends StatefulWidget {
   final TeacherClass? teacherClass;
@@ -771,17 +835,18 @@ class _MarkStudentAttendanceScreenState
                   'Mark Attendance',
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),
-            const SizedBox(height: 2),
-            Text(
-              selectedSubjectName != null
-                  ? '$selectedSubjectName • ${DateFormat('MMMM d, yyyy').format(_selectedDate)}'
-                  : DateFormat('MMMM d, yyyy').format(_selectedDate),
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.white.withOpacity(0.85),
-                fontWeight: FontWeight.w500,
+            if (selectedSubjectName != null &&
+                selectedSubjectName.trim().isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(
+                selectedSubjectName.trim(),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.white.withOpacity(0.85),
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
+            ],
           ],
         ),
         actions: [
@@ -1342,20 +1407,24 @@ class _StudentAttendanceCardState extends State<_StudentAttendanceCard>
                       CircleAvatar(
                         radius: 24,
                         backgroundColor: Colors.white.withOpacity(0.14),
-                        backgroundImage: widget.student.photo.isNotEmpty
-                            ? NetworkImage(widget.student.photo)
-                            : null,
-                        child: widget.student.photo.isEmpty
-                            ? Text(
-                                widget.student.name.isNotEmpty
-                                    ? widget.student.name[0].toUpperCase()
-                                    : '?',
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
-                                  fontWeight: FontWeight.w900,
-                                ),
-                              )
-                            : null,
+                        foregroundImage: _resolveStudentAvatarImageProvider(
+                          widget.student.photo,
+                        ),
+                        onForegroundImageError: (exception, stackTrace) {
+                          // Keep initials visible if the photo fails.
+                          debugPrint(
+                            '⚠️ Failed to load student photo: ${widget.student.photo} ($exception)',
+                          );
+                        },
+                        child: Text(
+                          widget.student.name.isNotEmpty
+                              ? widget.student.name[0].toUpperCase()
+                              : '?',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 12),
                       // Student info section

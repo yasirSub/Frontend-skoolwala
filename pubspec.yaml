@@ -16,6 +16,7 @@ dependencies:
   permission_handler: ^12.0.1
   tflite_flutter: ^0.11.0
   shared_preferences: ^2.2.2
+  flutter_local_notifications: ^19.5.0
   geolocator: ^14.0.2
   path_provider: ^2.1.4
   provider: ^6.1.2
@@ -26,6 +27,7 @@ dependencies:
   crypto: ^3.0.3
   url_launcher: ^6.3.2
   flutter_tts: ^4.2.3
+  animated_bottom_navigation_bar: ^1.4.0
   # tflite_flutter_helper: ^0.3.1  # Commented out due to version conflict
   # TODO: Add location packages later
   # geolocator: ^10.1.0
@@ -44,7 +46,7 @@ flutter:
   assets:
     - assets/models/FaceMobileNet_Float32.tflite
     - assets/FACEdect.png
-    - assets/Skoolwala Logo.png
+    - assets/skoolwala_logo.png
 
 dependency_overrides:
   typed_data: ^1.3.2
@@ -52,16 +54,16 @@ dependency_overrides:
 flutter_icons:
   android: "launcher_icon"
   ios: true
-  image_path: "assets/Skoolwala Logo.png"
+  image_path: "assets/skoolwala_logo.png"
   min_sdk_android: 21
   adaptive_icon_background: "#6D63B8"
-  adaptive_icon_foreground: "assets/Skoolwala Logo.png"
+  adaptive_icon_foreground: "assets/skoolwala_logo.png"
 
 flutter_native_splash:
   color: "#6D63B8"
-  image: "assets/Skoolwala Logo.png"
+  image: "assets/skoolwala_logo.png"
   android_12:
-    image: "assets/Skoolwala Logo.png"
+    image: "assets/skoolwala_logo.png"
     icon_background_color: "#6D63B8"
     color: "#6D63B8"
   android: true
