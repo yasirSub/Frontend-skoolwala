@@ -34,11 +34,11 @@ class ApiConfig {
   /// Production API URL
   static const String productionBaseUrl = 'https://skoolwala.com/api';
 
-  /// Development API URL (local server)
-  static const String developmentBaseUrl = 'http://192.168.31.129:8080/api';
+  /// Development API URL - Physical Device (10.25.202.134 is your machine IP)
+  static const String developmentBaseUrl = 'http://10.25.202.134:8080/api';
 
   /// Localhost URL (for emulator/simulator)
-  static const String localhostBaseUrl = 'http://localhost/skoolwala/api';
+  static const String localhostBaseUrl = 'http://10.25.202.134:8080/api';
 
   /// Android Emulator URL
   static const String androidEmulatorUrl = 'http://10.0.2.2:8080/api';

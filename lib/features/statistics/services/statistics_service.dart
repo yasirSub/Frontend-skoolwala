@@ -1,6 +1,7 @@
 import 'package:skoolwala/features/auth/services/teacher_service.dart';
 import 'package:skoolwala/features/attendance/services/attendance_service.dart';
 import 'package:skoolwala/features/school/services/school_data_service.dart';
+import 'package:skoolwala/features/teacher/services/teacher_class_service.dart';
 import 'package:skoolwala/shared/models/teacher.dart';
 
 class StatisticsData {
@@ -85,53 +86,80 @@ class StatisticsService {
           ? (presentDays / totalWorkingDays) * 100
           : 0.0;
 
-      // 3. Fetch student and class statistics
+      // 3. Fetch student and class statistics (teacher-specific)
       int totalStudents = 0;
       int totalClasses = 0;
       int totalSections = 0;
       List<Map<String, dynamic>> classStatistics = [];
 
       try {
-        final classResponse = await SchoolDataService.getClassList();
-        if (classResponse['classes'] != null) {
-          final classes = (classResponse['classes'] as List<dynamic>? ?? [])
-              .cast<Map<String, dynamic>>();
+        final classesRes = await TeacherClassService.getMyClasses();
+
+        if (classesRes.isSuccess && classesRes.classes.isNotEmpty) {
+          final classes = classesRes.classes;
           totalClasses = classes.length;
 
-          for (final classData in classes) {
-            try {
-              final sectionsResponse =
-                  await SchoolDataService.getSectionListByClass(
-                    classId: classData['id']?.toString() ?? '',
-                  );
+          // Unique sections across classes
+          final Set<String> sectionKeys = {};
 
-              if (sectionsResponse['sections'] != null) {
-                final sections =
-                    sectionsResponse['sections'] as List<dynamic>? ?? [];
-                totalSections += sections.length;
+          for (final c in classes) {
+            sectionKeys.add('${c.classId}-${c.sectionId}');
+            totalStudents += c.studentCount;
 
-                for (final section in sections) {
-                  try {
-                    final studentsResponse =
-                        await SchoolDataService.getStudentList(
-                          classId: classData['id']?.toString() ?? '',
-                          sectionId: section['id']?.toString() ?? '',
-                        );
+            classStatistics.add({
+              'class': c.className,
+              'section': c.sectionName,
+              'students': c.studentCount,
+            });
+          }
 
-                    if (studentsResponse['students'] != null) {
-                      final students =
-                          studentsResponse['students'] as List<dynamic>? ?? [];
-                      totalStudents += students.length;
-                    }
-                  } catch (e) {
-                    print(
-                      'Error fetching students for section ${section['id']}: $e',
+          totalSections = sectionKeys.length;
+        } else {
+          // Fallback to school-wide data if teacher-specific fails
+          final classResponse = await SchoolDataService.getClassList();
+          if (classResponse['classes'] != null) {
+            final classes = (classResponse['classes'] as List<dynamic>? ?? [])
+                .cast<Map<String, dynamic>>();
+            totalClasses = classes.length;
+
+            for (final classData in classes) {
+              try {
+                final sectionsResponse =
+                    await SchoolDataService.getSectionListByClass(
+                      classId: classData['id']?.toString() ?? '',
                     );
+
+                if (sectionsResponse['sections'] != null) {
+                  final sections =
+                      sectionsResponse['sections'] as List<dynamic>? ?? [];
+                  totalSections += sections.length;
+
+                  for (final section in sections) {
+                    try {
+                      final studentsResponse =
+                          await SchoolDataService.getStudentList(
+                            classId: classData['id']?.toString() ?? '',
+                            sectionId: section['id']?.toString() ?? '',
+                          );
+
+                      if (studentsResponse['students'] != null) {
+                        final students =
+                            studentsResponse['students'] as List<dynamic>? ??
+                            [];
+                        totalStudents += students.length;
+                      }
+                    } catch (e) {
+                      print(
+                        'Error fetching students for section ${section['id']}: $e',
+                      );
+                    }
                   }
                 }
+              } catch (e) {
+                print(
+                  'Error fetching sections for class ${classData['id']}: $e',
+                );
               }
-            } catch (e) {
-              print('Error fetching sections for class ${classData['id']}: $e');
             }
           }
         }

@@ -73,7 +73,7 @@ class MainApp extends StatelessWidget {
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
             darkTheme: AppThemeDark.darkTheme,
-            themeMode: themeProvider.themeMode,
+            themeMode: ThemeMode.light,
             onGenerateRoute: AppRoutes.generateRoute,
             home: const AuthWrapper(),
           );

@@ -26,6 +26,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _loading = false;
   List<AppNotification> _items = const [];
 
+  String _plainText(String input) {
+    // Strip basic HTML tags and common entities coming from backend notifications.
+    final noTags = input.replaceAll(RegExp(r'<[^>]*>'), ' ');
+    return noTags
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
   Future<void> _handleTap(AppNotification n) async {
     if (!n.isRead) {
       await widget.repository.markAsRead(n.id);
@@ -267,6 +279,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             final typeLabel = n.type.trim().isEmpty
                                 ? 'GENERAL'
                                 : n.type.trim().toUpperCase();
+                            final titleText = _plainText(n.title);
+                            final messageText = _plainText(n.message);
 
                             return Container(
                               decoration: BoxDecoration(
@@ -342,7 +356,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                                         children: [
                                                           Expanded(
                                                             child: Text(
-                                                              n.title,
+                                                              titleText,
                                                               maxLines: 1,
                                                               overflow:
                                                                   TextOverflow
@@ -388,7 +402,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                                             AppTheme.spaceXS,
                                                       ),
                                                       Text(
-                                                        n.message,
+                                                        messageText,
                                                         maxLines: 2,
                                                         overflow: TextOverflow
                                                             .ellipsis,

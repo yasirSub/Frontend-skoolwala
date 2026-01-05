@@ -472,4 +472,17 @@ class AttendanceService {
     print('🎭 Source hex: ${hexString.substring(0, 20)}...');
     return faceData;
   }
+
+  // Get Attendance Cutoff Time
+  static Future<Map<String, dynamic>> getAttendanceCutoffTime() async {
+    try {
+      final response = await HttpClient().get(
+        'getAttendanceCutoffTime',
+        requireAuth: true,
+      );
+      return response;
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

@@ -2,87 +2,75 @@ import 'package:flutter/material.dart';
 
 /// App-wide theme configuration for SkoolWala
 class AppTheme {
-  // Primary Colors (More Vibrant)
-  static const Color primaryPurple = Color(0xFF6246EA); // Richer Violet
-  static const Color darkPurple = Color(0xFF2B1C55); // Deep Indigo
-  static const Color lightPurple = Color(0xFFE0D9FA); // Soft Lavender
+  // Primary Colors (Light & Gray)
+  static const Color primaryPurple = Color(0xFF7B68EE); // Medium Slate Blue
+  static const Color darkPurple = Color(0xFF9370DB); // Medium Purple
+  static const Color lightPurple = Color(0xFFE6E6FA); // Very Light Purple
 
   // Accent Colors
-  static const Color accentCyan = Color(0xFF00B4D8);
-  static const Color accentGreen = Color(0xFF00C49A); // Vibrant Mint
-  static const Color accentRed = Color(0xFFFF4858); // Coral Red
-  static const Color accentOrange = Color(0xFFFFB020);
+  static const Color accentCyan = Color(0xFF5DADE2); // Light Blue
+  static const Color accentGreen = Color(0xFF58D68D); // Light Green
+  static const Color accentRed = Color(0xFFFF6B6B); // Light Red
+  static const Color accentOrange = Color(0xFFFFD93D); // Light Orange
 
   // Semantic Colors
-  static const Color successGreen = Color(0xFF27AE60);
-  static const Color errorRed = Color(0xFFEB5757);
-  static const Color warningOrange = Color(0xFFF2994A);
-  static const Color infoBlue = Color(0xFF2F80ED);
+  static const Color successGreen = Color(0xFF52C41A);
+  static const Color errorRed = Color(0xFFF5222D);
+  static const Color warningOrange = Color(0xFFFAAD14);
+  static const Color infoBlue = Color(0xFF1890FF);
 
-  // Neutral Colors (Cleaner)
-  static const Color backgroundLight = Color(
-    0xFFF7F7FA,
-  ); // Very cool grey-white
-  static const Color cardWhite = Color(0xFFFFFFFF);
-  static const Color textDark = Color(0xFF131336); // Almost black navy
-  static const Color textGray = Color(0xFF6E7191);
-  static const Color borderGray = Color(0xFFEBEBF5);
+  // Neutral Colors (Light & Gray)
+  static const Color backgroundLight = Color(0xFFF5F5F5); // Light Gray
+  static const Color cardWhite = Color(0xFFFFFFFF); // White
+  static const Color textDark = Color(0xFF595959); // Medium Gray Text
+  static const Color textGray = Color(0xFF8C8C8C); // Gray Text
+  static const Color borderGray = Color(0xFFD9D9D9); // Light Gray Border
 
-  // Modern Dashboard Color Palette (Vibrant Update)
-  static const Color dashboardPrimary = Color(
-    0xFF6246EA,
-  ); // Matches primaryPurple
-  static const Color dashboardPrimaryLight = Color(
-    0xFF7B61FF,
-  ); // Lighter violet
-  static const Color dashboardAccent = Color(0xFF00B4D8); // Matches accentCyan
+  // Modern Dashboard Color Palette (Light & Gray)
+  static const Color dashboardPrimary = Color(0xFF7B68EE); // Medium Purple
+  static const Color dashboardPrimaryLight = Color(0xFF9370DB); // Light Purple
+  static const Color dashboardAccent = Color(0xFF5DADE2); // Light Blue
   static const Color dashboardAccentLight = Color(
-    0xFFE0D9FA,
-  ); // Matches lightPurple
-  static const Color dashboardSuccess = Color(
-    0xFF27AE60,
-  ); // Matches successGreen
-  static const Color dashboardWarning = Color(
-    0xFFF2994A,
-  ); // Matches warningOrange
-  static const Color dashboardError = Color(0xFFEB5757); // Matches errorRed
-  static const Color dashboardBackground = Color(
-    0xFFF7F7FA,
-  ); // Matches backgroundLight
-  static const Color dashboardSurface = Colors.white;
-  static const Color dashboardTextPrimary = Color(0xFF131336);
-  static const Color dashboardTextSecondary = Color(0xFF6E7191);
-  static const Color dashboardBorder = Color(0xFFEBEBF5);
+    0xFFE6E6FA,
+  ); // Very Light Purple
+  static const Color dashboardSuccess = Color(0xFF52C41A); // Green
+  static const Color dashboardWarning = Color(0xFFFAAD14); // Orange
+  static const Color dashboardError = Color(0xFFF5222D); // Red
+  static const Color dashboardBackground = Color(0xFFF5F5F5); // Light Gray
+  static const Color dashboardSurface = Colors.white; // White
+  static const Color dashboardTextPrimary = Color(0xFF262626); // Dark Gray
+  static const Color dashboardTextSecondary = Color(0xFF8C8C8C); // Medium Gray
+  static const Color dashboardBorder = Color(0xFFD9D9D9); // Light Gray Border
 
-  // Gradient Definitions
+  // Gradient Definitions (Light & Soft)
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF7B61FF), Color(0xFF6246EA)],
+    colors: [Color(0xFF9370DB), Color(0xFF7B68EE)],
   );
 
   static const LinearGradient successGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF00C49A), Color(0xFF00A884)],
+    colors: [Color(0xFF52C41A), Color(0xFF389E0D)],
   );
 
   static const LinearGradient errorGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFFF4858), Color(0xFFFF2A3A)],
+    colors: [Color(0xFFFF6B6B), Color(0xFFFF5252)],
   );
 
   static const LinearGradient warningGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFFFFB020), Color(0xFFFF8F00)],
+    colors: [Color(0xFFFFD93D), Color(0xFFFFC53D)],
   );
 
   static const LinearGradient infoGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF00B4D8), Color(0xFF0077B6)],
+    colors: [Color(0xFF5DADE2), Color(0xFF40B0E8)],
   );
 
   // Text Styles

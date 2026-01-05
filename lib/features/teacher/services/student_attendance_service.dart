@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../../shared/services/http_client.dart';
 import '../../../shared/config/api_config.dart';
 
@@ -276,6 +278,27 @@ class StudentAttendanceService {
 
       return BulkAttendanceResponse.fromJson(response);
     } catch (e) {
+      // Parse HTTP 403 errors for cutoff time violations
+      if (e.toString().contains('HTTP 403')) {
+        // Extract the JSON response from the error message
+        final responseMatch = RegExp(
+          r'Response: (\{.*\})',
+        ).firstMatch(e.toString());
+        if (responseMatch != null) {
+          try {
+            final jsonStr = responseMatch.group(1);
+            final errorData = json.decode(jsonStr!);
+            final errorMessage =
+                errorData['message'] ?? 'Attendance modification not allowed';
+            throw Exception(errorMessage);
+          } catch (_) {
+            // If parsing fails, throw a generic message
+          }
+        }
+        throw Exception(
+          'Attendance can only be modified until the cutoff time',
+        );
+      }
       throw Exception('Failed to mark bulk attendance: $e');
     }
   }

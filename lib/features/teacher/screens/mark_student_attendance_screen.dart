@@ -114,6 +114,10 @@ class _MarkStudentAttendanceScreenState
   bool _isDayWise = true;
   bool _attendanceTypeLoading = true;
 
+  // Attendance cutoff time
+  String? _attendanceCutoffTime;
+  String? _attendanceCutoffTime12h;
+
   // Select all students
   bool _selectAllStudents = false;
   final Set<int> _selectedStudentIds = {};
@@ -237,6 +241,32 @@ class _MarkStudentAttendanceScreenState
       setState(() {
         _attendanceTypeLoading = false;
       });
+    }
+
+    // Load attendance cutoff time
+    await _loadAttendanceCutoffTime();
+  }
+
+  Future<void> _loadAttendanceCutoffTime() async {
+    try {
+      print('🔄 [DEBUG] Loading attendance cutoff time...');
+
+      final response = await AttendanceService.getAttendanceCutoffTime();
+
+      if (response['status'] == 'success' && response['data'] != null) {
+        final data = response['data'];
+
+        setState(() {
+          _attendanceCutoffTime = data['cutoff_time'];
+          _attendanceCutoffTime12h = data['cutoff_time_12h'];
+        });
+
+        print(
+          '✅ Attendance cutoff time: $_attendanceCutoffTime ($_attendanceCutoffTime12h)',
+        );
+      }
+    } catch (e) {
+      print('⚠️ Failed to load attendance cutoff time: $e');
     }
   }
 
@@ -395,12 +425,29 @@ class _MarkStudentAttendanceScreenState
       print('═══════════════════════════════════════════════════════════');
 
       // Get student attendance for the selected date (with subject if subject-wise)
-      final response = await StudentAttendanceService.getStudentAttendance(
+      var response = await StudentAttendanceService.getStudentAttendance(
         classId: classId,
         sectionId: sectionId,
         date: _selectedDateStr,
         subjectId: subjectId,
       );
+
+      // IMPORTANT: Do NOT fallback to day-wise attendance if in subject-wise mode
+      // This ensures attendance remains subject-isolated
+      if ((response['status'] == 'error' || response['status'] == false) &&
+          subjectId != null &&
+          (response['message']?.toString().contains('not assigned') ?? false)) {
+        // In subject-wise mode, if subject is not assigned, show error instead of fallback
+        print(
+          '❌ [DEBUG] Subject $subjectId is not assigned for this date - NO FALLBACK in subject-wise mode',
+        );
+        setState(() {
+          _isLoading = false;
+          _errorMessage =
+              'This subject is not assigned for the selected date. Please select a different date or subject.';
+        });
+        return;
+      }
 
       if (response['status'] == 'success') {
         final studentsData = response['data']['students'] as List<dynamic>;
@@ -682,12 +729,125 @@ class _MarkStudentAttendanceScreenState
     } catch (e) {
       print('❌ [DEBUG] Error saving attendance: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to save attendance: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        // Check if this is a cutoff time violation
+        final errorMessage = e.toString();
+        final isCutoffError =
+            errorMessage.contains('until') &&
+            (errorMessage.contains('PM') || errorMessage.contains('cutoff'));
+
+        if (isCutoffError) {
+          // Show a more prominent dialog for cutoff time violations
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              backgroundColor: const Color(0xFF1A1A2E),
+              title: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.warningOrange.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.access_time_rounded,
+                      color: AppTheme.warningOrange,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'Cutoff Time Exceeded',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    errorMessage.replaceAll('Exception: ', ''),
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.85),
+                      fontSize: 15,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withOpacity(0.1)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.info_outline,
+                          color: AppTheme.accentCyan,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Please contact the administrator to modify past attendance.',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.7),
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                    backgroundColor: AppTheme.accentCyan.withOpacity(0.15),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text(
+                    'UNDERSTOOD',
+                    style: TextStyle(
+                      color: AppTheme.accentCyan,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        } else {
+          // Show regular snackbar for other errors
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMessage.replaceAll('Exception: ', '')),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
       }
       setState(() {
         _isSaving = false;
@@ -797,6 +957,155 @@ class _MarkStudentAttendanceScreenState
       default:
         return Colors.white70;
     }
+  }
+
+  void _showSubjectSelector() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.6,
+        ),
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A2E),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(28),
+            topRight: Radius.circular(28),
+          ),
+          border: Border.all(color: Colors.white.withOpacity(0.1)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'SELECT SUBJECT',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.6),
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 1.5,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Flexible(
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: _availableSubjects.length,
+                itemBuilder: (context, index) {
+                  final subject = _availableSubjects[index];
+                  final subjectId = subject['id'] as int;
+                  final subjectName = subject['name'] as String;
+                  final isSelected = subjectId == _selectedSubjectId;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.pop(context);
+                          _onSubjectChanged(subjectId);
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppTheme.accentCyan.withOpacity(0.15)
+                                : Colors.white.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppTheme.accentCyan.withOpacity(0.5)
+                                  : Colors.white.withOpacity(0.1),
+                              width: isSelected ? 2 : 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? AppTheme.accentCyan.withOpacity(0.2)
+                                      : Colors.white.withOpacity(0.08),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  Icons.menu_book_rounded,
+                                  color: isSelected
+                                      ? AppTheme.accentCyan
+                                      : Colors.white.withOpacity(0.6),
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Text(
+                                  subjectName,
+                                  style: TextStyle(
+                                    color: isSelected
+                                        ? AppTheme.accentCyan
+                                        : Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              if (isSelected)
+                                const Icon(
+                                  Icons.check_circle,
+                                  color: AppTheme.accentCyan,
+                                  size: 24,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _onSubjectChanged(int newSubjectId) {
+    if (_selectedSubjectId == newSubjectId) return;
+
+    print(
+      '🔄 [DEBUG] Subject changed from $_selectedSubjectId to $newSubjectId',
+    );
+
+    setState(() {
+      _selectedSubjectId = newSubjectId;
+      // Clear previous subject's attendance data
+      _attendanceStatus.clear();
+      _attendanceRemarks.clear();
+      _selectedStudentIds.clear();
+      _selectAllStudents = false;
+    });
+
+    // Reload students for the new subject
+    _loadStudents();
   }
 
   @override
@@ -991,6 +1300,77 @@ class _MarkStudentAttendanceScreenState
                 ),
               ),
               const SizedBox(height: 14),
+              // Subject Selector - Only show if subject-wise mode and multiple subjects
+              if (_isSubjectWise && _availableSubjects.length > 1)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: InkWell(
+                    onTap: _showSubjectSelector,
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.16),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppTheme.accentCyan.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.menu_book_rounded,
+                              color: AppTheme.accentCyan,
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'SUBJECT',
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.5),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 1,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  selectedSubjectName ?? 'Select Subject',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            color: Colors.white.withOpacity(0.7),
+                            size: 24,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              if (_isSubjectWise && _availableSubjects.length > 1)
+                const SizedBox(height: 14),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
