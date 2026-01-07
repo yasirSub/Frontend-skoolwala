@@ -2,42 +2,45 @@ import 'package:flutter/material.dart';
 
 /// App-wide theme configuration for SkoolWala
 class AppTheme {
-  // Primary Colors (Light & Gray)
-  static const Color primaryPurple = Color(0xFF7B68EE); // Medium Slate Blue
-  static const Color darkPurple = Color(0xFF9370DB); // Medium Purple
-  static const Color lightPurple = Color(0xFFE6E6FA); // Very Light Purple
+  // Primary Colors (Neutral Gray)
+  static const Color primaryPurple = Color(
+    0xFF757575,
+  ); // Primary Gray (Lighter)
+  static const Color darkPurple = Color(0xFF424242); // Dark Gray (Lighter)
+  static const Color lightPurple = Color(0xFFF5F5F7); // Light Gray
 
   // Accent Colors
-  static const Color accentCyan = Color(0xFF5DADE2); // Light Blue
-  static const Color accentGreen = Color(0xFF58D68D); // Light Green
-  static const Color accentRed = Color(0xFFFF6B6B); // Light Red
-  static const Color accentOrange = Color(0xFFFFD93D); // Light Orange
+  static const Color accentCyan = Color(0xFF8E8E93); // Gray-Blue
+  static const Color accentGreen = Color(0xFF34C759); // Standard Green
+  static const Color accentRed = Color(0xFFFF3B30); // Standard Red
+  static const Color accentOrange = Color(0xFFFF9500); // Standard Orange
 
   // Semantic Colors
-  static const Color successGreen = Color(0xFF52C41A);
-  static const Color errorRed = Color(0xFFF5222D);
-  static const Color warningOrange = Color(0xFFFAAD14);
-  static const Color infoBlue = Color(0xFF1890FF);
+  static const Color successGreen = Color(0xFF34C759);
+  static const Color errorRed = Color(0xFFFF3B30);
+  static const Color warningOrange = Color(0xFFFF9500);
+  static const Color infoBlue = Color(0xFF007AFF);
 
   // Neutral Colors (Light & Gray)
-  static const Color backgroundLight = Color(0xFFF5F5F5); // Light Gray
+  static const Color backgroundLight = Color(0xFFF2F2F7); // Lightest Gray
   static const Color cardWhite = Color(0xFFFFFFFF); // White
-  static const Color textDark = Color(0xFF595959); // Medium Gray Text
-  static const Color textGray = Color(0xFF8C8C8C); // Gray Text
-  static const Color borderGray = Color(0xFFD9D9D9); // Light Gray Border
+  static const Color textDark = Color(0xFF1C1C1E); // Dark Text Gray
+  static const Color textGray = Color(0xFF8E8E93); // Secondary Text Gray
+  static const Color borderGray = Color(0xFFD1D1D6); // Border Gray
 
   // Modern Dashboard Color Palette (Light & Gray)
-  static const Color dashboardPrimary = Color(0xFF7B68EE); // Medium Purple
-  static const Color dashboardPrimaryLight = Color(0xFF9370DB); // Light Purple
-  static const Color dashboardAccent = Color(0xFF5DADE2); // Light Blue
-  static const Color dashboardAccentLight = Color(
-    0xFFE6E6FA,
-  ); // Very Light Purple
+  static const Color dashboardPrimary = primaryPurple; // Neutral Gray
+  static const Color dashboardPrimaryLight = textGray; // Medium Gray
+  static const Color dashboardAccent = textGray; // Medium Gray
+  static const Color dashboardAccentLight = backgroundLight; // Light Gray
   static const Color dashboardSuccess = Color(0xFF52C41A); // Green
   static const Color dashboardWarning = Color(0xFFFAAD14); // Orange
   static const Color dashboardError = Color(0xFFF5222D); // Red
   static const Color dashboardBackground = Color(0xFFF5F5F5); // Light Gray
   static const Color dashboardSurface = Colors.white; // White
+  static const Color dashboardBackgroundDark = Color(0xFF2A2D33);
+  static const Color dashboardBackgroundAccent = Color(0xFF3A3F4C);
+  static const Color dashboardPrimaryDark = Color(0xFF5E5E63);
   static const Color dashboardTextPrimary = Color(0xFF262626); // Dark Gray
   static const Color dashboardTextSecondary = Color(0xFF8C8C8C); // Medium Gray
   static const Color dashboardBorder = Color(0xFFD9D9D9); // Light Gray Border
@@ -46,7 +49,19 @@ class AppTheme {
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [Color(0xFF9370DB), Color(0xFF7B68EE)],
+    colors: [textGray, primaryPurple],
+  );
+
+  static const LinearGradient dashboardBackgroundGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [
+      dashboardBackgroundDark,
+      dashboardBackgroundAccent,
+      dashboardPrimaryDark,
+      dashboardBackground,
+    ],
+    stops: [0.0, 0.3, 0.6, 1.0],
   );
 
   static const LinearGradient successGradient = LinearGradient(
@@ -121,7 +136,7 @@ class AppTheme {
   // Box Shadows (Softer, more modern)
   static List<BoxShadow> cardShadow = [
     BoxShadow(
-      color: Color(0xFF131336).withOpacity(0.04),
+      color: textGray.withOpacity(0.12),
       blurRadius: 20,
       offset: const Offset(0, 10),
     ),
@@ -137,7 +152,7 @@ class AppTheme {
 
   static List<BoxShadow> smallShadow = [
     BoxShadow(
-      color: Color(0xFF131336).withOpacity(0.03),
+      color: textGray.withOpacity(0.08),
       blurRadius: 8,
       offset: const Offset(0, 4),
     ),
@@ -184,14 +199,14 @@ class AppTheme {
       prefixIcon: prefixIcon,
       suffixIcon: suffixIcon,
       filled: true,
-      fillColor: const Color(0xFFF7F7FA),
+      fillColor: const Color(0xFFF9F9FB),
       border: OutlineInputBorder(
         borderRadius: radiusMedium,
-        borderSide: const BorderSide(color: Color(0xFFD1D1E9), width: 1),
+        borderSide: const BorderSide(color: borderGray, width: 1),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: radiusMedium,
-        borderSide: const BorderSide(color: Color(0xFFD1D1E9), width: 1),
+        borderSide: const BorderSide(color: borderGray, width: 1),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: radiusMedium,
@@ -303,5 +318,3 @@ class AppTheme {
     );
   }
 }
-
-// Dark theme stub if needed, or you can implement similar logic

@@ -188,9 +188,7 @@ class SimpleAppBar extends StatelessWidget implements PreferredSizeWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return AppBar(
       title: Text(title),
-      backgroundColor: isDark
-          ? const Color(0xFF2A2A2A)
-          : const Color(0xFF1A1F3E),
+      backgroundColor: isDark ? const Color(0xFF2A2A2A) : AppTheme.darkPurple,
       foregroundColor: Colors.white,
       leading: showBackButton
           ? IconButton(

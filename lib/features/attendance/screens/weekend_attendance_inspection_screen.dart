@@ -74,13 +74,7 @@ class _WeekendAttendanceInspectionScreenState
     final canOpenSelf = staffId != null && staffId.isNotEmpty;
 
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF6C63FF), Color(0xFF4B43B2)],
-        ),
-      ),
+      decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(

@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
+import 'package:skoolwala/shared/theme/app_theme.dart';
 import 'package:skoolwala/shared/animations/animations.dart';
 import 'package:skoolwala/features/statistics/services/statistics_service.dart';
 import 'package:skoolwala/features/profile/services/developer_attendance_service.dart';
@@ -905,7 +906,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                     : 'No Data',
                 icon: Icons.people,
                 color: _statisticsData!.totalStudents > 0
-                    ? const Color(0xFF6D63B8)
+                    ? AppTheme.primaryPurple
                     : const Color(0xFF9CA3AF),
                 isAnimated: _statisticsData!.totalStudents > 0,
                 animationDelay: const Duration(milliseconds: 400),
@@ -1153,7 +1154,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                         value: _statisticsData!.totalClasses > 0
                             ? _statisticsData!.totalClasses.toString()
                             : '0',
-                        color: const Color(0xFF6D63B8),
+                        color: AppTheme.primaryPurple,
                       ),
                     ),
                     Expanded(
@@ -1300,7 +1301,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                             ),
                             child: Container(
                               decoration: BoxDecoration(
-                                color: const Color(0xFF6D63B8),
+                                color: AppTheme.primaryPurple,
                                 borderRadius: BorderRadius.circular(4),
                               ),
                             ),

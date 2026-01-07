@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../shared/theme/app_theme.dart';
 import '../../../shared/services/persistent_storage.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -63,13 +64,7 @@ class _SplashScreenState extends State<SplashScreen>
       body: Container(
         width: double.infinity,
         height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF7B61FF), Color(0xFF6246EA)],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
         child: Stack(
           children: [
             // Decorative background circles

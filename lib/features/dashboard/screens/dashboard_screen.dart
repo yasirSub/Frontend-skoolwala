@@ -705,7 +705,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             elevation: 0,
             showRoundedCorners: false,
             showThemeToggle: true,
-            automaticallyImplyLeading: true,
+            automaticallyImplyLeading: false,
             actions: [
               // Logout button - shows when user is NOT logged in (to get unstuck)
               if (!SessionManager.instance.isLoggedIn)
@@ -743,7 +743,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             ],
           ),
         ),
-        drawer: const AppSidebar(),
+        // drawer: const AppSidebar(),
         bottomNavigationBar: AnimatedBuilder(
           animation: _bottomBarAnimation,
           builder: (context, child) {
@@ -756,46 +756,12 @@ class _DashboardScreenState extends State<DashboardScreen>
             );
           },
         ),
-        floatingActionButton: _ExpandableFloatingButton(
-          isExpanded: _isDevOptionsExpanded,
-          onToggle: () {
-            setState(() {
-              _isDevOptionsExpanded = !_isDevOptionsExpanded;
-            });
-          },
-          onMultiAngleEnroll: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const MultiAngleEnrollScreen()),
-            );
-          },
-          onFaceAnalyzer: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const FaceAnalyzerScreen()),
-            );
-          },
-          onEnrolledList: () {
-            Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (_) => const EnrolledFacesListScreen(),
-              ),
-            );
-          },
-          onLogout: _logout,
-        ),
         body: Stack(
           children: [
             // Background Gradient
             Container(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    AppTheme.dashboardPrimary,
-                    AppTheme.dashboardPrimary.withBlue(100).withRed(40),
-                  ],
-                  stops: const [0.0, 1.0],
-                ),
+                gradient: AppTheme.dashboardBackgroundGradient,
               ),
             ),
             // Decorative shapes
@@ -1161,12 +1127,12 @@ class _RoleChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 18, color: const Color(0xFF5A5AA0)),
+        Icon(icon, size: 18, color: AppTheme.primaryPurple),
         const SizedBox(width: 6),
         Text(
           label,
           style: const TextStyle(
-            color: Color(0xFF2C2C66),
+            color: AppTheme.textDark,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -1183,7 +1149,7 @@ class _DividerDot extends StatelessWidget {
       width: 1.5,
       height: 22,
       decoration: BoxDecoration(
-        color: const Color(0xFFDFDFEF),
+        color: AppTheme.borderGray,
         borderRadius: BorderRadius.circular(12),
       ),
     );
@@ -1408,7 +1374,7 @@ class _MarkAttendanceCard extends StatelessWidget {
               height: 52,
               width: 52,
               decoration: BoxDecoration(
-                color: const Color(0xFF38308E),
+                color: AppTheme.darkPurple,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: Colors.white),
@@ -1436,8 +1402,8 @@ class _MarkAttendanceCard extends StatelessWidget {
                               ? 'Mark Your Attendance'
                               : 'Enroll face to enable')
                         : '',
-                    style: const TextStyle(
-                      color: Color(0xFFBDB8FF),
+                    style: TextStyle(
+                      color: AppTheme.lightPurple.withOpacity(0.9),
                       fontWeight: FontWeight.w600,
                       fontSize: 12,
                     ),
@@ -1528,7 +1494,7 @@ class _InOutChip extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          color: active ? const Color(0xFF1E175E) : Colors.white70,
+          color: active ? AppTheme.darkPurple : Colors.white70,
           fontWeight: FontWeight.w900,
           fontSize: 12,
         ),
@@ -1585,7 +1551,7 @@ class _TotalStudentsCard extends StatelessWidget {
           ),
           TextButton(
             style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF0E0E2C),
+              foregroundColor: AppTheme.textDark,
               backgroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               shape: RoundedRectangleBorder(

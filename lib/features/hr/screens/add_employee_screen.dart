@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../shared/theme/app_theme.dart';
 import '../../../../shared/widgets/app_loading_indicator.dart';
 import '../../../../shared/services/api_service.dart';
 
@@ -145,7 +146,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Employee'),
-        backgroundColor: const Color(0xFF2C3E50),
+        backgroundColor: AppTheme.darkPurple,
         foregroundColor: Colors.white,
       ),
       body: _isLoading
@@ -315,7 +316,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
                       child: ElevatedButton(
                         onPressed: _submitForm,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2C3E50),
+                          backgroundColor: AppTheme.darkPurple,
                           foregroundColor: Colors.white,
                         ),
                         child: const Text('Save Employee'),
@@ -336,7 +337,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
         style: const TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.bold,
-          color: Color(0xFF2C3E50),
+          color: AppTheme.darkPurple,
         ),
       ),
     );

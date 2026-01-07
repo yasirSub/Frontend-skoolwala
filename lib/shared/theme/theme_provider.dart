@@ -81,7 +81,7 @@ class AppThemeDark {
         primary: Colors.white,
         secondary: AppTheme.accentGreen,
         error: AppTheme.errorRed,
-        surface: const Color(0xFF1A1A1A),
+        surface: const Color(0xFF1C1C1E),
         onPrimary: Colors.black,
         onSecondary: Colors.white,
         onSurface: Colors.white,
@@ -145,7 +145,7 @@ class AppThemeDark {
         ),
       ),
       cardTheme: CardThemeData(
-        color: const Color(0xFF1E1E1E),
+        color: const Color(0xFF2C2C2E),
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: AppTheme.radiusLarge),
         shadowColor: Colors.black.withValues(alpha: 0.3),

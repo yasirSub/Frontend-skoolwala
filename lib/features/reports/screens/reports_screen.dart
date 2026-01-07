@@ -75,7 +75,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                       title: 'Student Reports',
                       description:
                           'Comprehensive academic and behavioral student insights',
-                      gradient: const [Color(0xFF6246EA), Color(0xFF7B61FF)],
+                      gradient: [AppTheme.primaryPurple, AppTheme.darkPurple],
                       onTap: () async {
                         final selectedClass = await Navigator.push(
                           context,

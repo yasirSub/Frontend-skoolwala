@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../shared/widgets/app_loading_indicator.dart';
 import '../../../../shared/services/api_service.dart';
+import '../../../../shared/theme/app_theme.dart';
 import '../services/employee_service.dart';
 import '../models/employee.dart';
 
@@ -117,10 +118,10 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: AppTheme.backgroundLight,
       appBar: AppBar(
-        title: const Text('Employee List'),
-        backgroundColor: const Color(0xFF2C3E50),
+        title: const Text('Employee Directory'),
+        backgroundColor: AppTheme.darkPurple,
         foregroundColor: Colors.white,
         elevation: 0,
       ),
@@ -128,7 +129,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
         children: [
           // Search Bar
           Container(
-            color: const Color(0xFF2C3E50),
+            color: AppTheme.darkPurple,
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             child: TextField(
               controller: _searchController,
@@ -266,7 +267,7 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF2C3E50),
+                              color: AppTheme.darkPurple,
                             ),
                           ),
                           const SizedBox(height: 4),

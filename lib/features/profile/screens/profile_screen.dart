@@ -450,36 +450,6 @@ class _ProfileScreenState extends State<ProfileScreen>
               const SizedBox(width: 8),
             ],
           ),
-          floatingActionButton: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (kDebugMode) ...[
-                DeveloperAttendanceFAB(teacher: displayData),
-                const SizedBox(height: 12),
-              ],
-              FloatingActionButton(
-                onPressed: _isSendingFaceChangeRequest
-                    ? null
-                    : _requestFaceChangeFromProfile,
-                backgroundColor: AppTheme.warningOrange,
-                child: _isSendingFaceChangeRequest
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.white,
-                          ),
-                        ),
-                      )
-                    : const Icon(
-                        Icons.face_retouching_natural_rounded,
-                        color: Colors.white,
-                      ),
-              ),
-            ],
-          ),
           body: SafeArea(
             child: RefreshIndicator(
               onRefresh: _refreshProfileData,
@@ -918,12 +888,6 @@ class _EnhancedProfileHeader extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              _buildQuickAction(
-                Icons.call_rounded,
-                AppTheme.successGreen,
-                () => _launchUrl('tel:${teacher.mobileNo}'),
-              ),
-              const SizedBox(width: 16),
               _buildQuickAction(
                 Icons.mail_rounded,
                 AppTheme.primaryPurple,

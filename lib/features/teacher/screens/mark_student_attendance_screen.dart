@@ -743,7 +743,7 @@ class _MarkStudentAttendanceScreenState
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),
               ),
-              backgroundColor: const Color(0xFF1A1A2E),
+              backgroundColor: AppTheme.darkPurple,
               title: Row(
                 children: [
                   Container(
@@ -970,7 +970,7 @@ class _MarkStudentAttendanceScreenState
         ),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A2E),
+          color: AppTheme.darkPurple,
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(28),
             topRight: Radius.circular(28),

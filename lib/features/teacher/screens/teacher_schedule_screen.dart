@@ -651,7 +651,7 @@ class _TeacherScheduleScreenState extends State<TeacherScheduleScreen>
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFF6C63FF), Color(0xFF4B43B2)],
+          colors: [AppTheme.textGray, AppTheme.primaryPurple],
         ),
       ),
       child: Scaffold(
@@ -1729,7 +1729,7 @@ class _TeacherScheduleScreenState extends State<TeacherScheduleScreen>
                               colors: isOngoing
                                   ? [
                                       AppTheme.primaryPurple,
-                                      AppTheme.primaryPurple.withBlue(255),
+                                      AppTheme.darkPurple,
                                     ]
                                   : [
                                       Colors.white.withOpacity(0.15),
@@ -1864,7 +1864,7 @@ class _TeacherScheduleScreenState extends State<TeacherScheduleScreen>
                             colors: isToday
                                 ? [
                                     AppTheme.dashboardAccent,
-                                    AppTheme.dashboardAccent.withBlue(255),
+                                    AppTheme.darkPurple,
                                   ]
                                 : [
                                     Colors.white.withOpacity(0.2),
@@ -2312,11 +2312,11 @@ class _TeacherScheduleScreenState extends State<TeacherScheduleScreen>
       isScrollControlled: true,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF1E1E1E),
+          color: AppTheme.darkPurple,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.5),
+              color: Colors.black.withOpacity(0.3),
               blurRadius: 20,
               offset: const Offset(0, -5),
             ),

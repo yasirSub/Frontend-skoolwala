@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
+import 'package:skoolwala/shared/theme/app_theme.dart';
 import 'package:skoolwala/features/attendance/services/location_service.dart';
 
 class LocationVerificationWidget extends StatefulWidget {
@@ -129,7 +130,7 @@ class _LocationVerificationWidgetState extends State<LocationVerificationWidget>
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1a1a2e), Color(0xFF16213e)],
+          colors: [AppTheme.textDark, AppTheme.darkPurple],
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _getBorderColor(), width: 2),

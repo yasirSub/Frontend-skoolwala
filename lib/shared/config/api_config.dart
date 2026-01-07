@@ -9,6 +9,8 @@
 /// 3. Add new API endpoints to their respective sections
 library;
 
+import 'package:flutter/foundation.dart' show kReleaseMode;
+
 class ApiConfig {
   // ============================================
   // ENVIRONMENT CONFIGURATION
@@ -19,9 +21,22 @@ class ApiConfig {
   /// Override at runtime with:
   ///   flutter run --dart-define=ENV=production
   ///   flutter run --dart-define=ENV=development
+  ///
+  /// Notes:
+  /// - This value is case-insensitive (e.g. "Production" works).
+  /// - If not provided, release builds default to "production".
   static const String environment = String.fromEnvironment(
     'ENV',
-    defaultValue: 'development',
+    defaultValue: '',
+  );
+
+  /// Optional full override for API base URL.
+  ///
+  /// Example (real device on Wi‑Fi):
+  ///   flutter run --dart-define=API_BASE_URL=http://192.168.1.6:8080/api
+  static const String apiBaseUrlOverride = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: '',
   );
 
   /// Enable debug logging
@@ -48,7 +63,10 @@ class ApiConfig {
 
   /// Get current base URL based on environment
   static String getBaseUrl() {
-    switch (environment) {
+    final override = apiBaseUrlOverride.trim();
+    if (override.isNotEmpty) return override;
+
+    switch (_resolvedEnvironment()) {
       case 'production':
         return productionBaseUrl;
       case 'development':
@@ -56,6 +74,21 @@ class ApiConfig {
       default:
         return developmentBaseUrl;
     }
+  }
+
+  static String _resolvedEnvironment() {
+    final raw = environment.trim();
+    if (raw.isEmpty) {
+      return kReleaseMode ? 'production' : 'development';
+    }
+
+    final env = raw.toLowerCase();
+    if (env == 'prod') return 'production';
+    if (env == 'production') return 'production';
+    if (env == 'dev') return 'development';
+    if (env == 'development') return 'development';
+
+    return kReleaseMode ? 'production' : 'development';
   }
 
   /// Get website base URL (non-API) for opening web pages like Mailbox.

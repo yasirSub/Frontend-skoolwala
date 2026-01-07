@@ -235,7 +235,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen>
                                     ),
                                     child: DropdownButton<School>(
                                       isExpanded: true,
-                                      dropdownColor: const Color(0xFF4B43B2),
+                                      dropdownColor: AppTheme.darkPurple,
                                       underline: const SizedBox.shrink(),
                                       hint: Text(
                                         'Choose your school',
@@ -376,17 +376,16 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen>
                                       gradient: LinearGradient(
                                         colors: [
                                           Colors.transparent,
-                                          const Color(
-                                            0xFF00FFE0,
-                                          ).withOpacity(0.8),
+                                          AppTheme.primaryPurple.withOpacity(
+                                            0.8,
+                                          ),
                                           Colors.transparent,
                                         ],
                                       ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: const Color(
-                                            0xFF00FFE0,
-                                          ).withOpacity(0.4),
+                                          color: AppTheme.primaryPurple
+                                              .withOpacity(0.4),
                                           blurRadius: 10,
                                           spreadRadius: 2,
                                         ),

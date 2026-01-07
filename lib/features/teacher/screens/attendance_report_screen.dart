@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../shared/theme/app_theme.dart';
 import '../services/student_attendance_service.dart';
 import '../services/teacher_class_service.dart';
 import 'package:intl/intl.dart';
@@ -121,13 +122,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     return Scaffold(
       appBar: AppBar(
         flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF7B61FF), Color(0xFF6246EA)],
-            ),
-          ),
+          decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
         ),
         foregroundColor: Colors.white,
         title: Text(

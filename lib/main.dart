@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'shared/services/auth_wrapper.dart';
@@ -51,8 +52,10 @@ void main() {
   ApiService.setOverrideBaseUrl(ApiConfig.getBaseUrl());
 
   // Debug which base URL is active
-  // ignore: avoid_print
-  print('🔧 Using API base: ${ApiService.currentApiUrl}');
+  if (!kReleaseMode) {
+    // ignore: avoid_print
+    print('🔧 Using API base: ${ApiService.currentApiUrl}');
+  }
 
   // Initialize OS-level local notifications (sound + history triggers)
   LocalNotificationsService.instance.init();
@@ -73,7 +76,7 @@ class MainApp extends StatelessWidget {
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
             darkTheme: AppThemeDark.darkTheme,
-            themeMode: ThemeMode.light,
+            themeMode: themeProvider.themeMode,
             onGenerateRoute: AppRoutes.generateRoute,
             home: const AuthWrapper(),
           );

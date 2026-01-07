@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:skoolwala/shared/config/api_config.dart';
 import 'package:skoolwala/shared/models/teacher.dart';
+import 'package:skoolwala/shared/theme/app_theme.dart';
 
 /// Working Timer Card Widget
 /// Displays elapsed time since check-in with optional checkout
@@ -189,9 +190,9 @@ class WorkingTimerCardState extends State<WorkingTimerCard>
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: const Color(0xFF6C63FF).withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFF6C63FF).withOpacity(0.2)),
+          color: AppTheme.primaryPurple.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.primaryPurple.withOpacity(0.2)),
         ),
         child: const Center(
           child: SizedBox(
@@ -235,13 +236,13 @@ class WorkingTimerCardState extends State<WorkingTimerCard>
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    const Color(0xFF6C63FF).withOpacity(0.25),
-                    const Color(0xFF4B43B2).withOpacity(0.2),
+                    AppTheme.primaryPurple.withOpacity(0.25),
+                    AppTheme.darkPurple.withOpacity(0.2),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: const Color(0xFF6C63FF).withOpacity(0.4),
+                  color: AppTheme.primaryPurple.withOpacity(0.4),
                   width: 1.5,
                 ),
                 boxShadow: [
@@ -340,11 +341,11 @@ class WorkingTimerCardState extends State<WorkingTimerCard>
       try {
         position = await Geolocator.getLastKnownPosition();
         position ??= await Geolocator.getCurrentPosition(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.lowest,
-              timeLimit: Duration(seconds: 3),
-            ),
-          );
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.lowest,
+            timeLimit: Duration(seconds: 3),
+          ),
+        );
       } catch (e) {
         print('Location error during checkout: $e');
       }

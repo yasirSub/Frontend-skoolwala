@@ -447,7 +447,7 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
       builder: (context) => Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A2E),
+          color: AppTheme.darkPurple,
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(28),
             topRight: Radius.circular(28),
@@ -630,7 +630,7 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
         builder: (context, setSheetState) => Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1A2E),
+            color: AppTheme.darkPurple,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(28),
               topRight: Radius.circular(28),
@@ -752,10 +752,10 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
                 colorScheme: ColorScheme.dark(
                   primary: AppTheme.primaryPurple,
                   onPrimary: Colors.white,
-                  surface: const Color(0xFF1A1A2E),
+                  surface: AppTheme.darkPurple,
                   onSurface: Colors.white,
                 ),
-                dialogBackgroundColor: const Color(0xFF1A1A2E),
+                dialogBackgroundColor: AppTheme.darkPurple,
               ),
               child: child!,
             );
@@ -1257,13 +1257,7 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
         : true;
 
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFF6C63FF), Color(0xFF4B43B2)],
-        ),
-      ),
+      decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
@@ -2246,7 +2240,7 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
         ),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A2E),
+          color: AppTheme.darkPurple,
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(28),
             topRight: Radius.circular(28),
@@ -2325,7 +2319,7 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
         ),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A1A2E),
+          color: AppTheme.darkPurple,
           borderRadius: const BorderRadius.only(
             topLeft: Radius.circular(28),
             topRight: Radius.circular(28),

@@ -26,6 +26,7 @@ import '../screens/feature_under_construction_screen.dart'; // Import Placeholde
 import '../services/session_manager.dart';
 import '../services/menu_service.dart';
 import '../models/menu_item.dart';
+import '../theme/app_theme.dart';
 
 /// App Sidebar Menu
 /// Loads menu items dynamically from API based on user permissions
@@ -506,9 +507,7 @@ class _AppSidebarState extends State<AppSidebar> {
       child: Stack(
         children: [
           Container(
-            color: const Color(
-              0xFF2C3E50,
-            ), // Dark background similar to website
+            color: AppTheme.textDark, // Dark background similar to website
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
@@ -516,9 +515,9 @@ class _AppSidebarState extends State<AppSidebar> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: const BoxDecoration(
-                    color: Color(0xFF34495E),
+                    color: AppTheme.darkPurple,
                     border: Border(
-                      bottom: BorderSide(color: Color(0xFF1A252F), width: 1),
+                      bottom: BorderSide(color: AppTheme.textDark, width: 1),
                     ),
                   ),
                   child: Column(
@@ -595,19 +594,6 @@ class _AppSidebarState extends State<AppSidebar> {
               ],
             ),
           ),
-          // WhatsApp Floating Action Button
-          Positioned(
-            bottom: 20,
-            right: 20,
-            child: FloatingActionButton(
-              onPressed: () {
-                // Open WhatsApp support
-                // You can use url_launcher package to open WhatsApp
-              },
-              backgroundColor: const Color(0xFF25D366), // WhatsApp green
-              child: const Icon(Icons.chat, color: Colors.white),
-            ),
-          ),
         ],
       ),
     );
@@ -621,11 +607,11 @@ class _AppSidebarState extends State<AppSidebar> {
     required VoidCallback onTap,
   }) {
     return Container(
-      color: isActive ? const Color(0xFFFF6B35) : Colors.transparent,
+      color: isActive ? AppTheme.primaryPurple : Colors.transparent,
       child: ListTile(
         leading: Icon(
           icon,
-          color: isActive ? Colors.white : const Color(0xFFFFA07A),
+          color: isActive ? Colors.white : Colors.white70,
           size: 20,
         ),
         title: Text(
@@ -653,11 +639,11 @@ class _AppSidebarState extends State<AppSidebar> {
     return Column(
       children: [
         Container(
-          color: isActive ? const Color(0xFFFF6B35) : Colors.transparent,
+          color: isActive ? AppTheme.primaryPurple : Colors.transparent,
           child: ListTile(
             leading: Icon(
               icon,
-              color: isActive ? Colors.white : const Color(0xFFFFA07A),
+              color: isActive ? Colors.white : Colors.white70,
               size: 20,
             ),
             title: Text(
@@ -678,7 +664,7 @@ class _AppSidebarState extends State<AppSidebar> {
         ),
         if (isExpanded)
           Container(
-            color: const Color(0xFF1A252F),
+            color: AppTheme.textDark.withOpacity(0.5),
             child: Column(children: children),
           ),
       ],
@@ -762,7 +748,7 @@ class _AppSidebarState extends State<AppSidebar> {
       if (profileWidgetIndex >= 0 && profileWidgetIndex < widgets.length) {
         widgets.insert(
           profileWidgetIndex,
-          const Divider(color: Color(0xFF1A252F)),
+          const Divider(color: AppTheme.borderGray),
         );
       }
     }
@@ -774,11 +760,11 @@ class _AppSidebarState extends State<AppSidebar> {
     final isActive = widget.currentRoute == item.route;
 
     return Container(
-      color: isActive ? const Color(0xFFFF6B35) : Colors.transparent,
+      color: isActive ? AppTheme.primaryPurple : Colors.transparent,
       child: ListTile(
         leading: Icon(
           _getIconData(item.icon),
-          color: isActive ? Colors.white : const Color(0xFFFFA07A),
+          color: isActive ? Colors.white : Colors.white70,
           size: 20,
         ),
         title: Text(
@@ -801,11 +787,11 @@ class _AppSidebarState extends State<AppSidebar> {
     return Column(
       children: [
         Container(
-          color: isActive ? const Color(0xFFFF6B35) : Colors.transparent,
+          color: isActive ? AppTheme.primaryPurple : Colors.transparent,
           child: ListTile(
             leading: Icon(
               _getIconData(item.icon),
-              color: isActive ? Colors.white : const Color(0xFFFFA07A),
+              color: isActive ? Colors.white : Colors.white70,
               size: 20,
             ),
             title: Text(
@@ -826,7 +812,7 @@ class _AppSidebarState extends State<AppSidebar> {
         ),
         if (isExpanded && item.children != null)
           Container(
-            color: const Color(0xFF1A252F),
+            color: AppTheme.textDark.withOpacity(0.5),
             child: Column(
               children: item.children!
                   .map((child) => _buildSubMenuItemFromApi(child))

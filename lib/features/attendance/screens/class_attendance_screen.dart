@@ -427,7 +427,7 @@ class _GlassCard extends StatelessWidget {
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1F3E).withOpacity(0.35),
+            color: AppTheme.darkPurple.withOpacity(0.35),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(color: Colors.white.withOpacity(0.10), width: 1),
           ),

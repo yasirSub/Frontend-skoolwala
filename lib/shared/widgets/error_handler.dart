@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:skoolwala/shared/theme/app_theme.dart';
 
 /// Enhanced error handler with beautiful UI notifications
 class ErrorHandler {
@@ -268,7 +269,7 @@ class ErrorHandler {
             ],
           ),
         ),
-        backgroundColor: const Color(0xFF2A2376),
+        backgroundColor: AppTheme.darkPurple,
         behavior: SnackBarBehavior.floating,
         duration: duration,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
