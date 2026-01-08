@@ -3,6 +3,7 @@ import 'package:skoolwala/features/attendance/services/attendance_service.dart';
 import 'package:skoolwala/features/school/services/school_data_service.dart';
 import 'package:skoolwala/features/teacher/services/teacher_class_service.dart';
 import 'package:skoolwala/shared/models/teacher.dart';
+import 'package:intl/intl.dart';
 
 class StatisticsData {
   final Teacher teacher;
@@ -44,47 +45,94 @@ class StatisticsService {
         password: password,
       );
 
-      // 2. Fetch attendance statistics
+      // 2. Fetch comprehensive attendance statistics
       int presentDays = 0;
       int absentDays = 0;
       int totalWorkingDays = 0;
+      double attendancePercentage = 0.0;
+      Map<String, int> weeklyAttendance = {
+        'Mon': 0,
+        'Tue': 0,
+        'Wed': 0,
+        'Thu': 0,
+        'Fri': 0,
+        'Sat': 0,
+      };
+      List<Map<String, dynamic>> monthlyAttendance = [];
 
       try {
-        print('🔍 DEBUG: Fetching present days using session manager');
-        final presentResponse =
-            await AttendanceService.getTeacherPresentDaysCount();
-        print('🔍 DEBUG: Present response: $presentResponse');
-        if (presentResponse['status'] == 'success' &&
-            presentResponse['data'] != null) {
-          presentDays = presentResponse['data']['present_days_count'] ?? 0;
-          print('🔍 DEBUG: Parsed present days: $presentDays');
-        } else {
-          print('🔍 DEBUG: Present API response not successful or no data');
+        print('🔍 DEBUG: Fetching comprehensive stats for ${teacher.id}');
+        final statsResponse =
+            await AttendanceService.getTeacherSelfAttendanceStats(
+              staffId: teacher.id,
+              filterType: 'month',
+              filterValue: DateFormat('yyyy-MM').format(DateTime.now()),
+            );
+
+        if (statsResponse['status'] == 'success' &&
+            statsResponse['data'] != null) {
+          final summary = statsResponse['data']['summary_stats'];
+          presentDays = summary['present_days'] ?? 0;
+          absentDays = summary['absent_days'] ?? 0;
+          totalWorkingDays = summary['total_days'] ?? 0;
+          attendancePercentage = (summary['present_percentage'] ?? 0.0)
+              .toDouble();
+
+          // Populate weekly attendance from records
+          final records = statsResponse['data']['attendance_records'] as List?;
+          if (records != null) {
+            // Get current week dates
+            final now = DateTime.now();
+            final lastMonday = now
+                .subtract(Duration(days: now.weekday - 1))
+                .subtract(const Duration(minutes: 1));
+
+            for (var record in records) {
+              final dateStr = record['date'];
+              if (dateStr != null) {
+                final date = DateTime.parse(dateStr);
+                // Check if date is in current week
+                if (date.isAfter(lastMonday)) {
+                  final dayName = DateFormat(
+                    'E',
+                  ).format(date); // Mon, Tue, etc.
+                  if (weeklyAttendance.containsKey(dayName)) {
+                    if (record['status'] == 'P') {
+                      weeklyAttendance[dayName] = 1;
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          print(
+            '🔍 DEBUG: Fetched real stats: $presentDays present, $absentDays absent, $attendancePercentage%',
+          );
         }
       } catch (e) {
-        print('Error fetching present days: $e');
-      }
+        print('Error fetching comprehensive stats: $e');
+        // Fallback to old simple APIs if new one fails
+        try {
+          final presentRes =
+              await AttendanceService.getTeacherPresentDaysCount();
+          if (presentRes['status'] == 'success') {
+            presentDays = presentRes['data']['present_days_count'] ?? 0;
+          }
 
-      try {
-        print('🔍 DEBUG: Fetching absent days using session manager');
-        final absentResponse =
-            await AttendanceService.getTeacherAbsentDaysCount();
-        print('🔍 DEBUG: Absent response: $absentResponse');
-        if (absentResponse['status'] == 'success' &&
-            absentResponse['data'] != null) {
-          absentDays = absentResponse['data']['absent_days_count'] ?? 0;
-          print('🔍 DEBUG: Parsed absent days: $absentDays');
-        } else {
-          print('🔍 DEBUG: Absent API response not successful or no data');
+          final absentRes = await AttendanceService.getTeacherAbsentDaysCount();
+          if (absentRes['status'] == 'success') {
+            absentDays = absentRes['data']['absent_days_count'] ?? 0;
+          }
+
+          totalWorkingDays = presentDays + absentDays;
+          attendancePercentage = totalWorkingDays > 0
+              ? (presentDays / totalWorkingDays) * 100
+              : 0.0;
+        } catch (e2) {
+          print('Fallback stats fetch also failed: $e2');
         }
-      } catch (e) {
-        print('Error fetching absent days: $e');
       }
-
-      totalWorkingDays = presentDays + absentDays;
-      double attendancePercentage = totalWorkingDays > 0
-          ? (presentDays / totalWorkingDays) * 100
-          : 0.0;
 
       // 3. Fetch student and class statistics (teacher-specific)
       int totalStudents = 0;
@@ -167,12 +215,10 @@ class StatisticsService {
         print('Error fetching class data: $e');
       }
 
-      // 4. Generate mock monthly attendance data (last 6 months)
-      final List<Map<String, dynamic>> monthlyAttendance =
-          _generateMonthlyAttendanceData();
-
-      // 5. Generate mock weekly attendance data
-      final Map<String, int> weeklyAttendance = _generateWeeklyAttendanceData();
+      // 4. Generate monthly attendance data if we couldn't get it from API
+      if (monthlyAttendance.isEmpty) {
+        monthlyAttendance = _generateMonthlyAttendanceData();
+      }
 
       return StatisticsData(
         teacher: teacher,
@@ -201,19 +247,14 @@ class StatisticsService {
       final month = DateTime(now.year, now.month - i, 1);
       final monthName = _getMonthName(month.month);
       final workingDays = _getWorkingDaysInMonth(month);
-      final presentDays = (workingDays * (0.85 + (i * 0.02)))
-          .round(); // Mock data with slight improvement trend
-      final absentDays = workingDays - presentDays;
 
       data.add({
         'month': monthName,
         'year': month.year,
-        'presentDays': presentDays,
-        'absentDays': absentDays,
+        'presentDays': 0, // Default to 0 for real observation
+        'absentDays': 0,
         'workingDays': workingDays,
-        'percentage': workingDays > 0
-            ? (presentDays / workingDays * 100).round().clamp(0, 100)
-            : 0,
+        'percentage': 0,
       });
     }
 
@@ -226,8 +267,7 @@ class StatisticsService {
     final weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     for (int i = 0; i < 6; i++) {
       final dayKey = weekDays[i];
-      // Mock data: present most days, occasionally absent
-      data[dayKey] = i == 2 ? 0 : 1; // Absent on Wednesday
+      data[dayKey] = 0; // Default to 0
     }
 
     return data;

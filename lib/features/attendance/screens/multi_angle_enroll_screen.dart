@@ -278,6 +278,10 @@ class _MultiAngleEnrollScreenState extends State<MultiAngleEnrollScreen> {
         }
       }
 
+      print(
+        '🧪 Liveness debug: blinkCount=$_blinkCount, blink=$_hasDetectedBlink, movement=$_hasDetectedMovement',
+      );
+
       // Additional face quality checks
       if (result.confidence < 0.6) {
         print('Face confidence too low: ${result.confidence}, trying again...');

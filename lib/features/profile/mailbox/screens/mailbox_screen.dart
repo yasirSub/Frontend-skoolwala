@@ -34,7 +34,7 @@ class _MailboxScreenState extends State<MailboxScreen>
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
+      decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: CustomAppBar(

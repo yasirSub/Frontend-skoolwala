@@ -80,6 +80,8 @@ class MarkStudentAttendanceScreen extends StatefulWidget {
   final String? className;
   final int? subjectId; // For subject-wise attendance
   final String? subjectName; // For displaying subject name
+  final bool
+  canMarkAttendance; // Whether teacher can mark attendance (view-only if false)
 
   const MarkStudentAttendanceScreen({
     super.key,
@@ -89,6 +91,7 @@ class MarkStudentAttendanceScreen extends StatefulWidget {
     this.className,
     this.subjectId,
     this.subjectName,
+    this.canMarkAttendance = true, // Default to true for backward compatibility
   });
 
   @override
@@ -274,6 +277,8 @@ class _MarkStudentAttendanceScreenState
     setState(() {
       _isLoadingSubjects = true;
     });
+
+    print('🔄 [DEBUG] _isLoadingSubjects=$_isLoadingSubjects');
 
     try {
       final classId = widget.teacherClass?.classId ?? widget.classId ?? 0;
@@ -640,6 +645,19 @@ class _MarkStudentAttendanceScreenState
   }
 
   Future<void> _saveAttendance() async {
+    // Check if teacher has permission to mark attendance
+    if (!widget.canMarkAttendance) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'You do not have permission to mark attendance for this class. View only.',
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     if (_students.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No students to mark attendance for')),
@@ -752,7 +770,7 @@ class _MarkStudentAttendanceScreenState
                       color: AppTheme.warningOrange.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.access_time_rounded,
                       color: AppTheme.warningOrange,
                       size: 24,
@@ -1198,14 +1216,8 @@ class _MarkStudentAttendanceScreenState
           ),
         ],
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [AppTheme.dashboardPrimaryLight, AppTheme.darkPurple],
-          ),
-        ),
+      body: AppTheme.buildBackground(
+        webBaseUrl: ApiConfig.getWebBaseUrl(),
         child: SafeArea(
           child: Column(
             children: [
@@ -1465,7 +1477,42 @@ class _MarkStudentAttendanceScreenState
                 ),
               const SizedBox(height: 8),
               Expanded(child: _buildBody()),
-              if (_students.isNotEmpty)
+              // View-only banner for non-assigned teachers
+              if (!widget.canMarkAttendance && _students.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.visibility,
+                        color: Colors.orange.shade700,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'View Only - You are not assigned to mark attendance for this class',
+                          style: TextStyle(
+                            color: Colors.orange.shade800,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (_students.isNotEmpty && widget.canMarkAttendance)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
                   child: SafeArea(
@@ -1512,6 +1559,8 @@ class _MarkStudentAttendanceScreenState
                     ),
                   ),
                 ),
+              if (!widget.canMarkAttendance && _students.isNotEmpty)
+                const SizedBox(height: 16),
             ],
           ),
         ),
@@ -1585,6 +1634,7 @@ class _MarkStudentAttendanceScreenState
           currentStatus: status,
           currentRemark: remark,
           isSelected: isSelected,
+          canEdit: widget.canMarkAttendance, // Pass edit permission
           onStatusChanged: (newStatus) =>
               _setAttendanceStatus(student.enrollId, newStatus),
           onRemarkChanged: (newRemark) =>
@@ -1658,6 +1708,7 @@ class _StudentAttendanceCard extends StatefulWidget {
   final String currentStatus;
   final String currentRemark;
   final bool isSelected;
+  final bool canEdit; // Whether teacher can edit attendance
   final Function(String) onStatusChanged;
   final Function(String) onRemarkChanged;
   final Function(bool?) onSelectionChanged;
@@ -1670,6 +1721,7 @@ class _StudentAttendanceCard extends StatefulWidget {
     required this.currentStatus,
     required this.currentRemark,
     required this.isSelected,
+    this.canEdit = true,
     required this.onStatusChanged,
     required this.onRemarkChanged,
     required this.onSelectionChanged,
@@ -1854,14 +1906,18 @@ class _StudentAttendanceCardState extends State<_StudentAttendanceCard>
                         icon: Icons.check,
                         borderColor: AppTheme.successGreen,
                         isActive: widget.currentStatus == 'P',
-                        onTap: () => widget.onStatusChanged('P'),
+                        onTap: widget.canEdit
+                            ? () => widget.onStatusChanged('P')
+                            : null,
                       ),
                       const SizedBox(width: 10),
                       _InlineStatusButton(
                         icon: Icons.close,
                         borderColor: AppTheme.errorRed,
                         isActive: widget.currentStatus == 'A',
-                        onTap: () => widget.onStatusChanged('A'),
+                        onTap: widget.canEdit
+                            ? () => widget.onStatusChanged('A')
+                            : null,
                       ),
                       const SizedBox(width: 6),
                       InkWell(
@@ -2024,24 +2080,27 @@ class _StudentAttendanceCardState extends State<_StudentAttendanceCard>
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => widget.onStatusChanged(status),
+        onTap: widget.canEdit ? () => widget.onStatusChanged(status) : null,
         borderRadius: BorderRadius.circular(20),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-          decoration: BoxDecoration(
-            color: isSelected ? color : color.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: color.withOpacity(0.5),
-              width: isSelected ? 2 : 1,
+        child: Opacity(
+          opacity: widget.canEdit ? 1.0 : 0.5,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected ? color : color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: color.withOpacity(0.5),
+                width: isSelected ? 2 : 1,
+              ),
             ),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              color: isSelected ? Colors.white : color,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : color,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
             ),
           ),
         ),
@@ -2054,39 +2113,43 @@ class _InlineStatusButton extends StatelessWidget {
   final IconData icon;
   final Color borderColor;
   final bool isActive;
-  final VoidCallback onTap;
+  final VoidCallback? onTap; // Made nullable for view-only mode
 
   const _InlineStatusButton({
     required this.icon,
     required this.borderColor,
     required this.isActive,
-    required this.onTap,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isEnabled = onTap != null;
     final backgroundColor = isActive
         ? borderColor.withOpacity(0.35)
         : Colors.white.withOpacity(0.10);
     final iconColor = isActive ? Colors.white : borderColor.withOpacity(0.95);
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: isActive
-                ? borderColor.withOpacity(0.95)
-                : borderColor.withOpacity(0.35),
-            width: isActive ? 2.0 : 1.2,
+    return Opacity(
+      opacity: isEnabled ? 1.0 : 0.5,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: isActive
+                  ? borderColor.withOpacity(0.95)
+                  : borderColor.withOpacity(0.35),
+              width: isActive ? 2.0 : 1.2,
+            ),
           ),
+          child: Icon(icon, color: iconColor),
         ),
-        child: Icon(icon, color: iconColor),
       ),
     );
   }

@@ -264,17 +264,14 @@ class _EmployeeListScreenState extends State<EmployeeListScreen> {
                         children: [
                           Text(
                             employee.name,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.darkPurple,
                             ),
                           ),
                           const SizedBox(height: 4),
-                          _buildInfoRow(
-                            Icons.badge,
-                            'ID: ${employee.staffId ?? "N/A"}',
-                          ),
+                          _buildInfoRow(Icons.badge, 'ID: ${employee.staffId}'),
                           _buildInfoRow(
                             Icons.work,
                             '${employee.designation ?? "N/A"} (${employee.department ?? "N/A"})',

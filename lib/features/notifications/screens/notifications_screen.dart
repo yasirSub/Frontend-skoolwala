@@ -184,7 +184,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             child: IgnorePointer(
               child: Opacity(
                 opacity: isDark ? 0.08 : 0.06,
-                child: const DecoratedBox(
+                child: DecoratedBox(
                   decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
                 ),
               ),
@@ -223,7 +223,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                     Container(
                                       width: 64,
                                       height: 64,
-                                      decoration: const BoxDecoration(
+                                      decoration: BoxDecoration(
                                         gradient: AppTheme.primaryGradient,
                                         shape: BoxShape.circle,
                                       ),

@@ -351,7 +351,7 @@ class _OverviewTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Statistics',
             style: TextStyle(
               fontSize: 20,
@@ -363,7 +363,7 @@ class _OverviewTab extends StatelessWidget {
           // Bar Chart
           _AttendanceBarChart(presentDays: presentDays, absentDays: absentDays),
           const SizedBox(height: 24),
-          const Text(
+          Text(
             'Monthly Breakdown',
             style: TextStyle(
               fontSize: 20,
@@ -482,7 +482,7 @@ class _BarColumn extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             color: AppTheme.textGray,
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -527,7 +527,7 @@ class _MonthlyCard extends StatelessWidget {
             children: [
               Text(
                 month,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
                   color: AppTheme.textDark,
@@ -544,7 +544,7 @@ class _MonthlyCard extends StatelessWidget {
                 ),
                 child: Text(
                   '$percentage%',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppTheme.primaryPurple,
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
@@ -692,7 +692,7 @@ class _InsightsCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Insight',
                   style: TextStyle(
                     color: AppTheme.textGray,
@@ -722,9 +722,9 @@ class _InsightsCard extends StatelessWidget {
 class _CalendarTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(32.0),
+        padding: const EdgeInsets.all(32.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -733,7 +733,7 @@ class _CalendarTab extends StatelessWidget {
               size: 80,
               color: AppTheme.textGray,
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
               'Calendar View',
               style: TextStyle(
@@ -742,7 +742,7 @@ class _CalendarTab extends StatelessWidget {
                 color: AppTheme.textDark,
               ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               'Coming Soon!',
               style: TextStyle(
@@ -751,7 +751,7 @@ class _CalendarTab extends StatelessWidget {
                 color: AppTheme.textGray,
               ),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               'Calendar view with attendance marking will be available in the next update.',
               textAlign: TextAlign.center,

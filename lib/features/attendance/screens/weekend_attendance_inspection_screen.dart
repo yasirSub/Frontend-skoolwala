@@ -74,7 +74,7 @@ class _WeekendAttendanceInspectionScreenState
     final canOpenSelf = staffId != null && staffId.isNotEmpty;
 
     return Container(
-      decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
+      decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
@@ -397,7 +397,7 @@ class _MiniStatTile extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppTheme.textGray,
               fontWeight: FontWeight.w700,
             ),

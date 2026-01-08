@@ -1,9 +1,13 @@
 import 'dart:math';
 import '../../../shared/services/http_client.dart';
+import '../../../shared/services/cache_service.dart';
 import 'location_service.dart';
 import '../../../shared/services/session_manager.dart';
 
 class AttendanceService {
+  // Cache TTL for attendance statistics (in minutes)
+  static const int _statsCacheTtl = 5;
+
   // Teacher Self Attendance API
   static Future<Map<String, dynamic>> markTeacherAttendance({
     required String action,
@@ -15,6 +19,8 @@ class AttendanceService {
         body: {'action': action, 'status': status},
         requireAuth: true,
       );
+      // Invalidate stats cache after marking attendance
+      CacheService.clearPattern('teacher_stats');
       return response;
     } catch (e) {
       rethrow;
@@ -41,6 +47,56 @@ class AttendanceService {
         'teacherAbsentDaysCount',
         requireAuth: true,
       );
+      return response;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  // Teacher Self Attendance Statistics (Full Data) - WITH CACHING
+  static Future<Map<String, dynamic>> getTeacherSelfAttendanceStats({
+    required String staffId,
+    String filterType = 'month',
+    String? filterValue,
+    bool forceRefresh = false,
+  }) async {
+    try {
+      // Generate cache key
+      final cacheKey = CacheService.generateKey('teacher_stats', {
+        'staff_id': staffId,
+        'filter_type': filterType,
+        'filter_value': filterValue ?? '',
+      });
+
+      // Check cache first (unless forced refresh)
+      if (!forceRefresh) {
+        final cached = await CacheService.get<Map<String, dynamic>>(
+          key: cacheKey,
+          ttlMinutes: _statsCacheTtl,
+        );
+        if (cached != null) {
+          return cached;
+        }
+      }
+
+      // Fetch from API
+      final queryParams = {
+        'staff_id': staffId,
+        'filter_type': filterType,
+        if (filterValue != null) 'filter_value': filterValue,
+      };
+
+      final response = await HttpClient().get(
+        'getTeacherSelfAttendanceStats',
+        queryParams: queryParams,
+        requireAuth: true,
+      );
+
+      // Cache successful response
+      if (response['status'] == 'success') {
+        await CacheService.set(key: cacheKey, data: response);
+      }
+
       return response;
     } catch (e) {
       rethrow;

@@ -95,11 +95,11 @@ class _MailboxComposeScreenState extends State<MailboxComposeScreen>
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: AppTheme.radiusMedium,
-        borderSide: const BorderSide(color: AppTheme.errorRed, width: 2),
+        borderSide: BorderSide(color: AppTheme.errorRed, width: 2),
       ),
       focusedErrorBorder: OutlineInputBorder(
         borderRadius: AppTheme.radiusMedium,
-        borderSide: const BorderSide(color: AppTheme.errorRed, width: 2),
+        borderSide: BorderSide(color: AppTheme.errorRed, width: 2),
       ),
       contentPadding: const EdgeInsets.symmetric(
         horizontal: AppTheme.spaceL,
@@ -297,7 +297,7 @@ class _MailboxComposeScreenState extends State<MailboxComposeScreen>
     return Stack(
       children: [
         Container(
-          decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
+          decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
         ),
         AnimatedBuilder(
           animation: _glowController,

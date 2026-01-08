@@ -203,7 +203,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
           _buildHeader(context),
           Expanded(
             child: _loading
-                ? const Center(
+                ? Center(
                     child: CircularProgressIndicator(
                       valueColor: AlwaysStoppedAnimation<Color>(
                         AppTheme.primaryPurple,
@@ -397,7 +397,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                 CircleAvatar(
                   radius: 22,
                   backgroundColor: AppTheme.primaryPurple.withOpacity(0.15),
-                  child: const Icon(
+                  child: Icon(
                     Icons.person_rounded,
                     color: AppTheme.primaryPurple,
                   ),
@@ -610,7 +610,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
                                 leading: CircleAvatar(
                                   backgroundColor: AppTheme.primaryPurple
                                       .withOpacity(0.15),
-                                  child: const Icon(
+                                  child: Icon(
                                     Icons.person_rounded,
                                     color: AppTheme.primaryPurple,
                                   ),

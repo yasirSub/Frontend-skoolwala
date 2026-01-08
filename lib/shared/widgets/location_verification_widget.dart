@@ -127,7 +127,7 @@ class _LocationVerificationWidgetState extends State<LocationVerificationWidget>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [AppTheme.textDark, AppTheme.darkPurple],

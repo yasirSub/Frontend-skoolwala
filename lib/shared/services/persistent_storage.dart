@@ -260,4 +260,20 @@ class PersistentStorage {
       print('💾 Persistent Storage: First launch marked as completed');
     }
   }
+
+  /// General purpose string storage methods
+  static Future<void> setString(String key, String value) async {
+    await init();
+    await _prefs?.setString(key, value);
+  }
+
+  static Future<String?> getString(String key) async {
+    await init();
+    return _prefs?.getString(key);
+  }
+
+  static Future<void> remove(String key) async {
+    await init();
+    await _prefs?.remove(key);
+  }
 }

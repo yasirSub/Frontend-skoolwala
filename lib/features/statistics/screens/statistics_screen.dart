@@ -8,6 +8,7 @@ import 'package:skoolwala/features/profile/services/developer_attendance_service
 import 'package:skoolwala/features/profile/services/dummy_data_service.dart';
 import 'package:skoolwala/shared/utils/safe_widget_operations.dart';
 import 'package:skoolwala/shared/utils/layout_boundary_fix.dart';
+import 'package:skoolwala/shared/config/api_config.dart';
 
 class StatisticsScreen extends StatefulWidget {
   final String username;
@@ -666,6 +667,14 @@ class _StatisticsScreenState extends State<StatisticsScreen>
   }
 
   Widget _buildErrorWidget() {
+    final baseUrl = ApiConfig.getBaseUrl();
+    final errorText = _error ?? 'Unknown error';
+    final isNetworkError =
+        errorText.contains('SocketException') ||
+        errorText.contains('Connection timed out') ||
+        errorText.contains('timed out') ||
+        errorText.contains('Failed host lookup');
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -703,12 +712,27 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    _error ?? 'Unknown error',
+                    isNetworkError
+                        ? 'Cannot reach the server. Please check your API base URL and Wi‑Fi/network.'
+                        : errorText,
                     style: TextStyle(
                       color: Theme.of(context).textTheme.bodyMedium?.color,
                     ),
                     textAlign: TextAlign.center,
                   ),
+                  if (isNetworkError) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      'API: $baseUrl',
+                      style: TextStyle(
+                        color: Theme.of(
+                          context,
+                        ).textTheme.bodySmall?.color?.withOpacity(0.8),
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: _loadStatistics,

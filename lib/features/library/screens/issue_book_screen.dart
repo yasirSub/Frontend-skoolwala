@@ -21,10 +21,7 @@ class _IssueBookScreenState extends State<IssueBookScreen> {
   DateTime? _issueDate;
   DateTime? _dueDate;
   bool _isLoading = false;
-  bool _isLoadingStudents = false;
-  final List<Student> _students = [];
   final TextEditingController _searchController = TextEditingController();
-  final String _searchQuery = '';
 
   @override
   void initState() {
@@ -42,21 +39,7 @@ class _IssueBookScreenState extends State<IssueBookScreen> {
   }
 
   Future<void> _loadStudents() async {
-    setState(() {
-      _isLoadingStudents = true;
-    });
-
-    try {
-      // Load students from all classes (or let teacher select class first)
-      // For now, we'll show a message to select class first
-      setState(() {
-        _isLoadingStudents = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoadingStudents = false;
-      });
-    }
+    // Student loading is currently handled via explicit selection.
   }
 
   Future<void> _selectBook() async {

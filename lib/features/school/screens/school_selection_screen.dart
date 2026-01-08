@@ -1,8 +1,10 @@
 // ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:skoolwala/shared/models/school.dart';
 import 'package:skoolwala/shared/theme/app_theme.dart';
+import 'package:skoolwala/shared/theme/theme_provider.dart';
 import 'package:skoolwala/shared/services/persistent_storage.dart';
 import 'package:skoolwala/features/school/services/school_service.dart';
 import 'package:skoolwala/features/auth/screens/login_screen.dart';
@@ -50,7 +52,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen>
       body: Container(
         width: size.width,
         height: size.height,
-        decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
+        decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
         child: SafeArea(
           child: Stack(
             children: [
@@ -276,6 +278,15 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen>
                                 onPressed: _selectedSchool == null
                                     ? null
                                     : () async {
+                                        // Refresh theme before proceeding to login
+                                        // This will fetch the colors from the backend "frontend theme" options
+                                        Provider.of<ThemeProvider>(
+                                          context,
+                                          listen: false,
+                                        ).refreshDynamicTheme(
+                                          _selectedSchool!.id,
+                                        );
+
                                         await PersistentStorage.saveSelectedSchool(
                                           schoolId: _selectedSchool!.id,
                                           schoolName: _selectedSchool!.name,

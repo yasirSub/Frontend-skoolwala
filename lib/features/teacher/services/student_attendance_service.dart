@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../../shared/services/http_client.dart';
+import '../../../shared/services/cache_service.dart';
 import '../../../shared/config/api_config.dart';
 
 /// Model for Student Attendance Entry
@@ -303,7 +304,7 @@ class StudentAttendanceService {
     }
   }
 
-  /// Get attendance report for a class-section
+  /// Get attendance report for a class-section - WITH CACHING
   static Future<StudentAttendanceReportResponse> getAttendanceReport({
     required int classId,
     required int sectionId,
@@ -311,8 +312,31 @@ class StudentAttendanceService {
     String? endDate,
     int? studentId,
     int? subjectId,
+    bool forceRefresh = false,
   }) async {
     try {
+      // Generate cache key
+      final cacheKey = CacheService.generateKey('student_report', {
+        'class_id': classId,
+        'section_id': sectionId,
+        'start_date': startDate ?? '',
+        'end_date': endDate ?? '',
+        'student_id': studentId ?? 0,
+        'subject_id': subjectId ?? 0,
+      });
+
+      // Check cache first (unless forced refresh)
+      if (!forceRefresh) {
+        final cached = await CacheService.get<Map<String, dynamic>>(
+          key: cacheKey,
+          ttlMinutes: 5, // 5 minute cache
+        );
+        if (cached != null) {
+          return StudentAttendanceReportResponse.fromJson(cached);
+        }
+      }
+
+      // Fetch from API
       final Map<String, String> queryParams = {
         'class_id': classId.toString(),
         'section_id': sectionId.toString(),
@@ -328,6 +352,11 @@ class StudentAttendanceService {
         queryParams: queryParams,
         requireAuth: true,
       );
+
+      // Cache successful response
+      if (response['status'] == 'success') {
+        await CacheService.set(key: cacheKey, data: response);
+      }
 
       return StudentAttendanceReportResponse.fromJson(response);
     } catch (e) {

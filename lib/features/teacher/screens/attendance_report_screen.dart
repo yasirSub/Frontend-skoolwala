@@ -122,7 +122,7 @@ class _AttendanceReportScreenState extends State<AttendanceReportScreen> {
     return Scaffold(
       appBar: AppBar(
         flexibleSpace: Container(
-          decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
+          decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
         ),
         foregroundColor: Colors.white,
         title: Text(

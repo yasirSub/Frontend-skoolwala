@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'app_theme.dart';
+import 'package:skoolwala/shared/services/theme_service.dart';
+import 'package:skoolwala/shared/models/app_theme_settings.dart';
 
 /// Theme provider for managing dark/light theme switching
 class ThemeProvider extends ChangeNotifier {
@@ -14,6 +16,7 @@ class ThemeProvider extends ChangeNotifier {
 
   ThemeProvider() {
     _loadThemeFromPrefs();
+    _loadDynamicTheme();
   }
 
   /// Load theme preference from SharedPreferences
@@ -27,6 +30,56 @@ class ThemeProvider extends ChangeNotifier {
       // Default to light theme if loading fails
       _themeMode = ThemeMode.light;
     }
+  }
+
+  /// Load dynamic theme settings from storage (new app theme first, then legacy)
+  Future<void> _loadDynamicTheme() async {
+    try {
+      // First try to load app-specific theme settings (new API)
+      final appThemeSettings = await ThemeService.getSavedAppThemeSettings();
+      if (appThemeSettings != null) {
+        AppTheme.applyAppTheme(appThemeSettings);
+        notifyListeners();
+        return;
+      }
+
+      // Fallback to legacy theme settings
+      final settings = await ThemeService.getSavedThemeSettings();
+      if (settings != null) {
+        AppTheme.applyTheme(settings);
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Error loading dynamic theme: $e');
+    }
+  }
+
+  /// Refresh app theme from API (new app-specific theme API)
+  Future<void> refreshAppTheme(String branchId) async {
+    try {
+      final settings = await ThemeService().fetchAppThemeSettings(branchId);
+      if (settings != null) {
+        AppTheme.applyAppTheme(settings);
+        notifyListeners();
+        print('🎨 ThemeProvider: App theme refreshed from API');
+      } else {
+        // Fallback to default settings if API fails
+        print('⚠️ ThemeProvider: Using default app theme (API returned null)');
+        AppTheme.applyAppTheme(AppThemeSettings.defaultSettings());
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Error refreshing app theme: $e');
+      // Apply default settings on error
+      AppTheme.applyAppTheme(AppThemeSettings.defaultSettings());
+      notifyListeners();
+    }
+  }
+
+  /// Refresh theme from API (legacy - for backward compatibility)
+  Future<void> refreshDynamicTheme(String branchId) async {
+    // Use new app theme API
+    await refreshAppTheme(branchId);
   }
 
   /// Save theme preference to SharedPreferences
@@ -133,7 +186,7 @@ class AppThemeDark {
       ),
       iconTheme: const IconThemeData(color: Colors.white),
       primaryIconTheme: const IconThemeData(color: Colors.white),
-      appBarTheme: const AppBarTheme(
+      appBarTheme: AppBarTheme(
         backgroundColor: AppTheme.primaryPurple,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -182,7 +235,7 @@ class AppThemeDark {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppTheme.radiusMedium,
-          borderSide: const BorderSide(color: AppTheme.primaryPurple, width: 2),
+          borderSide: BorderSide(color: AppTheme.primaryPurple, width: 2),
         ),
       ),
     );

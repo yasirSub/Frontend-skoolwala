@@ -13,6 +13,15 @@ class MenuService {
   /// Fetch menu items from API based on user permissions
   Future<List<MenuItem>> fetchMenuItems({bool forceRefresh = false}) async {
     try {
+      if (_cacheTime != null) {
+        final ageMinutes = DateTime.now().difference(_cacheTime!).inMinutes;
+        print(
+          '📋 MenuService: Cache age ${ageMinutes}m (ttl ${_cacheDurationMinutes}m)',
+        );
+      } else {
+        print('📋 MenuService: Cache empty (ttl ${_cacheDurationMinutes}m)');
+      }
+
       // Check cache first
       // Cache check disabled for debugging
       /*

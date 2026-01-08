@@ -514,7 +514,7 @@ class _AppSidebarState extends State<AppSidebar> {
                 // Header with logo and support
                 Container(
                   padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: AppTheme.darkPurple,
                     border: Border(
                       bottom: BorderSide(color: AppTheme.textDark, width: 1),

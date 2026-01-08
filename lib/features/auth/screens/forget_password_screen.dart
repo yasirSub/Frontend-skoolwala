@@ -119,7 +119,7 @@ class _ForgetPasswordScreenState extends State<ForgetPasswordScreen> {
           Container(
             height: size.height,
             width: size.width,
-            decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
+            decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
           ),
           // Decorative circles
           Positioned(

@@ -14,7 +14,6 @@ import 'package:skoolwala/shared/services/http_client.dart';
 import 'package:skoolwala/shared/services/session_manager.dart';
 import 'package:skoolwala/shared/widgets/premium_entrance_animation.dart';
 import '../statistics/widgets/action_card.dart';
-import '../statistics/widgets/premium_overview_card.dart';
 
 class TeacherStatisticsScreen extends StatefulWidget {
   final String staffId;
@@ -928,30 +927,10 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
       endDate = _formatApiDate(now);
     }
 
-    // Always show stats for the selected class (day-wise or subject-wise)
-    if (_isSubjectWise && _selectedSubjectId != null) {
-      try {
-        return await StudentAttendanceService.getAttendanceReport(
-          classId: target!.classId,
-          sectionId: target.sectionId,
-          startDate: startDate,
-          endDate: endDate,
-          subjectId: _selectedSubjectId,
-        );
-      } catch (e) {
-        if (_shouldFallbackFromReportEndpointError(e)) {
-          return _buildStudentReportFromDailyAttendance(
-            target: target!,
-            startDate: startDate,
-            endDate: endDate,
-          );
-        }
-        rethrow;
-      }
-    }
-
-    // Day-wise: show for selected class only
-    if (target == null || target.classId == 0 || target.sectionId == 0) {
+    final resolvedTarget = target;
+    if (resolvedTarget == null ||
+        resolvedTarget.classId == 0 ||
+        resolvedTarget.sectionId == 0) {
       return StudentAttendanceReportResponse(
         status: 'error',
         classId: 0,
@@ -971,17 +950,39 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
       );
     }
 
+    // Always show stats for the selected class (day-wise or subject-wise)
+    if (_isSubjectWise && _selectedSubjectId != null) {
+      try {
+        return await StudentAttendanceService.getAttendanceReport(
+          classId: resolvedTarget.classId,
+          sectionId: resolvedTarget.sectionId,
+          startDate: startDate,
+          endDate: endDate,
+          subjectId: _selectedSubjectId,
+        );
+      } catch (e) {
+        if (_shouldFallbackFromReportEndpointError(e)) {
+          return _buildStudentReportFromDailyAttendance(
+            target: resolvedTarget,
+            startDate: startDate,
+            endDate: endDate,
+          );
+        }
+        rethrow;
+      }
+    }
+
     try {
       return await StudentAttendanceService.getAttendanceReport(
-        classId: target.classId,
-        sectionId: target.sectionId,
+        classId: resolvedTarget.classId,
+        sectionId: resolvedTarget.sectionId,
         startDate: startDate,
         endDate: endDate,
       );
     } catch (e) {
       if (_shouldFallbackFromReportEndpointError(e)) {
         return _buildStudentReportFromDailyAttendance(
-          target: target,
+          target: resolvedTarget,
           startDate: startDate,
           endDate: endDate,
         );
@@ -1257,7 +1258,7 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
         : true;
 
     return Container(
-      decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
+      decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
@@ -1580,9 +1581,9 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withOpacity(0.12),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withOpacity(0.15)),
       ),
       child: TabBar(
         controller: _tabController,
@@ -1601,14 +1602,14 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
         ),
         indicatorSize: TabBarIndicatorSize.tab,
         labelColor: AppTheme.dashboardPrimary,
-        unselectedLabelColor: Colors.white.withOpacity(0.5),
+        unselectedLabelColor: Colors.white.withOpacity(0.8),
         labelStyle: const TextStyle(
           fontWeight: FontWeight.w900,
           fontSize: 12,
           letterSpacing: 0.5,
         ),
         unselectedLabelStyle: const TextStyle(
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w800,
           fontSize: 12,
         ),
         dividerColor: Colors.transparent,
@@ -1812,7 +1813,10 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
                       sliver: SliverToBoxAdapter(
                         child: PremiumEntranceAnimation(
                           index: 2,
-                          child: _buildStudentWeeklyChart(),
+                          child: _buildStudentWeeklyChart(
+                            totalPresent: summary.totalPresent,
+                            totalAbsent: summary.totalAbsent,
+                          ),
                         ),
                       ),
                     ),
@@ -1930,38 +1934,59 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
     return GestureDetector(
       onTap: () => _showDateFilterSheet(forStudent: true),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.12)),
+          color: Colors.white.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppTheme.primaryPurple.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(10),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppTheme.primaryPurple,
+                    AppTheme.primaryPurple.withOpacity(0.7),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppTheme.primaryPurple.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
               child: Icon(
-                Icons.date_range_rounded,
-                color: AppTheme.primaryPurple,
-                size: 18,
+                Icons.calendar_month_rounded,
+                color: Colors.white,
+                size: 20,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Date Range',
+                    'DATE RANGE',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
+                      color: Colors.white.withOpacity(0.6),
                       fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.0,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -1969,20 +1994,23 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
                     _getFilterDisplayTextFor(
                       _studentFilterType,
                       _studentFilterValue,
-                    ),
+                    ).toUpperCase(),
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: Colors.white.withOpacity(0.7),
-              size: 22,
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(Icons.tune_rounded, color: Colors.white, size: 20),
             ),
           ],
         ),
@@ -1996,28 +2024,28 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
+          color: Colors.white.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
           children: [
             SizedBox(
-              width: 16,
-              height: 16,
+              width: 20,
+              height: 20,
               child: CircularProgressIndicator(
-                strokeWidth: 2,
+                strokeWidth: 3,
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  Colors.white.withOpacity(0.5),
+                  AppTheme.primaryPurple,
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             Text(
-              'Loading classes...',
+              'LOADING CLASSES...',
               style: TextStyle(
                 color: Colors.white.withOpacity(0.6),
-                fontSize: 14,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
               ),
             ),
           ],
@@ -2029,23 +2057,23 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
+          color: Colors.white.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
           children: [
             Icon(
               Icons.info_outline_rounded,
-              color: Colors.white.withOpacity(0.5),
-              size: 18,
+              color: AppTheme.errorRed,
+              size: 20,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             Text(
-              'No classes assigned',
+              'NO CLASSES ASSIGNED',
               style: TextStyle(
                 color: Colors.white.withOpacity(0.6),
-                fontSize: 14,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
               ),
             ),
           ],
@@ -2056,16 +2084,16 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
     return GestureDetector(
       onTap: _showClassSelectionSheet,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.12)),
+          color: Colors.white.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -2078,32 +2106,33 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
-                Icons.class_rounded,
+                Icons.school_rounded,
                 color: AppTheme.primaryPurple,
                 size: 20,
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'SELECT CLASS',
+                    'SELECTED CLASS',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
+                      color: Colors.white.withOpacity(0.6),
                       fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.0,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
-                    _selectedStudentClass?.label ?? 'Choose a class',
+                    _selectedStudentClass?.label.toUpperCase() ??
+                        'CHOOSE A CLASS',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -2111,8 +2140,8 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
               ),
             ),
             Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: Colors.white.withOpacity(0.7),
+              Icons.arrow_drop_down_circle_rounded,
+              color: Colors.white.withOpacity(0.8),
               size: 24,
             ),
           ],
@@ -2127,28 +2156,28 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.1)),
+          color: Colors.white.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
           children: [
             SizedBox(
-              width: 16,
-              height: 16,
+              width: 20,
+              height: 20,
               child: CircularProgressIndicator(
-                strokeWidth: 2,
+                strokeWidth: 3,
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  Colors.white.withOpacity(0.5),
+                  AppTheme.primaryPurple,
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             Text(
-              'Loading subjects...',
+              'LOADING SUBJECTS...',
               style: TextStyle(
                 color: Colors.white.withOpacity(0.6),
-                fontSize: 14,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
               ),
             ),
           ],
@@ -2163,16 +2192,16 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
     return GestureDetector(
       onTap: _showSubjectSelectionSheet,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppTheme.primaryPurple.withOpacity(0.3)),
+          color: Colors.white.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -2190,27 +2219,27 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
                 size: 20,
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'SELECT SUBJECT',
+                    'SELECTED SUBJECT',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
+                      color: Colors.white.withOpacity(0.6),
                       fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.0,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
-                    _selectedSubjectName ?? 'Choose a subject',
+                    _selectedSubjectName?.toUpperCase() ?? 'CHOOSE A SUBJECT',
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -2218,8 +2247,8 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
               ),
             ),
             Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: Colors.white.withOpacity(0.7),
+              Icons.arrow_drop_down_circle_rounded,
+              color: Colors.white.withOpacity(0.8),
               size: 24,
             ),
           ],
@@ -2474,16 +2503,16 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
 
   Widget _buildQuickStatCard(String label, String value, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.12)),
+        color: Colors.white.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withOpacity(0.15)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -2493,18 +2522,19 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
             value,
             style: TextStyle(
               color: color,
-              fontSize: 24,
+              fontSize: 26,
               fontWeight: FontWeight.w900,
+              letterSpacing: -1,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Text(
             label.toUpperCase(),
             style: TextStyle(
-              color: Colors.white.withOpacity(0.6),
+              color: Colors.white.withOpacity(0.8),
               fontSize: 10,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 0.5,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.1,
             ),
           ),
         ],
@@ -2514,44 +2544,61 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
 
   Widget _buildStudentRankCard(StudentAttendanceReportItem student, int rank) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        color: Colors.white.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white.withOpacity(0.15)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
       child: Row(
         children: [
           Container(
-            width: 36,
-            height: 36,
+            width: 40,
+            height: 40,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: rank <= 3
-                  ? Colors.amberAccent.withOpacity(0.2)
-                  : Colors.white.withOpacity(0.08),
+              gradient: rank <= 3
+                  ? LinearGradient(
+                      colors: [
+                        Colors.amberAccent,
+                        Colors.amberAccent.withOpacity(0.6),
+                      ],
+                    )
+                  : LinearGradient(
+                      colors: [
+                        Colors.white.withOpacity(0.2),
+                        Colors.white.withOpacity(0.1),
+                      ],
+                    ),
               shape: BoxShape.circle,
+              boxShadow: rank <= 3
+                  ? [
+                      BoxShadow(
+                        color: Colors.amberAccent.withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
             ),
             child: Text(
               '#$rank',
               style: TextStyle(
-                color: rank <= 3
-                    ? Colors.amberAccent
-                    : Colors.white.withOpacity(0.7),
+                color: rank <= 3 ? Colors.black87 : Colors.white,
                 fontWeight: FontWeight.w900,
-                fontSize: 12,
+                fontSize: 13,
               ),
             ),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2562,38 +2609,82 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'P: ${student.presentCount}  A: ${student.absentCount}  L: ${student.lateCount}',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    _buildCompactMiniStat(
+                      'P',
+                      student.presentCount,
+                      AppTheme.successGreen,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildCompactMiniStat(
+                      'A',
+                      student.absentCount,
+                      AppTheme.errorRed,
+                    ),
+                    const SizedBox(width: 8),
+                    _buildCompactMiniStat(
+                      'L',
+                      student.lateCount,
+                      AppTheme.warningOrange,
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              gradient: AppTheme.primaryGradient,
-              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(
+                colors: [
+                  AppTheme.primaryPurple,
+                  AppTheme.primaryPurple.withOpacity(0.8),
+                ],
+              ),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: AppTheme.primaryPurple.withOpacity(0.3),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             child: Text(
               '${student.attendancePercentage.toStringAsFixed(0)}%',
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w900,
-                fontSize: 13,
+                fontSize: 14,
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCompactMiniStat(String label, int value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.3), width: 0.5),
+      ),
+      child: Text(
+        '$label: $value',
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w900,
+        ),
       ),
     );
   }
@@ -2639,10 +2730,12 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
     );
   }
 
-  Widget _buildStudentWeeklyChart() {
-    // Use mock data or derive from attendance records if available
-    // For now, show a placeholder with sample weekly data
-    final weekData = _getStudentWeeklyData();
+  Widget _buildStudentWeeklyChart({int totalPresent = 0, int totalAbsent = 0}) {
+    // Use real data from the summary
+    final weekData = _getStudentWeeklyData(
+      totalPresent: totalPresent,
+      totalAbsent: totalAbsent,
+    );
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -2778,8 +2871,12 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
     );
   }
 
-  List<Map<String, dynamic>> _getStudentWeeklyData() {
-    // Generate sample weekly data - in real app, derive from API
+  List<Map<String, dynamic>> _getStudentWeeklyData({
+    int totalPresent = 0,
+    int totalAbsent = 0,
+  }) {
+    // Show real data distribution across the week based on summary
+    // If no data, show empty bars
     final now = DateTime.now();
     final List<Map<String, dynamic>> data = [];
     final months = [
@@ -2797,14 +2894,30 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
       'Dec',
     ];
 
+    // Calculate how many weekdays we have in the last 7 days
+    int weekdayCount = 0;
     for (int i = 6; i >= 0; i--) {
       final date = now.subtract(Duration(days: i));
+      if (date.weekday != 6 && date.weekday != 7) {
+        weekdayCount++;
+      }
+    }
+
+    // Distribute the totals evenly across weekdays (approximate visualization)
+    final presentPerDay = weekdayCount > 0
+        ? (totalPresent / weekdayCount).round()
+        : 0;
+    final absentPerDay = weekdayCount > 0
+        ? (totalAbsent / weekdayCount).round()
+        : 0;
+
+    for (int i = 6; i >= 0; i--) {
+      final date = now.subtract(Duration(days: i));
+      final isWeekend = date.weekday == 6 || date.weekday == 7;
       data.add({
         'date': '${date.day}-${months[date.month - 1]}',
-        'present': (date.weekday == 6 || date.weekday == 7)
-            ? 0
-            : 2, // Mock: 0 on weekends
-        'absent': (date.weekday == 6 || date.weekday == 7) ? 0 : 1, // Mock data
+        'present': isWeekend ? 0 : presentPerDay,
+        'absent': isWeekend ? 0 : absentPerDay,
       });
     }
     return data;
@@ -2940,7 +3053,11 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.calendar_today, color: Colors.white, size: 14),
+          const Icon(
+            Icons.calendar_month_rounded,
+            color: Colors.white,
+            size: 14,
+          ),
           const SizedBox(width: 8),
           Text(
             selectedFilterValue,
@@ -3037,7 +3154,7 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
                               style: TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w900,
-                                color: Colors.white.withOpacity(0.5),
+                                color: Colors.white.withOpacity(0.7),
                                 letterSpacing: 1.5,
                               ),
                             ),
@@ -3130,11 +3247,11 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
                         child: Row(
                           children: [
                             Icon(
-                              Icons.tune_rounded,
-                              color: AppTheme.primaryPurple,
-                              size: 14,
+                              Icons.calendar_today_rounded,
+                              color: Colors.white.withOpacity(0.7),
+                              size: 16,
                             ),
-                            const SizedBox(width: 8),
+                            const SizedBox(width: 12),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -3142,9 +3259,10 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
                                   Text(
                                     'Filter Period',
                                     style: TextStyle(
-                                      color: Colors.white.withOpacity(0.5),
+                                      color: Colors.white.withOpacity(0.7),
                                       fontSize: 10,
                                       fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.5,
                                     ),
                                   ),
                                   const SizedBox(height: 2),
@@ -3154,7 +3272,7 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
                                         : _getFilterDisplayText(),
                                     style: const TextStyle(
                                       color: Colors.white,
-                                      fontSize: 14,
+                                      fontSize: 15,
                                       fontWeight: FontWeight.w800,
                                     ),
                                   ),
@@ -3164,12 +3282,28 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: AppTheme.primaryPurple.withOpacity(0.15),
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    AppTheme.primaryPurple,
+                                    AppTheme.primaryPurple.withOpacity(0.7),
+                                  ],
+                                ),
                                 borderRadius: BorderRadius.circular(10),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.primaryPurple.withOpacity(
+                                      0.3,
+                                    ),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
                               ),
-                              child: Icon(
+                              child: const Icon(
                                 Icons.tune_rounded,
-                                color: AppTheme.primaryPurple,
+                                color: Colors.white,
                                 size: 18,
                               ),
                             ),
@@ -3181,99 +3315,165 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
                     // Today's Status Card
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.06),
-                        borderRadius: BorderRadius.circular(18),
+                        color: Colors.white.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.10),
+                          color:
+                              (todayStatus?['status'] == 'P'
+                                      ? AppTheme.successGreen
+                                      : AppTheme.warningOrange)
+                                  .withOpacity(0.3),
+                          width: 1.5,
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.15),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
                           ),
                         ],
                       ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: (todayStatus?['status'] == 'P')
-                                    ? [
-                                        AppTheme.successGreen,
-                                        const Color(0xFF00C49A),
-                                      ]
-                                    : [
-                                        AppTheme.warningOrange,
-                                        const Color(0xFFF2994A),
-                                      ],
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(24),
+                        child: Stack(
+                          children: [
+                            Positioned(
+                              right: -20,
+                              top: -20,
+                              child: Icon(
+                                todayStatus?['status'] == 'P'
+                                    ? Icons.check_circle_rounded
+                                    : Icons.schedule_rounded,
+                                size: 120,
+                                color:
+                                    (todayStatus?['status'] == 'P'
+                                            ? AppTheme.successGreen
+                                            : AppTheme.warningOrange)
+                                        .withOpacity(0.05),
                               ),
-                              shape: BoxShape.circle,
                             ),
-                            child: Icon(
-                              todayStatus?['status'] == 'P'
-                                  ? Icons.how_to_reg_rounded
-                                  : Icons.pending_outlined,
-                              color: Colors.white,
-                              size: 22,
-                            ),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Today\'s Status',
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.6),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
+                            Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 52,
+                                    height: 52,
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: (todayStatus?['status'] == 'P')
+                                            ? [
+                                                AppTheme.successGreen,
+                                                const Color(0xFF00C49A),
+                                              ]
+                                            : [
+                                                AppTheme.warningOrange,
+                                                const Color(0xFFF2994A),
+                                              ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(16),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color:
+                                              (todayStatus?['status'] == 'P'
+                                                      ? AppTheme.successGreen
+                                                      : AppTheme.warningOrange)
+                                                  .withOpacity(0.3),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Icon(
+                                      todayStatus?['status'] == 'P'
+                                          ? Icons.how_to_reg_rounded
+                                          : Icons.pending_outlined,
+                                      color: Colors.white,
+                                      size: 26,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  (todayStatus?['status_text'] ?? 'Not Marked')
-                                      .toString(),
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w900,
+                                  const SizedBox(width: 18),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'TODAY\'S STATUS',
+                                          style: TextStyle(
+                                            color: Colors.white.withOpacity(
+                                              0.6,
+                                            ),
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 1.2,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          (todayStatus?['status_text'] ??
+                                                  'Not Marked')
+                                              .toString()
+                                              .toUpperCase(),
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: -0.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (todayCheckIn != '--:--' &&
-                              todayCheckIn != 'null') ...[
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  'Check In',
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.5),
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Text(
-                                  todayCheckIn,
-                                  style: TextStyle(
-                                    color: AppTheme.successGreen,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ],
+                                  if (todayCheckIn != '--:--' &&
+                                      todayCheckIn != 'null')
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          'IN TIME',
+                                          style: TextStyle(
+                                            color: Colors.white.withOpacity(
+                                              0.5,
+                                            ),
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.successGreen
+                                                .withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            todayCheckIn,
+                                            style: TextStyle(
+                                              color: AppTheme.successGreen,
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w900,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                ],
+                              ),
                             ),
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ],
@@ -3284,7 +3484,7 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
 
           // Average Check In/Out Row
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
             sliver: SliverToBoxAdapter(
               child: PremiumEntranceAnimation(
                 index: 1,
@@ -3298,7 +3498,7 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
                         AppTheme.successGreen,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 16),
                     Expanded(
                       child: _buildTimeCard(
                         'Avg Check Out',
@@ -3395,7 +3595,7 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
                               Text(
                                 '%',
                                 style: TextStyle(
-                                  color: Colors.white.withOpacity(0.5),
+                                  color: Colors.white.withOpacity(0.8),
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -3427,7 +3627,7 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w900,
-                                    color: Colors.white.withOpacity(0.5),
+                                    color: Colors.white.withOpacity(0.7),
                                     letterSpacing: 1.2,
                                   ),
                                 ),
@@ -3612,53 +3812,49 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
 
   Widget _buildTimeCard(String label, String time, IconData icon, Color color) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        color: Colors.white.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: color.withOpacity(0.25), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 40,
-            height: 40,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              shape: BoxShape.circle,
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(14),
             ),
-            child: Icon(icon, color: color, size: 20),
+            child: Icon(icon, color: color, size: 24),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.6),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  time,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
+          const SizedBox(height: 16),
+          Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              color: Colors.white.withOpacity(0.7),
+              fontSize: 10,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.2,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            time,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.5,
             ),
           ),
         ],
@@ -3702,104 +3898,146 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
     }
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        color: Colors.white.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white.withOpacity(0.15), width: 0.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Date and Status Row
-          Row(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Left Accent Status Bar
+              Container(width: 6, color: statusColor),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      date,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                date,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                              if (day.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  day.toUpperCase(),
+                                  style: TextStyle(
+                                    color: Colors.white.withOpacity(0.5),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.0,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: statusColor.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: statusColor.withOpacity(0.3),
+                              ),
+                            ),
+                            child: Text(
+                              statusText.toUpperCase(),
+                              style: TextStyle(
+                                color: statusColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    if (day.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        day,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.5),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildRecordInfoChip(
+                              Icons.login_rounded,
+                              'IN',
+                              checkIn,
+                              AppTheme.successGreen,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildRecordInfoChip(
+                              Icons.logout_rounded,
+                              'OUT',
+                              checkOut,
+                              AppTheme.primaryPurple,
+                            ),
+                          ),
+                          if (workingHours.isNotEmpty &&
+                              workingHours != 'null') ...[
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _buildRecordInfoChip(
+                                Icons.timer_outlined,
+                                'WORK',
+                                workingHours,
+                                Colors.blueAccent,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (remarks.isNotEmpty && remarks != 'null') ...[
+                        const SizedBox(height: 16),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            remarks,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.7),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 5,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  statusText,
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          // Check In/Out and Working Hours Row
-          Row(
-            children: [
-              _buildRecordInfoChip(
-                Icons.login_rounded,
-                checkIn,
-                AppTheme.successGreen,
-              ),
-              const SizedBox(width: 10),
-              _buildRecordInfoChip(
-                Icons.logout_rounded,
-                checkOut,
-                AppTheme.primaryPurple,
-              ),
-              if (workingHours.isNotEmpty) ...[
-                const SizedBox(width: 10),
-                _buildRecordInfoChip(
-                  Icons.timer_outlined,
-                  workingHours,
-                  Colors.white.withOpacity(0.7),
-                ),
-              ],
-            ],
-          ),
-          // Remarks
-          if (remarks.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              remarks,
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }
@@ -3819,24 +4057,43 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
     }
   }
 
-  Widget _buildRecordInfoChip(IconData icon, String text, Color color) {
+  Widget _buildRecordInfoChip(
+    IconData icon,
+    String label,
+    String value,
+    Color color,
+  ) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(10),
+        color: Colors.black.withOpacity(0.25),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Column(
         children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color.withOpacity(0.8), size: 12),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.4),
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
           Text(
-            text,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.8),
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w900,
             ),
           ),
         ],
@@ -3914,23 +4171,54 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
     return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')}';
   }
 
+  double _barHeight(String time) {
+    if (time.isEmpty || time == '--:--' || time == 'null') return 0.5;
+    final mins = _timeToMinutes(time);
+    if (mins == 0) return 0.5;
+    // Normalized for a 140px container height when factor is 25
+    return (mins / 300).clamp(0.5, 5.2);
+  }
+
+  String _shortDate(String dateStr) {
+    try {
+      final dt = DateTime.parse(dateStr);
+      const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
+      ];
+      return '${dt.day} ${months[dt.month - 1]}';
+    } catch (_) {
+      return dateStr;
+    }
+  }
+
   Widget _buildWeeklyBarChart() {
     final records =
         (statisticsData!['attendance_records'] ?? statisticsData!['records'])
             as List<dynamic>?;
     if (records == null || records.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.06),
+          color: Colors.white.withOpacity(0.08),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.white.withOpacity(0.08)),
+          border: Border.all(color: Colors.white.withOpacity(0.12)),
         ),
         child: Center(
           child: Text(
             'No chart data available',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withOpacity(0.7),
               fontSize: 14,
             ),
           ),
@@ -3941,57 +4229,46 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
     final chartRecords = records.take(7).toList().reversed.toList();
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withOpacity(0.12),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: Colors.white.withOpacity(0.15)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF5B9BD5),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-              const SizedBox(width: 6),
               Text(
-                'Check In',
+                'TIME LOGS (LAST 7 DAYS)',
                 style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
                   color: Colors.white.withOpacity(0.7),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.2,
                 ),
               ),
-              const SizedBox(width: 16),
-              Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE8A0A0),
-                  borderRadius: BorderRadius.circular(3),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                'Check Out',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
+              Row(
+                children: [
+                  _buildChartLegendItem('CI', const Color(0xFF5B9BD5)),
+                  const SizedBox(width: 8),
+                  _buildChartLegendItem('CO', const Color(0xFFE8A0A0)),
+                ],
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           SizedBox(
-            height: 120,
+            height: 140,
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: chartRecords.map((record) {
@@ -4004,10 +4281,11 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
                 final date = (record['date'] ?? '').toString();
                 final ciH = _barHeight(checkIn);
                 final coH = _barHeight(checkOut);
-                final shortDate = _shortDate(date);
+                final shortDateLabel = _shortDate(date);
+
                 return Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
@@ -4016,31 +4294,45 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Container(
-                              width: 12,
+                              width: 14,
                               height: ciH * 25,
                               decoration: BoxDecoration(
-                                color: const Color(0xFF5B9BD5),
-                                borderRadius: BorderRadius.circular(2),
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    const Color(0xFF5B9BD5),
+                                    const Color(0xFF5B9BD5).withOpacity(0.4),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(4),
                               ),
                             ),
-                            const SizedBox(width: 2),
+                            const SizedBox(width: 3),
                             Container(
-                              width: 12,
+                              width: 14,
                               height: coH * 25,
                               decoration: BoxDecoration(
-                                color: const Color(0xFFE8A0A0),
-                                borderRadius: BorderRadius.circular(2),
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    const Color(0xFFE8A0A0),
+                                    const Color(0xFFE8A0A0).withOpacity(0.4),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(4),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
                         Text(
-                          shortDate,
+                          shortDateLabel,
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.5),
-                            fontSize: 8,
-                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -4056,294 +4348,21 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
     );
   }
 
-  double _barHeight(String time) {
-    if (time.isEmpty) return 0.5;
-    try {
-      final h = int.parse(time.split(':')[0]);
-      if (h >= 6 && h < 12) return 1.5 + (h - 6) * 0.15;
-      if (h >= 12 && h < 20) return 2.5 + (h - 12) * 0.12;
-    } catch (_) {}
-    return 1.0;
-  }
-
-  String _shortDate(String date) {
-    if (date.isEmpty) return '';
-    try {
-      final p = date.split(RegExp(r'[-./]'));
-      if (p.length >= 3) {
-        int day = 0, month = 0;
-        if (p[0].length == 4) {
-          day = int.tryParse(p[2]) ?? 0;
-          month = int.tryParse(p[1]) ?? 0;
-        } else {
-          day = int.tryParse(p[0]) ?? 0;
-          month = int.tryParse(p[1]) ?? 0;
-        }
-        const m = [
-          '',
-          'Jan',
-          'Feb',
-          'Mar',
-          'Apr',
-          'May',
-          'Jun',
-          'Jul',
-          'Aug',
-          'Sep',
-          'Oct',
-          'Nov',
-          'Dec',
-        ];
-        if (month >= 1 && month <= 12) return '$day-${m[month]}';
-      }
-    } catch (_) {}
-    return date.length > 5 ? date.substring(0, 5) : date;
-  }
-
-  Widget _buildAnimatedSection(Widget child, double start, double end) {
-    return SlideTransition(
-      position: Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero)
-          .animate(
-            CurvedAnimation(
-              parent: _staggerAnimationController,
-              curve: Interval(start, end, curve: Curves.easeOutCubic),
-            ),
-          ),
-      child: FadeTransition(
-        opacity: CurvedAnimation(
-          parent: _staggerAnimationController,
-          curve: Interval(start, end, curve: Curves.easeIn),
-        ),
-        child: child,
-      ),
-    );
-  }
-
-  Widget _buildTodayStatus() {
-    final todayStatus = statisticsData!['today_status'] as Map<String, dynamic>;
-    final status = todayStatus['status'] as String?;
-
-    Color statusColor;
-    IconData statusIcon;
-    switch (status) {
-      case 'P':
-        statusColor = const Color(0xFF27AE60);
-        statusIcon = Icons.verified_rounded;
-        break;
-      case 'A':
-        statusColor = const Color(0xFFFF4858);
-        statusIcon = Icons.cancel_rounded;
-        break;
-      case 'H':
-        statusColor = const Color(0xFFFFB020);
-        statusIcon = Icons.time_to_leave_rounded;
-        break;
-      case 'L':
-        statusColor = AppTheme.primaryPurple;
-        statusIcon = Icons.timer_rounded;
-        break;
-      default:
-        statusColor = Colors.white.withOpacity(0.2);
-        statusIcon = Icons.help_rounded;
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(32),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-          BoxShadow(
-            color: statusColor.withOpacity(0.05),
-            blurRadius: 30,
-            spreadRadius: -10,
-          ),
-        ],
-        border: Border.all(color: Colors.white.withOpacity(0.1), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      statusColor,
-                      statusColor
-                          .withBlue(statusColor.blue + 40)
-                          .withRed(statusColor.red - 20),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: statusColor.withOpacity(0.4),
-                      blurRadius: 15,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                child: Icon(statusIcon, color: Colors.white, size: 30),
-              ),
-              const SizedBox(width: 24),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'TODAY\'S STATUS',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.5),
-                        fontSize: 10,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      todayStatus['status_text'] ?? 'Unknown',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (todayStatus['check_in_time'] != null)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      todayStatus['check_in_time'],
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    Text(
-                      'LOGGED',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.4),
-                        fontSize: 8,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ],
-                ),
-            ],
-          ),
-          if (todayStatus['face_verified'] ||
-              todayStatus['location_verified']) ...[
-            const SizedBox(height: 28),
-            Container(
-              height: 1,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.white.withOpacity(0.12),
-                    Colors.white.withOpacity(0.02),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Wrap(
-              spacing: 12,
-              runSpacing: 10,
-              children: [
-                if (todayStatus['face_verified'])
-                  _buildModernStatusChip(
-                    'Biometric Pass',
-                    Icons.face_retouching_natural_rounded,
-                    AppTheme.accentCyan,
-                  ),
-                if (todayStatus['location_verified'])
-                  _buildModernStatusChip(
-                    'In Range',
-                    Icons.location_on_rounded,
-                    AppTheme.infoBlue,
-                  ),
-                if (todayStatus['gps_verified'])
-                  _buildModernStatusChip(
-                    'GPS Verified',
-                    Icons.gps_fixed_rounded,
-                    AppTheme.primaryPurple,
-                  ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildModernStatusChip(String label, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.15)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 10),
-          Text(
-            label.toUpperCase(),
-            style: TextStyle(
-              color: color.withOpacity(0.9),
-              fontSize: 9,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildOverviewGrid() {
-    final summaryStats =
-        statisticsData!['summary_stats'] as Map<String, dynamic>;
-
+  Widget _buildChartLegendItem(String label, Color color) {
     return Row(
       children: [
-        Expanded(
-          child: PremiumOverviewCard(
-            title: 'Present',
-            value: summaryStats['present_days'].toString(),
-            subtitle: '${summaryStats['present_percentage']}% Rate',
-            icon: Icons.check_circle_rounded,
-            gradient: AppTheme.successGradient.colors,
-          ),
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: PremiumOverviewCard(
-            title: 'Absent',
-            value: summaryStats['absent_days'].toString(),
-            subtitle: 'This Period',
-            icon: Icons.cancel_rounded,
-            gradient: AppTheme.errorGradient.colors,
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.9),
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
           ),
         ),
       ],
@@ -4357,12 +4376,10 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
     final present = (summaryStats['present_days'] as int?) ?? 0;
     final absent = (summaryStats['absent_days'] as int?) ?? 0;
 
-    // Use record list to derive distribution (includes L/H when available)
     final counts = _computeTeacherStatusCounts();
     final late = counts.late;
     final halfday = counts.halfday;
 
-    // If API doesn't provide L/H in records, fall back to total split
     final hasExtra = late > 0 || halfday > 0;
     final presentForChart = hasExtra ? counts.present : present;
     final absentForChart = hasExtra ? counts.absent : absent;
@@ -4371,14 +4388,14 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
         : total;
 
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: Colors.white.withOpacity(0.12),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withOpacity(0.1)),
+        border: Border.all(color: Colors.white.withOpacity(0.15), width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withOpacity(0.2),
             blurRadius: 15,
             offset: const Offset(0, 8),
           ),
@@ -4390,15 +4407,15 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
           Row(
             children: [
               Icon(
-                Icons.pie_chart_rounded,
+                Icons.grid_view_rounded,
                 color: AppTheme.primaryPurple.withOpacity(0.9),
                 size: 20,
               ),
               const SizedBox(width: 10),
               Text(
-                'STATUS DISTRIBUTION',
+                'SUMMARY BREAKDOWN',
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 10,
                   fontWeight: FontWeight.w900,
                   color: Colors.white.withOpacity(0.7),
                   letterSpacing: 1.2,
@@ -4415,18 +4432,17 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Total: $totalForCenter',
+                  'Total Days: $totalForCenter',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.8),
+                    color: Colors.white.withOpacity(0.9),
                     fontSize: 11,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 20),
-          // Status Distribution Cards Row
+          const SizedBox(height: 24),
           Row(
             children: [
               Expanded(
@@ -4436,7 +4452,7 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
                   AppTheme.successGreen,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
               Expanded(
                 child: _buildStatusDistCard(
                   'Absent',
@@ -4444,7 +4460,11 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
                   AppTheme.errorRed,
                 ),
               ),
-              const SizedBox(width: 8),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
               Expanded(
                 child: _buildStatusDistCard(
                   'Late',
@@ -4452,7 +4472,7 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
                   AppTheme.primaryPurple,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 12),
               Expanded(
                 child: _buildStatusDistCard(
                   'Halfday',
@@ -4469,31 +4489,38 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
 
   Widget _buildStatusDistCard(String label, int count, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.3), width: 1.5),
       ),
-      child: Column(
+      child: Row(
         children: [
-          Text(
-            count.toString(),
-            style: TextStyle(
-              color: color,
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Text(
+              count.toString(),
+              style: TextStyle(
+                color: color,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+              ),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(width: 12),
           Text(
-            label,
+            label.toUpperCase(),
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withOpacity(0.9),
               fontSize: 10,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.5,
             ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -4567,7 +4594,7 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
               color: AppTheme.textGray.withOpacity(0.3),
             ),
             const SizedBox(height: 12),
-            const Text(
+            Text(
               'No activity to show yet',
               style: TextStyle(color: AppTheme.textGray),
             ),
@@ -4690,7 +4717,7 @@ class _TeacherStatisticsScreenState extends State<TeacherStatisticsScreen>
               color: AppTheme.textGray.withOpacity(0.3),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'No recent records found',
               style: TextStyle(color: AppTheme.textGray),
             ),
@@ -4950,8 +4977,13 @@ class _StudentAgg {
   }
 
   StudentAttendanceReportItem toReportItem() {
-    final totalDays = totalMarkedDays;
-    final effectivePresent = present + late + (halfday * 0.5);
+    // Total days = all marked days (present + absent + late + halfday)
+    final totalDays = present + absent + late + halfday;
+
+    // Effective present counts: Present + (Late counts as 0.5 if enabled) + (HalfDay as 0.5)
+    // Note: Late should NOT count as full present
+    final effectivePresent = present + (halfday * 0.5);
+
     final percentage = totalDays <= 0
         ? 0.0
         : (effectivePresent / totalDays) * 100;

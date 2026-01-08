@@ -10,8 +10,6 @@ import 'package:skoolwala/features/dashboard/models/profile.dart';
 import 'package:skoolwala/features/attendance/screens/face_verification_screen.dart';
 import 'package:skoolwala/features/attendance/screens/quick_attendance_screen.dart';
 import 'package:skoolwala/features/attendance/screens/multi_angle_enroll_screen.dart';
-import 'package:skoolwala/features/attendance/screens/enrolled_faces_list_screen.dart';
-import 'package:skoolwala/features/attendance/screens/face_analyzer_screen.dart';
 
 import 'package:skoolwala/features/profile/screens/profile_screen.dart';
 import 'package:skoolwala/features/teacher_attendance/simple_teacher_attendance.dart';
@@ -21,7 +19,6 @@ import 'package:skoolwala/shared/services/session_manager.dart';
 import 'package:skoolwala/routes/app_routes.dart';
 import 'package:skoolwala/shared/widgets/custom_app_bar.dart';
 import 'package:skoolwala/shared/widgets/animated_bottom_nav_bar.dart';
-import 'package:skoolwala/shared/widgets/app_sidebar.dart';
 import 'package:skoolwala/features/dashboard/widgets/index.dart';
 import 'package:skoolwala/features/dashboard/widgets/single_class_widget.dart';
 import 'package:skoolwala/features/teacher/screens/my_classes_screen.dart';
@@ -758,12 +755,8 @@ class _DashboardScreenState extends State<DashboardScreen>
         ),
         body: Stack(
           children: [
-            // Background Gradient
-            Container(
-              decoration: BoxDecoration(
-                gradient: AppTheme.dashboardBackgroundGradient,
-              ),
-            ),
+            // Background - Uses image with blur if set, otherwise gradient
+            AppTheme.buildBackground(webBaseUrl: ApiConfig.getWebBaseUrl()),
             // Decorative shapes
             Positioned(
               top: -50,
@@ -867,6 +860,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                           _teacher!.role == '5'))
                                     const SizedBox(height: 20),
 
+                                  // Attendance Rate Overview - directly below the top Check In/Out area
                                   // Single Class Widget - Shows either current (if ongoing) or next class
                                   if (_teacher != null &&
                                       (_teacher!.role == '2' ||
@@ -961,6 +955,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                                         onAnalyticsTap: _openStatistics,
                                       ),
                                     ),
+                                    const SizedBox(height: 20),
+                                    // Attendance Rate Overview - Inside Statistics Section
+                                    // (Moved below WorkingTimerCard per request)
                                     // Quick Actions section hidden per request
                                     // const SizedBox(height: 20),
                                     // // Teacher Features Menu
@@ -1081,9 +1078,38 @@ class _DashboardScreenState extends State<DashboardScreen>
                                         },
                                       ),
                                     ),
+                                    const SizedBox(height: 20),
+                                    if (_teacher != null &&
+                                        (_teacher!.role == '2' ||
+                                            _teacher!.role == '3' ||
+                                            _teacher!.role == '4' ||
+                                            _teacher!.role == '5'))
+                                      AnimatedBuilder(
+                                        animation: _attendanceCardAnimation,
+                                        builder: (context, child) {
+                                          return Transform.translate(
+                                            offset: Offset(
+                                              0,
+                                              30 *
+                                                  (1 -
+                                                      _attendanceCardAnimation
+                                                          .value),
+                                            ),
+                                            child: Opacity(
+                                              opacity: _attendanceCardAnimation
+                                                  .value,
+                                              child: child,
+                                            ),
+                                          );
+                                        },
+                                        child: _AttendanceRateOverview(
+                                          presentDays:
+                                              _profile?.presentDays ?? 0,
+                                          absentDays: _profile?.absentDays ?? 0,
+                                        ),
+                                      ),
 
                                     const SizedBox(height: 20),
-                                    const SizedBox(height: 16),
                                     if (_showSuccess)
                                       const _InfoBanner.success(
                                         'Success! Marked Attendance successfully.',
@@ -2506,7 +2532,7 @@ class _ClassesScreen extends StatelessWidget {
                     leading: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
+                        gradient: LinearGradient(
                           colors: [
                             AppTheme.dashboardPrimary,
                             AppTheme.dashboardAccent,
@@ -2528,7 +2554,7 @@ class _ClassesScreen extends StatelessWidget {
                       ),
                     ),
                     subtitle: Text('Class ID: ${classItem['class_id']}'),
-                    trailing: const Icon(
+                    trailing: Icon(
                       Icons.chevron_right,
                       color: AppTheme.dashboardPrimary,
                     ),
@@ -2622,7 +2648,7 @@ class _SectionsScreenState extends State<_SectionsScreen> {
                         color: AppTheme.dashboardAccent.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.book,
                         color: AppTheme.dashboardAccent,
                         size: 24,
@@ -2633,7 +2659,7 @@ class _SectionsScreenState extends State<_SectionsScreen> {
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text('Section ID: ${section['section_id']}'),
-                    trailing: const Icon(
+                    trailing: Icon(
                       Icons.people,
                       color: AppTheme.dashboardPrimary,
                     ),
@@ -2809,7 +2835,7 @@ class _StudentsSelectionScreen extends StatelessWidget {
                     leading: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
+                        gradient: LinearGradient(
                           colors: [
                             AppTheme.dashboardPrimary,
                             AppTheme.dashboardAccent,
@@ -2831,7 +2857,7 @@ class _StudentsSelectionScreen extends StatelessWidget {
                       ),
                     ),
                     subtitle: Text('Class ID: ${classItem['class_id']}'),
-                    trailing: const Icon(
+                    trailing: Icon(
                       Icons.chevron_right,
                       color: AppTheme.dashboardPrimary,
                     ),
@@ -2923,7 +2949,7 @@ class _StudentsSectionScreenState extends State<_StudentsSectionScreen> {
                         color: AppTheme.dashboardAccent.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(
+                      child: Icon(
                         Icons.book,
                         color: AppTheme.dashboardAccent,
                         size: 24,
@@ -2934,7 +2960,7 @@ class _StudentsSectionScreenState extends State<_StudentsSectionScreen> {
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text('Section ID: ${section['section_id']}'),
-                    trailing: const Icon(
+                    trailing: Icon(
                       Icons.people,
                       color: AppTheme.dashboardPrimary,
                     ),
@@ -3085,6 +3111,208 @@ class _StudentsListScreenState extends State<_StudentsListScreen> {
                 },
               ),
             ),
+    );
+  }
+}
+
+class _AttendanceRateOverview extends StatelessWidget {
+  final int presentDays;
+  final int absentDays;
+
+  const _AttendanceRateOverview({
+    required this.presentDays,
+    required this.absentDays,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final totalDays = presentDays + absentDays;
+    final attendanceRate = totalDays > 0
+        ? (presentDays / totalDays) * 100
+        : 0.0;
+
+    final Color rateColor = attendanceRate >= 75
+        ? AppTheme.successGreen
+        : attendanceRate >= 50
+        ? AppTheme.warningOrange
+        : AppTheme.errorRed;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withOpacity(0.14),
+            Colors.white.withOpacity(0.06),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.18),
+            blurRadius: 30,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          // Circular Progress + Percentage (Smaller)
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 58,
+                height: 58,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.1),
+                    width: 4,
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 58,
+                height: 58,
+                child: CircularProgressIndicator(
+                  value: (attendanceRate / 100).clamp(0.0, 1.0),
+                  strokeWidth: 5,
+                  strokeCap: StrokeCap.round,
+                  backgroundColor: Colors.transparent,
+                  valueColor: AlwaysStoppedAnimation<Color>(rateColor),
+                ),
+              ),
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    attendanceRate.toStringAsFixed(0),
+                    style: TextStyle(
+                      color: rateColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  Text(
+                    '%',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.8),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      attendanceRate >= 75
+                          ? Icons.trending_up_rounded
+                          : Icons.trending_down_rounded,
+                      color: rateColor,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'ATTENDANCE RATE',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white.withOpacity(0.7),
+                        letterSpacing: 1.1,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  totalDays == 0
+                      ? 'No data yet'
+                      : attendanceRate >= 90
+                      ? 'Excellent performance!'
+                      : attendanceRate >= 75
+                      ? 'Good standing'
+                      : 'Keep improving',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (totalDays > 0)
+                  Text(
+                    '$presentDays Present out of $totalDays days',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.6),
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.chevron_right_rounded,
+            color: Colors.white.withOpacity(0.3),
+            size: 24,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttendanceStatItem extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _AttendanceStatItem({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.8),
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

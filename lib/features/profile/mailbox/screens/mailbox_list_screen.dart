@@ -93,7 +93,7 @@ class _MailboxListScreenState extends State<MailboxListScreen> {
     );
 
     return Container(
-      decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
+      decoration: BoxDecoration(gradient: AppTheme.primaryGradient),
       child: FutureBuilder<List<MailboxMessage>>(
         future: _future,
         builder: (context, snapshot) {

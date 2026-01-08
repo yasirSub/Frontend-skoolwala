@@ -213,7 +213,7 @@ class _ChatThreadScreenState extends State<ChatThreadScreen> {
         children: [
           Expanded(
             child: _loading
-                ? const Center(
+                ? Center(
                     child: CircularProgressIndicator(
                       valueColor: AlwaysStoppedAnimation<Color>(
                         AppTheme.primaryPurple,

@@ -27,7 +27,6 @@ class WorkingTimerCardState extends State<WorkingTimerCard>
   DateTime? _checkInTime;
   bool _isCheckedIn = false;
   bool _isLoading = true;
-  bool _isExpanded = false;
 
   // Animation controller for click animation
   late AnimationController _animationController;
@@ -379,7 +378,6 @@ class WorkingTimerCardState extends State<WorkingTimerCard>
           _timer?.cancel();
           setState(() {
             _isCheckedIn = false;
-            _isExpanded = false;
             _elapsedTime = Duration.zero;
             _checkInTime = null;
           });

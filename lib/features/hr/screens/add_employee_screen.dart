@@ -334,7 +334,7 @@ class _AddEmployeeScreenState extends State<AddEmployeeScreen> {
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.bold,
           color: AppTheme.darkPurple,

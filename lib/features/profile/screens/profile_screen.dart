@@ -7,7 +7,6 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:skoolwala/shared/models/teacher.dart';
 import 'package:skoolwala/features/auth/services/profile_service.dart';
 import 'package:skoolwala/features/auth/screens/login_screen.dart';
-import 'package:skoolwala/features/profile/widgets/developer_attendance_fab.dart';
 import 'package:skoolwala/features/attendance/services/attendance_service.dart';
 import 'package:skoolwala/features/school/screens/school_selection_screen.dart';
 import 'package:skoolwala/shared/services/session_manager.dart';
@@ -441,10 +440,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               // Logout button
               IconButton(
                 onPressed: () => _handleLogout(context),
-                icon: const Icon(
-                  Icons.logout_rounded,
-                  color: AppTheme.errorRed,
-                ),
+                icon: Icon(Icons.logout_rounded, color: AppTheme.errorRed),
                 tooltip: 'Logout',
               ),
               const SizedBox(width: 8),
@@ -834,7 +830,7 @@ class _EnhancedProfileHeader extends StatelessWidget {
                       width: 1,
                     ),
                   ),
-                  child: const Text(
+                  child: Text(
                     'FACULTY',
                     style: TextStyle(
                       fontSize: 11,

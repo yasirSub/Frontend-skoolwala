@@ -646,14 +646,8 @@ class _TeacherScheduleScreenState extends State<TeacherScheduleScreen>
     final userRole = SessionManager.instance.currentTeacher?.role;
     final navItems = BottomNavConfigs.getItemsForRole(userRole);
 
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [AppTheme.textGray, AppTheme.primaryPurple],
-        ),
-      ),
+    return AppTheme.buildBackground(
+      webBaseUrl: ApiConfig.getWebBaseUrl(),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         extendBody: true,
@@ -1445,22 +1439,7 @@ class _TeacherScheduleScreenState extends State<TeacherScheduleScreen>
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            if (!canMarkAttendance) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  backgroundColor: AppTheme.errorRed,
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  content: const Text(
-                    'Only assigned class teacher can mark attendance.',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-              );
-              return;
-            }
+            // All teachers can view attendance, but canMarkAttendance controls if they can save
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -1470,6 +1449,7 @@ class _TeacherScheduleScreenState extends State<TeacherScheduleScreen>
                   className: classItem.classSection,
                   subjectId: classItem.subjectId,
                   subjectName: classItem.subjectName,
+                  canMarkAttendance: canMarkAttendance, // Pass permission flag
                 ),
               ),
             );
@@ -2006,16 +1986,7 @@ class _TeacherScheduleScreenState extends State<TeacherScheduleScreen>
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            if (!canMarkAttendance) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Only the assigned class teacher can mark day-wise attendance for this class.',
-                  ),
-                ),
-              );
-              return;
-            }
+            // All teachers can view attendance, but canMarkAttendance controls if they can save
             Navigator.push(
               context,
               MaterialPageRoute(
@@ -2025,6 +1996,7 @@ class _TeacherScheduleScreenState extends State<TeacherScheduleScreen>
                   className: classItem.classSection,
                   subjectId: classItem.subjectId,
                   subjectName: classItem.subjectName,
+                  canMarkAttendance: canMarkAttendance, // Pass permission flag
                 ),
               ),
             );
